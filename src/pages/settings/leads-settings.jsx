@@ -64,6 +64,10 @@ const LeadsSettings = () => {
   const [idBackfillMode, setIdBackfillMode] = useState(null) // 'preview' | 'apply' | null — which button is running
   const [idBackfillResult, setIdBackfillResult] = useState(null)
 
+  // Phase H — ambiguity resolution modal
+  const [ambigModal, setAmbigModal] = useState(null) // { loading?, ambiguity, candidates } | null
+  const [ambigActionBusy, setAmbigActionBusy] = useState(false)
+
   // Upgrade legacy LB flat sources → per-location
   const [lbUpgradeBusy, setLbUpgradeBusy] = useState(false)
   const [lbUpgradeResult, setLbUpgradeResult] = useState(null)
@@ -134,6 +138,28 @@ const LeadsSettings = () => {
       await loadIdentityReport()
     } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
     finally { setIdBackfillBusy(false); setIdBackfillMode(null) }
+  }
+
+  // Phase H — ambiguity resolution
+  const openAmbigModal = async (row) => {
+    setAmbigModal({ loading: true, ambiguity: row, candidates: [] })
+    try {
+      const data = await identitiesAPI.ambiguityCandidates(row.id)
+      setAmbigModal({ loading: false, ambiguity: data.ambiguity, candidates: data.candidates || [] })
+    } catch (e) { setAmbigModal({ loading: false, ambiguity: row, candidates: [], error: e.response?.data?.error || e.message }) }
+  }
+  const closeAmbigModal = () => setAmbigModal(null)
+  const resolveAmbig = async (action, target_identity_id = null) => {
+    if (!ambigModal?.ambiguity) return
+    if (action === 'abandon' && !window.confirm('Abandon this ambiguity? The attempted source event will not be linked to any identity.')) return
+    setAmbigActionBusy(true)
+    try {
+      await identitiesAPI.resolveAmbiguity(ambigModal.ambiguity.id, { action, target_identity_id })
+      closeAmbigModal()
+      await loadIdentityReport()
+    } catch (e) {
+      alert('Resolve failed: ' + (e.response?.data?.error || e.message))
+    } finally { setAmbigActionBusy(false) }
   }
 
   const handleLbUpgradeDryRun = async () => {
@@ -328,6 +354,109 @@ const LeadsSettings = () => {
 
   return (
     <div className="min-h-screen bg-[var(--sf-bg-page)]">
+      {/* Phase H — ambiguity resolution modal */}
+      {ambigModal && (() => {
+        const a = ambigModal.ambiguity || {}
+        const candidates = ambigModal.candidates || []
+        return (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={closeAmbigModal}>
+            <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="px-5 py-3 border-b border-[var(--sf-border-light)] flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-[var(--sf-text-muted)] font-mono">Ambiguity #{a.id} · {a.source}</div>
+                  <div className="text-sm font-semibold text-[var(--sf-text-primary)]">Resolve identity conflict</div>
+                </div>
+                <button onClick={closeAmbigModal} className="p-1 rounded hover:bg-[var(--sf-bg-hover)]" title="Close"><X size={16} /></button>
+              </div>
+
+              <div className="px-5 py-3 border-b border-[var(--sf-border-light)] bg-amber-50">
+                <div className="text-[10px] uppercase tracking-wider text-amber-900 font-semibold mb-1">Attempted</div>
+                <div className="text-xs space-y-0.5">
+                  <div><strong>Name:</strong> {a.attempted_name || '(none)'}</div>
+                  <div><strong>Phone:</strong> {a.attempted_phone || '(none)'}</div>
+                  <div><strong>External ID:</strong> <span className="font-mono">{a.attempted_external_id || '(none)'}</span></div>
+                  <div><strong>Reason:</strong> <em className="text-amber-800">{a.reason}</em></div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4">
+                {ambigModal.loading ? (
+                  <div className="text-xs text-[var(--sf-text-muted)] flex items-center gap-2">
+                    <Loader2 size={12} className="animate-spin" /> Loading candidates…
+                  </div>
+                ) : ambigModal.error ? (
+                  <div className="text-xs text-red-600">Error: {ambigModal.error}</div>
+                ) : candidates.length === 0 ? (
+                  <div className="text-xs text-[var(--sf-text-muted)]">No candidate identities available. You can still create a new identity or abandon.</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {candidates.map(c => (
+                      <div key={c.id} className="border border-[var(--sf-border-light)] rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] text-[var(--sf-text-muted)] font-mono">Identity #{c.id}</div>
+                            <div className="text-sm font-semibold text-[var(--sf-text-primary)]">{c.display_name || '(no name)'}</div>
+                          </div>
+                          <div className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{c.status || '—'}</div>
+                        </div>
+                        <div className="text-[11px] text-[var(--sf-text-secondary)] space-y-0.5">
+                          <div>Phone: <span className="font-mono">{c.normalized_phone || '-'}</span></div>
+                          <div>Email: <span className="font-mono">{c.email || '-'}</span></div>
+                          <div>Sources: {(c.sources || []).join(', ') || '(none)'}</div>
+                          <div>Priority: <span className="font-mono">{c.identity_priority_source || '-'}</span></div>
+                        </div>
+                        {c.lead && (
+                          <div className="text-[11px] bg-emerald-50 border border-emerald-100 rounded p-2">
+                            <div className="font-semibold text-emerald-800">Lead #{c.lead.id}</div>
+                            <div className="text-emerald-700">{[c.lead.first_name, c.lead.last_name].filter(Boolean).join(' ')} · {c.lead.source || '-'}</div>
+                          </div>
+                        )}
+                        {c.customer && (
+                          <div className="text-[11px] bg-green-50 border border-green-100 rounded p-2">
+                            <div className="font-semibold text-green-800">Customer #{c.customer.id}</div>
+                            <div className="text-green-700">{[c.customer.first_name, c.customer.last_name].filter(Boolean).join(' ')} · {c.customer.phone || '-'}</div>
+                          </div>
+                        )}
+                        {(c.recent_conversations || []).length > 0 && (
+                          <div className="text-[10px] text-[var(--sf-text-muted)]">
+                            <div className="font-semibold mb-0.5">Recent conversations:</div>
+                            {c.recent_conversations.map(rc => (
+                              <div key={rc.id} className="truncate">{rc.last_event_at?.slice(0, 10) || '?'} · {rc.channel} · {rc.last_preview?.slice(0, 60) || '(empty)'}</div>
+                            ))}
+                          </div>
+                        )}
+                        <button onClick={() => resolveAmbig('merge_into', c.id)} disabled={ambigActionBusy}
+                          className="w-full mt-2 px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center justify-center gap-1.5">
+                          {ambigActionBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                          Merge into this identity
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-5 py-3 border-t border-[var(--sf-border-light)] flex items-center gap-2 bg-[var(--sf-bg-page)]">
+                <button onClick={() => resolveAmbig('create_new')} disabled={ambigActionBusy || ambigModal.loading}
+                  className="px-3 py-1.5 text-xs border border-violet-200 text-violet-700 hover:bg-violet-50 rounded-lg disabled:opacity-50 flex items-center gap-1.5">
+                  {ambigActionBusy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  Create new identity
+                </button>
+                <button onClick={() => resolveAmbig('abandon')} disabled={ambigActionBusy || ambigModal.loading}
+                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] rounded-lg disabled:opacity-50 flex items-center gap-1.5">
+                  <Trash2 size={12} />
+                  Abandon
+                </button>
+                <div className="flex-1" />
+                <button onClick={closeAmbigModal} className="px-3 py-1.5 text-xs text-[var(--sf-text-secondary)] hover:underline">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       <div>
         <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4 sticky top-0 z-10">
           <div className="flex items-center gap-3">
@@ -680,16 +809,17 @@ const LeadsSettings = () => {
                 </div>
               )}
 
-              {/* Reconciliation failures preview */}
+              {/* Reconciliation failures — click a row to resolve */}
               {idAmbiguities && (idAmbiguities.items?.length || 0) > 0 && (
                 <div className="pt-3 border-t border-[var(--sf-border-light)]">
                   <details>
                     <summary className="text-xs text-amber-700 cursor-pointer hover:text-amber-800">
-                      Reconciliation failures ({idAmbiguities.items.length} shown)
+                      Reconciliation failures ({idAmbiguities.items.length} shown) — click to resolve
                     </summary>
                     <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
                       {idAmbiguities.items.map(row => (
-                        <div key={row.id} className="text-[11px] font-mono px-2 py-1 bg-amber-50 rounded">
+                        <button key={row.id} onClick={() => openAmbigModal(row)}
+                          className="w-full text-left text-[11px] font-mono px-2 py-1 bg-amber-50 hover:bg-amber-100 rounded cursor-pointer border border-transparent hover:border-amber-300">
                           <span className="text-amber-900">{row.source}</span>
                           {' · '}
                           <span>{row.attempted_name || '(no name)'}</span>
@@ -699,7 +829,7 @@ const LeadsSettings = () => {
                           <em className="text-[10px]">{row.reason}</em>
                           {' · '}
                           <span className="text-[10px] text-[var(--sf-text-muted)]">cand: [{(row.candidate_identity_ids || []).join(', ')}]</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </details>

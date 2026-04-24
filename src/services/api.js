@@ -2853,6 +2853,14 @@ export const identitiesAPI = {
     const r = await api.get(`/identities/reconciliation-failures?status=${status}&limit=${limit}&offset=${offset}`);
     return r.data;
   },
+  ambiguityCandidates: async (id) => {
+    const r = await api.get(`/identities/ambiguities/${id}/candidates`);
+    return r.data;
+  },
+  resolveAmbiguity: async (id, body) => {
+    const r = await api.post(`/identities/ambiguities/${id}/resolve`, body);
+    return r.data;
+  },
   backfillDryRun: async () => { const r = await api.post('/identities/backfill'); return r.data; },
   backfillApply: async () => { const r = await api.post('/identities/backfill?apply=1'); return r.data; },
   backfillProgress: async () => { const r = await api.get('/identities/backfill/progress'); return r.data; },
