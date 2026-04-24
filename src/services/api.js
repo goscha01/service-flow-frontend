@@ -2867,6 +2867,13 @@ export const identitiesAPI = {
   opLeadOutcomes: async () => { const r = await api.get('/identities/op-lead-outcomes'); return r.data; },
 };
 
+// Phase J — unified integrations. One Connect & Sync per source.
+export const integrationsAPI = {
+  status: async () => { const r = await api.get('/integrations/status'); return r.data; },
+  sync: async (source) => { const r = await api.post(`/integrations/${source}/sync`); return r.data; },
+  syncProgress: async (source) => { const r = await api.get(`/integrations/${source}/sync/progress`); return r.data; },
+};
+
 export const locationsAPI = {
   list: async () => { const r = await api.get('/locations'); return r.data; },
   create: async (data) => { const r = await api.post('/locations', data); return r.data; },

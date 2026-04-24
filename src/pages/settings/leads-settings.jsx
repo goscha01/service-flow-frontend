@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, sourceIssuesAPI, participantsAPI, identitiesAPI } from "../../services/api"
+import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, sourceIssuesAPI, participantsAPI, identitiesAPI, integrationsAPI } from "../../services/api"
 import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Database, Link2 } from "lucide-react"
 
 const EVENT_DEFS = [
@@ -54,26 +54,23 @@ const LeadsSettings = () => {
   const [issuesLoading, setIssuesLoading] = useState(false)
   const [mergingPair, setMergingPair] = useState(null) // "srcId-targetId"
 
-  // Phase F — identity reporting + backfill
+  // Phase F — identity reporting (read-only; technical controls moved to Integration cards)
   const [idStatus, setIdStatus] = useState(null)
   const [idBySource, setIdBySource] = useState(null)
   const [idUnresolved, setIdUnresolved] = useState(null)
   const [idAmbiguities, setIdAmbiguities] = useState(null)
   const [idReportLoading, setIdReportLoading] = useState(false)
-  const [idBackfillBusy, setIdBackfillBusy] = useState(false)
-  const [idBackfillMode, setIdBackfillMode] = useState(null) // 'preview' | 'apply' | null — which button is running
-  const [idBackfillResult, setIdBackfillResult] = useState(null)
 
   // Phase H — ambiguity resolution modal
-  const [ambigModal, setAmbigModal] = useState(null) // { loading?, ambiguity, candidates } | null
+  const [ambigModal, setAmbigModal] = useState(null)
   const [ambigActionBusy, setAmbigActionBusy] = useState(false)
 
   // Phase I — OpenPhone lead creation outcomes (rolling 24h / 7d)
   const [opOutcomes, setOpOutcomes] = useState(null)
 
-  // Upgrade legacy LB flat sources → per-location
-  const [lbUpgradeBusy, setLbUpgradeBusy] = useState(false)
-  const [lbUpgradeResult, setLbUpgradeResult] = useState(null)
+  // Phase J — Integration cards (Connect · Sync Now · last sync)
+  const [integrationStatus, setIntegrationStatus] = useState(null)
+  const [syncBusy, setSyncBusy] = useState({}) // { openphone: true, leadbridge: false, ... }
 
   useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues(); loadIdentityReport() }, [])
 
@@ -95,54 +92,39 @@ const LeadsSettings = () => {
     finally { setMergingPair(null) }
   }
 
-  // Phase F — identity reporting loaders
+  // Phase F — identity reporting loaders (now also loads integration status)
   const loadIdentityReport = async () => {
     setIdReportLoading(true)
     try {
-      const [status, bySource, unresolved, ambiguities, outcomes] = await Promise.all([
+      const [status, bySource, unresolved, ambiguities, outcomes, integrations] = await Promise.all([
         identitiesAPI.status(),
         identitiesAPI.bySource(),
         identitiesAPI.unresolved({ limit: 50 }),
         identitiesAPI.reconciliationFailures({ status: 'open', limit: 50 }),
         identitiesAPI.opLeadOutcomes().catch(() => null),
+        integrationsAPI.status().catch(() => null),
       ])
       setIdStatus(status); setIdBySource(bySource); setIdUnresolved(unresolved); setIdAmbiguities(ambiguities)
       setOpOutcomes(outcomes)
+      setIntegrationStatus(integrations)
     } catch (e) { console.error('identity report load failed', e) }
     finally { setIdReportLoading(false) }
   }
 
-  const pollBackfillProgress = async () => {
-    let last = null
-    for (let i = 0; i < 300; i++) {
-      await new Promise(r => setTimeout(r, 2000))
-      const p = await identitiesAPI.backfillProgress()
-      last = p
-      setIdBackfillResult({ progress: p })
-      if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
-    }
-    if (last?.status === 'error') setIdBackfillResult({ error: last.error })
-    else if (last?.summary) setIdBackfillResult({ summary: last.summary, dryRun: last.apply === false })
-  }
-
-  const handleIdBackfillDryRun = async () => {
-    setIdBackfillBusy(true); setIdBackfillMode('preview'); setIdBackfillResult({ progress: { phase: 'starting' } })
+  // Phase J — one Sync Now per integration. Polls until done, then refreshes.
+  const handleSyncIntegration = async (source) => {
+    setSyncBusy(b => ({ ...b, [source]: true }))
     try {
-      await identitiesAPI.backfillDryRun()
-      await pollBackfillProgress()
-    } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setIdBackfillBusy(false); setIdBackfillMode(null) }
-  }
-
-  const handleIdBackfillApply = async () => {
-    if (!window.confirm('Run identity backfill (apply)? Strict merge discipline — external_id OR phone+name only, never phone-alone. Idempotent and safe to rerun.')) return
-    setIdBackfillBusy(true); setIdBackfillMode('apply'); setIdBackfillResult({ progress: { phase: 'starting' } })
-    try {
-      await identitiesAPI.backfillApply()
-      await pollBackfillProgress()
+      await integrationsAPI.sync(source)
+      // Poll progress until status is done/error/idle.
+      for (let i = 0; i < 300; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        const p = await integrationsAPI.syncProgress(source)
+        if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
+      }
       await loadIdentityReport()
-    } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setIdBackfillBusy(false); setIdBackfillMode(null) }
+    } catch (e) { alert('Sync failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSyncBusy(b => ({ ...b, [source]: false })) }
   }
 
   // Phase H — ambiguity resolution
@@ -165,24 +147,6 @@ const LeadsSettings = () => {
     } catch (e) {
       alert('Resolve failed: ' + (e.response?.data?.error || e.message))
     } finally { setAmbigActionBusy(false) }
-  }
-
-  const handleLbUpgradeDryRun = async () => {
-    setLbUpgradeBusy(true); setLbUpgradeResult(null)
-    try { setLbUpgradeResult(await participantsAPI.upgradeLbSourcesDryRun()) }
-    catch (e) { setLbUpgradeResult({ error: e.response?.data?.error || e.message }) }
-    finally { setLbUpgradeBusy(false) }
-  }
-  const handleLbUpgradeApply = async () => {
-    if (!window.confirm('Upgrade legacy `leadbridge_*` sources to per-location values? Rewrites customers.source / leads.source where a LeadBridge conversation exists. Idempotent and safe to rerun.')) return
-    setLbUpgradeBusy(true); setLbUpgradeResult(null)
-    try {
-      setLbUpgradeResult(await participantsAPI.upgradeLbSourcesApply())
-      // Refresh both the Issues counts AND the Lead Sources unmapped list (source values changed)
-      await Promise.all([loadIssues(), loadMappings()])
-    }
-    catch (e) { setLbUpgradeResult({ error: e.response?.data?.error || e.message }) }
-    finally { setLbUpgradeBusy(false) }
   }
 
   const loadRules = async () => {
@@ -735,106 +699,63 @@ const LeadsSettings = () => {
                 )
               })()}
 
-              {/* Backfill actions (Phase E runner) */}
-              <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-[var(--sf-border-light)]">
-                <button onClick={handleIdBackfillDryRun} disabled={idBackfillBusy}
-                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
-                  title="Preview strict backfill — ext_id OR phone+name only, never phone-alone">
-                  {idBackfillMode === 'preview' ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
-                  Backfill Preview
-                </button>
-                <button onClick={handleIdBackfillApply} disabled={idBackfillBusy}
-                  className="px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5"
-                  title="Apply identity backfill — normalize names, link OP mappings + ZB customers">
-                  {idBackfillMode === 'apply' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                  Backfill Apply
-                </button>
-                <span className="text-[10px] text-[var(--sf-text-muted)] ml-auto">
-                  Strict merge: external_id OR phone+name. Never phone-alone.
-                </span>
-              </div>
-
-              {/* Backfill progress — per-phase bars while running */}
-              {idBackfillBusy && (() => {
-                const progress = idBackfillResult?.progress || {}
-                const phases = [
-                  { key: 'normalize_identities', label: 'Normalize identities' },
-                  { key: 'normalize_leads', label: 'Normalize leads' },
-                  { key: 'normalize_customers', label: 'Normalize customers' },
-                  { key: 'backfill_mappings', label: 'Link OpenPhone mappings' },
-                  { key: 'backfill_zenbooker_customers', label: 'Link Zenbooker customers' },
-                ]
-                const activePhase = progress.phase
-                const overallScanned = phases.reduce((s, p) => s + (progress[p.key]?.scanned || 0), 0)
-                const overallTotal = phases.reduce((s, p) => s + (progress[p.key]?.total || 0), 0)
-                const overallPct = overallTotal > 0 ? Math.round((overallScanned / overallTotal) * 100) : 0
-                return (
-                  <div className="rounded-lg p-3 bg-blue-50 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-medium text-blue-900">
-                      <span className="flex items-center gap-1.5">
-                        <Loader2 size={12} className="animate-spin" />
-                        {idBackfillMode === 'preview' ? 'Backfill Preview' : 'Backfill Apply'} running…
-                      </span>
-                      <span className="font-mono">{overallPct}% · {overallScanned} / {overallTotal || '?'}</span>
+              {/* Phase J — Integration cards. One Sync Now per source.
+                  All safe repairs (identity backfill, source-fill, reconcile,
+                  LB-source upgrade) run automatically as part of the pipeline. */}
+              {integrationStatus?.integrations && (
+                <div className="pt-3 border-t border-[var(--sf-border-light)]">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold">
+                      Integrations
                     </div>
-                    <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 transition-all duration-500 ease-out rounded-full"
-                        style={{ width: `${overallPct}%` }} />
-                    </div>
-                    <div className="space-y-1 pt-1">
-                      {phases.map(({ key, label }) => {
-                        const p = progress[key]
-                        const scanned = p?.scanned || 0
-                        const total = p?.total || 0
-                        const pct = total > 0 ? Math.round((scanned / total) * 100) : 0
-                        const isActive = activePhase === key
-                        const isDone = total > 0 && scanned >= total && !isActive
-                        return (
-                          <div key={key} className="flex items-center gap-2 text-[11px]">
-                            <span className={`w-44 truncate ${isActive ? 'text-blue-800 font-semibold' : isDone ? 'text-green-700' : 'text-blue-700'}`}>
-                              {isDone ? '✓ ' : ''}{label}
-                            </span>
-                            <div className="flex-1 h-1.5 bg-blue-100 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full transition-all duration-500 ease-out ${isDone ? 'bg-green-500' : 'bg-blue-500'}`}
-                                style={{ width: `${pct}%` }} />
-                            </div>
-                            <span className="font-mono text-[10px] text-blue-700 w-24 text-right">
-                              {scanned} / {total || '…'}
-                            </span>
-                          </div>
-                        )
-                      })}
+                    <div className="text-[10px] text-[var(--sf-text-muted)]">
+                      {integrationStatus.open_issues > 0
+                        ? <span className="text-amber-700"><strong>{integrationStatus.open_issues}</strong> issue{integrationStatus.open_issues === 1 ? '' : 's'} to review</span>
+                        : 'No issues'}
                     </div>
                   </div>
-                )
-              })()}
-
-              {/* Backfill result (idle / done) */}
-              {idBackfillResult && !idBackfillBusy && (
-                <div className={`rounded-lg p-3 text-xs ${idBackfillResult.error ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-800'}`}>
-                  {idBackfillResult.error ? (
-                    `Error: ${idBackfillResult.error}`
-                  ) : idBackfillResult.summary ? (
-                    <div className="space-y-1">
-                      <div className="font-semibold">{idBackfillResult.dryRun ? 'Dry-run preview:' : 'Backfill complete:'}</div>
-                      {['normalize_identities', 'normalize_leads', 'normalize_customers', 'backfill_mappings', 'backfill_zenbooker_customers'].map(phase => {
-                        const p = idBackfillResult.summary[phase]
-                        if (!p) return null
-                        return (
-                          <div key={phase} className="pl-2 text-[11px]">
-                            <strong>{phase.replace(/_/g, ' ')}:</strong>
-                            {' '}scanned {p.scanned ?? '-'}{p.total ? `/${p.total}` : ''}
-                            {p.updated != null ? `, updated ${p.updated}` : ''}
-                            {p.merged_by_external_id != null ? `, ext-id ${p.merged_by_external_id}` : ''}
-                            {p.merged_by_phone_name != null ? `, phone+name ${p.merged_by_phone_name}` : ''}
-                            {p.created_new != null ? `, created ${p.created_new}` : ''}
-                            {p.skipped_ambiguous != null ? `, ambiguous ${p.skipped_ambiguous}` : ''}
-                            {p.errors ? `, errors ${p.errors}` : ''}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {[
+                      { key: 'leadbridge', label: 'LeadBridge', role: 'Thumbtack/Yelp lead source' },
+                      { key: 'openphone', label: 'OpenPhone', role: 'SMS/calls + non-LB lead intake' },
+                      { key: 'zenbooker', label: 'Zenbooker', role: 'Bookings / customer sync' },
+                    ].map(({ key, label, role }) => {
+                      const cfg = integrationStatus.integrations[key] || {}
+                      const busy = !!syncBusy[key]
+                      const lastRun = cfg.last_run
+                      const lastDone = lastRun?.summary
+                      const lastSyncTs = cfg.last_sync_at || cfg.connected_at || null
+                      return (
+                        <div key={key} className="border border-[var(--sf-border-light)] rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-sm font-semibold text-[var(--sf-text-primary)]">{label}</div>
+                              <div className="text-[10px] text-[var(--sf-text-muted)]">{role}</div>
+                            </div>
+                            <div className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${cfg.connected ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {cfg.connected ? 'Connected' : 'Not connected'}
+                            </div>
                           </div>
-                        )
-                      })}
-                    </div>
-                  ) : null}
+                          <div className="text-[11px] text-[var(--sf-text-muted)]">
+                            {lastSyncTs ? `Last sync: ${new Date(lastSyncTs).toLocaleString()}` : 'Never synced'}
+                          </div>
+                          {lastDone && (
+                            <div className="text-[10px] text-[var(--sf-text-secondary)] bg-[var(--sf-bg-page)] rounded p-1.5">
+                              Last run: synced {lastDone.records_synced || 0} · linked {lastDone.records_linked || 0} · created {lastDone.records_created || 0}
+                              {lastDone.source_fill && (lastDone.source_fill.customers_filled + lastDone.source_fill.leads_filled) > 0 && (
+                                <> · filled {lastDone.source_fill.customers_filled + lastDone.source_fill.leads_filled} source{(lastDone.source_fill.customers_filled + lastDone.source_fill.leads_filled) === 1 ? '' : 's'}</>
+                              )}
+                            </div>
+                          )}
+                          <button onClick={() => handleSyncIntegration(key)} disabled={busy || !cfg.connected}
+                            className="w-full px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center justify-center gap-1.5">
+                            {busy ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                            {cfg.connected ? 'Sync Now' : 'Connect first'}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -887,82 +808,6 @@ const LeadsSettings = () => {
               )}
             </div>
 
-            {/* Upgrade legacy flat LeadBridge sources → per-location */}
-            {(issues?.legacyLbFlatSources?.total || 0) > 0 && (
-              <div className="bg-white rounded-xl border border-amber-200 p-5 mt-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
-                      Upgrade Legacy LeadBridge Sources
-                    </h3>
-                    <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                      {issues.legacyLbFlatSources.total} records ({issues.legacyLbFlatSources.customers} customers + {issues.legacyLbFlatSources.leads} leads)
-                      still use flat <code className="text-[10px] px-1 py-0.5 bg-gray-100 rounded">leadbridge_yelp</code> / <code className="text-[10px] px-1 py-0.5 bg-gray-100 rounded">leadbridge_thumbtack</code>.
-                      The upgrade resolves each to its <strong>per-location</strong> source using the linked LB conversation (e.g. <em>Spotless Homes Tampa (yelp)</em>).
-                      New LB records already write the correct format — this is a one-time backfill.
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <button onClick={handleLbUpgradeDryRun} disabled={lbUpgradeBusy}
-                        className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
-                        {lbUpgradeBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
-                        Preview (Dry-run)
-                      </button>
-                      <button onClick={handleLbUpgradeApply} disabled={lbUpgradeBusy}
-                        className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5">
-                        {lbUpgradeBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                        Upgrade Legacy Sources
-                      </button>
-                    </div>
-
-                    {lbUpgradeResult && !lbUpgradeBusy && (
-                      <div className={`rounded-lg p-3 text-xs mt-3 ${lbUpgradeResult.error ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-800'}`}>
-                        {lbUpgradeResult.error ? `Error: ${lbUpgradeResult.error}` : lbUpgradeResult.summary ? (
-                          <div className="space-y-1">
-                            <div className="font-semibold">{lbUpgradeResult.dryRun ? 'Dry-run preview:' : 'Upgrade complete:'}</div>
-                            <div className="grid grid-cols-2 gap-2 mt-1">
-                              <div>Legacy rows found: {lbUpgradeResult.summary.total_legacy_flat_rows_found}</div>
-                              <div>Already correct (skipped): {lbUpgradeResult.summary.already_correct_skipped}</div>
-                              <div className="font-semibold">{lbUpgradeResult.dryRun ? 'Would upgrade' : 'Upgraded'}: {lbUpgradeResult.summary.upgraded_successfully}</div>
-                              <div className="text-amber-900">Unresolved (no LB context): <strong>{lbUpgradeResult.summary.unresolved_no_context}</strong></div>
-                            </div>
-                            {lbUpgradeResult.summary.by_new_source && Object.keys(lbUpgradeResult.summary.by_new_source).length > 0 && (
-                              <details className="mt-2">
-                                <summary className="cursor-pointer text-amber-900 font-medium">Breakdown by new source</summary>
-                                <div className="mt-1 space-y-0.5 ml-2">
-                                  {Object.entries(lbUpgradeResult.summary.by_new_source).map(([src, cnt]) => (
-                                    <div key={src}><strong>{cnt}</strong> → {src}</div>
-                                  ))}
-                                </div>
-                              </details>
-                            )}
-                            {(lbUpgradeResult.summary.unresolved_samples || []).length > 0 && (
-                              <details className="mt-2">
-                                <summary className="cursor-pointer text-amber-900 font-medium">Unresolved records ({lbUpgradeResult.summary.unresolved_samples.length} shown)</summary>
-                                <div className="mt-1 space-y-0.5 ml-2 max-h-48 overflow-y-auto">
-                                  {lbUpgradeResult.summary.unresolved_samples.map(s => (
-                                    <div key={`${s.table}-${s.id}`} className="font-mono text-[10px]">
-                                      {s.table}#{s.id} · {s.name || '(no name)'} · {s.phone || '(no phone)'} · <em>{s.reason}</em>
-                                    </div>
-                                  ))}
-                                </div>
-                              </details>
-                            )}
-                            {lbUpgradeResult.summary.errors > 0 && (
-                              <div className="text-red-600 mt-1">Errors: {lbUpgradeResult.summary.errors}</div>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Phase F — Convert-Unmapped-to-Leads section removed. OpenPhone lead
-                creation now runs per-identity via maybeCreateLeadFromOpenPhone with
-                LB-recovery rule (feature-flag gated). No bulk import. */}
           </section>
 
           {/* ── ISSUES / MANUAL RESOLUTION ── */}
