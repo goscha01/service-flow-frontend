@@ -233,8 +233,8 @@ const LeadsSettings = () => {
     if (!company) return
     setCompanyBusy(b => ({ ...b, [phone]: true }))
     try {
-      await opContactsAPI.setCompany(phone, company)
-      // Remove this phone from the local sample so the row goes away.
+      const result = await opContactsAPI.setCompany(phone, company)
+      // Drop the row from the OP-missing-Company list (it now has a Company tag).
       setIssues(prev => {
         if (!prev?.namedContactsMissingCompany?.sample) return prev
         const newSample = prev.namedContactsMissingCompany.sample.filter(c => c.participant_phone !== phone)
@@ -247,6 +247,15 @@ const LeadsSettings = () => {
           },
         }
       })
+      // If a lead was created (identity was floating with no CRM link), remove
+      // the row from the floating list too — it's now a Connected lead.
+      if (result?.lead_created?.id) {
+        setIdUnresolved(prev => {
+          if (!prev?.items) return prev
+          const last10 = String(phone || '').replace(/\D/g, '').slice(-10)
+          return { ...prev, items: prev.items.filter(r => String(r.normalized_phone || '').replace(/\D/g, '').slice(-10) !== last10) }
+        })
+      }
       setPendingCompany(p => { const n = { ...p }; delete n[phone]; return n })
     } catch (e) {
       alert('Set Company failed: ' + (e.response?.data?.error || e.message))
@@ -1051,6 +1060,10 @@ const LeadsSettings = () => {
                                       : cat === 'unclear' ? 'bg-yellow-100 text-yellow-800'
                                       : ''
                                     const busy = !!aiBusy[row.id]
+                                    const phoneKey = row.normalized_phone
+                                    const selected = phoneKey ? (pendingCompany[phoneKey] || '') : ''
+                                    const saving = phoneKey && !!companyBusy[phoneKey]
+                                    const offerCompanyPicker = phoneKey && cat !== 'ad' && cat !== 'wrong_number'
                                     return (
                                       <div key={row.id} className="text-[11px] px-2 py-1 bg-[var(--sf-bg-page)] rounded">
                                         <div className="flex gap-2 items-center font-mono">
@@ -1071,6 +1084,25 @@ const LeadsSettings = () => {
                                         </div>
                                         {row.ai_summary && (
                                           <div className="text-[10px] text-[var(--sf-text-muted)] pl-4 mt-0.5 italic truncate">“{row.ai_summary}”</div>
+                                        )}
+                                        {offerCompanyPicker && (
+                                          <div className="mt-1 flex items-center gap-1.5 pl-4">
+                                            <select value={selected}
+                                              onChange={e => setPendingCompany(p => ({ ...p, [phoneKey]: e.target.value }))}
+                                              disabled={saving}
+                                              className="text-[10px] px-1 py-0.5 border border-[var(--sf-border-light)] rounded bg-white flex-1 max-w-[180px]">
+                                              <option value="">Set source → create lead…</option>
+                                              {(sources || []).map(s => (
+                                                <option key={s.id} value={s.name}>{s.name}</option>
+                                              ))}
+                                            </select>
+                                            <button onClick={() => handleSetCompany(phoneKey)}
+                                              disabled={!selected || saving}
+                                              className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-40 flex items-center gap-1">
+                                              {saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                                              Save
+                                            </button>
+                                          </div>
                                         )}
                                       </div>
                                     )
