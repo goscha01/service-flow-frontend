@@ -12,7 +12,7 @@ const JobsTabs = ({ activeTab, onTabChange }) => {
   ]
 
   return (
-    <div className="border-b border-gray-200 bg-white">
+    <div className="border-b border-[var(--sf-border-light)] bg-white">
       <div className="px-4 lg:px-6">
         <nav className="flex space-x-8 overflow-x-auto">
           {tabs.map((tab) => (
@@ -21,8 +21,8 @@ const JobsTabs = ({ activeTab, onTabChange }) => {
               onClick={() => onTabChange(tab.id)}
               className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
                 activeTab === tab.id
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "border-blue-500 text-[var(--sf-blue-500)]"
+                  : "border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]"
               }`}
             >
               {tab.label}

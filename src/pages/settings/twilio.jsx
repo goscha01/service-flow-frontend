@@ -24,27 +24,27 @@ const TwilioSettings = () => {
   }, [searchParams]);
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
         
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate("/settings")}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">Settings</span>
             </button>
             <div className="flex items-center space-x-3">
-              <Phone className="w-6 h-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">SMS Notification Settings</h1>
+              <Phone className="w-6 h-6 text-[var(--sf-blue-500)]" />
+              <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">SMS Notification Settings</h1>
             </div>
           </div>
-          <p className="text-gray-600 mt-2">
+          <p className="text-[var(--sf-text-secondary)] mt-2">
             Configure SMS notifications by connecting your Twilio account. This allows you to send automated SMS messages to customers for job confirmations, reminders, and updates.
           </p>
         </div>
@@ -77,14 +77,14 @@ const TwilioSettings = () => {
         <DefaultPhoneSelector />
 
         {/* Features */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">SMS Features</h2>
+        <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">SMS Features</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-start space-x-3">
               <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Job Confirmations</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Job Confirmations</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)]">
                   Automatically send SMS when jobs are confirmed
                 </p>
               </div>
@@ -92,8 +92,8 @@ const TwilioSettings = () => {
             <div className="flex items-start space-x-3">
               <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Payment Reminders</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Payment Reminders</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)]">
                   Send SMS reminders for overdue invoices
                 </p>
               </div>
@@ -101,8 +101,8 @@ const TwilioSettings = () => {
             <div className="flex items-start space-x-3">
               <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Custom Messages</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Custom Messages</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)]">
                   Send custom SMS messages to customers
                 </p>
               </div>
@@ -110,8 +110,8 @@ const TwilioSettings = () => {
             <div className="flex items-start space-x-3">
               <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Your Phone Number</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Your Phone Number</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)]">
                   Use your own Twilio phone number for SMS
                 </p>
               </div>
@@ -120,7 +120,7 @@ const TwilioSettings = () => {
         </div>
 
         {/* Help */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-6">
           <h2 className="text-lg font-semibold text-blue-900 mb-2">Need Help?</h2>
           <p className="text-sm text-blue-800 mb-4">
             Twilio Connect allows you to use your own Twilio account for SMS messaging. 
@@ -131,7 +131,7 @@ const TwilioSettings = () => {
               href="https://www.twilio.com/docs/connect"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
+              className="flex items-center space-x-2 text-[var(--sf-blue-500)] hover:text-blue-800 text-sm"
             >
               <ExternalLink className="w-4 h-4" />
               <span>Learn about Twilio Connect</span>
@@ -140,7 +140,7 @@ const TwilioSettings = () => {
               href="https://www.twilio.com/pricing"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
+              className="flex items-center space-x-2 text-[var(--sf-blue-500)] hover:text-blue-800 text-sm"
             >
               <ExternalLink className="w-4 h-4" />
               <span>Twilio SMS Pricing</span>

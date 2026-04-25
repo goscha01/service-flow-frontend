@@ -20,10 +20,10 @@ export default function UpdatesSection() {
         <div className="space-y-12">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Recent updates</h2>
+            <h2 className="text-3xl lg:text-4xl font-bold text-[var(--sf-text-primary)]">Recent updates</h2>
             <a
               href="/change-log"
-              className="inline-flex items-center bg-white/70 text-blue-600 font-semibold px-4 py-2 rounded-full hover:bg-white transition-colors"
+              className="inline-flex items-center bg-white/70 text-[var(--sf-blue-500)] font-semibold px-4 py-2 rounded-full hover:bg-white transition-colors"
             >
               See changelog
               <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -48,8 +48,8 @@ export default function UpdatesSection() {
                   />
                 </div>
                 <div className="p-6">
-                  <div className="text-sm text-gray-500 mb-2">{update.date}</div>
-                  <h3 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  <div className="text-sm text-[var(--sf-text-muted)] mb-2">{update.date}</div>
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)] group-hover:text-[var(--sf-blue-500)] transition-colors">
                     {update.title}
                   </h3>
                 </div>

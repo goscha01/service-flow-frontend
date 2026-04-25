@@ -24,9 +24,9 @@ const DropdownMultiselectDemo = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-[var(--sf-bg-page)] p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Dropdown Multiselect Demo</h1>
+        <h1 className="text-3xl font-bold text-[var(--sf-text-primary)] mb-8">Dropdown Multiselect Demo</h1>
         
         <div className="space-y-8">
           {/* Basic Dropdown Multiselect */}
@@ -38,7 +38,7 @@ const DropdownMultiselectDemo = () => {
               onSelectionChange={setSelectedValues1}
               placeholder="Select options..."
             />
-            <div className="mt-4 p-3 bg-gray-100 rounded">
+            <div className="mt-4 p-3 bg-[var(--sf-bg-page)] rounded">
               <strong>Selected:</strong> {selectedValues1.length > 0 ? selectedValues1.join(', ') : 'None'}
             </div>
           </div>
@@ -53,7 +53,7 @@ const DropdownMultiselectDemo = () => {
               placeholder="Search and select fruits..."
               searchable={true}
             />
-            <div className="mt-4 p-3 bg-gray-100 rounded">
+            <div className="mt-4 p-3 bg-[var(--sf-bg-page)] rounded">
               <strong>Selected:</strong> {selectedValues2.length > 0 ? selectedValues2.join(', ') : 'None'}
             </div>
           </div>
@@ -68,7 +68,7 @@ const DropdownMultiselectDemo = () => {
               placeholder="Select options..."
               maxDisplayItems={2}
             />
-            <div className="mt-4 p-3 bg-gray-100 rounded">
+            <div className="mt-4 p-3 bg-[var(--sf-bg-page)] rounded">
               <strong>Selected:</strong> {selectedValues3.length > 0 ? selectedValues3.join(', ') : 'None'}
             </div>
           </div>

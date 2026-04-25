@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
 import { 
   Calendar, 
@@ -98,25 +99,7 @@ const TeamMemberFieldApp = () => {
     })
   }
 
-  const formatTime = (dateString) => {
-    if (!dateString) return 'Time placeholder'
-    // Extract time part directly from the string (format: "2024-01-15 10:00:00")
-    const timePart = dateString.split(' ')[1]
-    if (!timePart) return 'Time placeholder'
-    
-    const [hours, minutes] = timePart.split(':')
-    const hour = parseInt(hours, 10)
-    const minute = parseInt(minutes, 10)
-    
-    if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
-    
-    // Convert to 12-hour format
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    const displayMinute = minute.toString().padStart(2, '0')
-    
-    return `${displayHour}:${displayMinute} ${ampm}`
-  }
+  const formatTime = (dateString) => formatTimeShared(dateString) || 'Time placeholder'
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -418,13 +401,13 @@ const TeamMemberFieldApp = () => {
 
         {activeTab === 'completed' && (
           <div className="space-y-4">
-            {dashboardData?.jobs?.filter(job => job.status === 'completed').length === 0 ? (
+            {dashboardData?.jobs?.filter(job => job.status === 'completed' || job.status === 'paid').length === 0 ? (
               <div className="text-center py-8">
                 <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600">No completed jobs</p>
               </div>
             ) : (
-              dashboardData?.jobs?.filter(job => job.status === 'completed').map((job) => (
+              dashboardData?.jobs?.filter(job => job.status === 'completed' || job.status === 'paid').map((job) => (
                 <div key={job.id} className="bg-white rounded-lg border border-gray-200 p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>

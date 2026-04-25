@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react"
-import { ChevronLeft, ChevronRight, X, Clock } from "lucide-react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, Clock } from "lucide-react"
 import { jobsAPI } from "../services/api"
 
 const CalendarPicker = ({ 
@@ -323,31 +324,20 @@ const CalendarPicker = ({
   }
 
   const formatTimeRange = (startTime, endTime) => {
-    const formatTime = (time) => {
-      if (!time) return ''
-      
-      // Handle 24-hour format (HH:MM)
-      let hours, minutes
-      if (time.includes(' ')) {
-        // 12-hour format with AM/PM
-        const [timePart, period] = time.split(' ')
-        const [h, m] = timePart.split(':')
-        hours = parseInt(h)
-        minutes = m || '00'
-        if (period === 'PM' && hours !== 12) hours += 12
-        if (period === 'AM' && hours === 12) hours = 0
-      } else {
-        // 24-hour format
-        [hours, minutes] = time.split(':').map(Number)
+    const norm = (t) => {
+      if (!t) return ''
+      // 12-hour with AM/PM: convert to 24h "HH:mm" before handing to the util
+      if (typeof t === 'string' && /\s(am|pm)$/i.test(t)) {
+        const [timePart, period] = t.split(' ')
+        let [h, m] = timePart.split(':')
+        h = parseInt(h, 10); m = m || '00'
+        if (/pm/i.test(period) && h !== 12) h += 12
+        if (/am/i.test(period) && h === 12) h = 0
+        return `${String(h).padStart(2, '0')}:${m}`
       }
-      
-      const hour = parseInt(hours)
-      const ampm = hour >= 12 ? 'PM' : 'AM'
-      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
-      return `${displayHour}:${String(minutes || 0).padStart(2, '0')} ${ampm}`
+      return t
     }
-
-    return `${formatTime(startTime)} - ${formatTime(endTime)}`
+    return `${formatTimeShared(norm(startTime))} - ${formatTimeShared(norm(endTime))}`
   }
 
   const generateTimeOptions = () => {
@@ -355,11 +345,7 @@ const CalendarPicker = ({
     for (let hour = 6; hour <= 20; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-        const displayTime = new Date(`2000-01-01 ${time}`).toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        })
+        const displayTime = formatTimeShared(`2000-01-01 ${time}`)
         times.push({ value: time, display: displayTime })
       }
     }
@@ -378,22 +364,22 @@ const CalendarPicker = ({
   }
 
   return (
-    <div className={`fixed inset-0 z-50 ${positionClasses[position] || positionClasses.center} bg-black bg-opacity-50 p-4`}>
+    <div className={`fixed inset-0 z-50 ${positionClasses[position] || positionClasses.center} bg-black/50 backdrop-blur-sm p-4`}>
       <div 
         ref={calendarRef}
-        className={`bg-white rounded-lg shadow-2xl ${isSimpleDatePicker ? 'w-full max-w-sm' : 'w-full max-w-4xl'} max-h-[90vh] overflow-hidden`}
+        className={`bg-white rounded-xl shadow-xl ${isSimpleDatePicker ? 'w-full max-w-sm' : 'w-full max-w-4xl'} max-h-[90vh] overflow-hidden`}
         style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-[var(--sf-border-light)]">
           {!isSimpleDatePicker && (
             <div className="flex gap-6">
               <button
                 onClick={() => setActiveTab('available')}
                 className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
                   activeTab === 'available' 
-                    ? 'text-blue-600 border-blue-600' 
-                    : 'text-gray-500 border-transparent hover:text-gray-700'
+                    ? 'text-[var(--sf-blue-500)] border-[var(--sf-blue-500)]' 
+                    : 'text-[var(--sf-text-muted)] border-transparent hover:text-[var(--sf-text-primary)]'
                 }`}
                 style={{ fontFamily: 'Montserrat', fontWeight: activeTab === 'available' ? 600 : 400 }}
               >
@@ -403,8 +389,8 @@ const CalendarPicker = ({
                 onClick={() => setActiveTab('custom')}
                 className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
                   activeTab === 'custom' 
-                    ? 'text-blue-600 border-blue-600' 
-                    : 'text-gray-500 border-transparent hover:text-gray-700'
+                    ? 'text-[var(--sf-blue-500)] border-[var(--sf-blue-500)]' 
+                    : 'text-[var(--sf-text-muted)] border-transparent hover:text-[var(--sf-text-primary)]'
                 }`}
                 style={{ fontFamily: 'Montserrat', fontWeight: activeTab === 'custom' ? 600 : 400 }}
               >
@@ -413,33 +399,61 @@ const CalendarPicker = ({
             </div>
           )}
           {isSimpleDatePicker && (
-            <h3 className="text-lg font-semibold text-gray-900">Select Date</h3>
+            <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Select Date</h3>
           )}
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className={isSimpleDatePicker ? "p-6" : "flex h-[500px]"}>
           {/* Calendar Section */}
-          <div className={`flex-1 p-6 ${!isSimpleDatePicker ? 'border-r border-gray-200' : ''}`}>
+          <div className={`flex-1 p-6 ${!isSimpleDatePicker ? 'border-r border-[var(--sf-border-light)]' : ''}`}>
             {/* Month Navigation */}
             <div className="flex items-center justify-between mb-6">
-              <button
-                onClick={() => navigateMonth(-1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </button>
-              <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+              <div className="flex items-center">
+                <button
+                  onClick={() => setCurrentDate(prev => {
+                    const d = new Date(prev)
+                    d.setFullYear(d.getFullYear() - 1)
+                    return d
+                  })}
+                  className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
+                  title="Previous year"
+                >
+                  <ChevronsLeft className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                </button>
+                <button
+                  onClick={() => navigateMonth(-1)}
+                  className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
+                  title="Previous month"
+                >
+                  <ChevronLeft className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                </button>
+              </div>
+              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                 {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </h2>
-              <button
-                onClick={() => navigateMonth(1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronRight className="w-5 h-5 text-gray-600" />
-              </button>
+              <div className="flex items-center">
+                <button
+                  onClick={() => navigateMonth(1)}
+                  className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
+                  title="Next month"
+                >
+                  <ChevronRight className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                </button>
+                <button
+                  onClick={() => setCurrentDate(prev => {
+                    const d = new Date(prev)
+                    d.setFullYear(d.getFullYear() + 1)
+                    return d
+                  })}
+                  className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
+                  title="Next year"
+                >
+                  <ChevronsRight className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                </button>
+              </div>
             </div>
 
             {/* Calendar Grid */}
@@ -447,7 +461,7 @@ const CalendarPicker = ({
               {/* Day Headers */}
               <div className="grid grid-cols-7 gap-1 text-center">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="py-2 text-sm font-medium text-gray-500">
+                  <div key={day} className="py-2 text-sm font-medium text-[var(--sf-text-muted)]">
                     {day}
                   </div>
                 ))}
@@ -472,14 +486,14 @@ const CalendarPicker = ({
                       className={`
                         aspect-square flex items-center justify-center rounded-lg text-sm
                         transition-colors relative
-                        ${!isCurrentMonth ? 'text-gray-300' : ''}
-                        ${isDisabled ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100'}
+                        ${!isCurrentMonth ? 'text-[var(--sf-text-muted)]' : ''}
+                        ${isDisabled ? 'text-[var(--sf-text-muted)] cursor-not-allowed' : 'hover:bg-[var(--sf-bg-hover)]'}
                         ${isToday && !isSelected ? 'font-semibold' : ''}
-                        ${isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}
-                        ${!isSelected && !isDisabled && isCurrentMonth ? 'text-gray-700' : ''}
+                        ${isSelected ? 'bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)]' : ''}
+                        ${!isSelected && !isDisabled && isCurrentMonth ? 'text-[var(--sf-text-primary)]' : ''}
                       `}
                     >
-                      <span className={`${isToday && !isSelected ? 'text-blue-600' : ''}`}>
+                      <span className={`${isToday && !isSelected ? 'text-[var(--sf-blue-500)]' : ''}`}>
                         {date.getDate()}
                       </span>
                     </button>
@@ -496,13 +510,13 @@ const CalendarPicker = ({
               <div className="h-full">
                 {selectedDateForSlots ? (
                   <div className="h-full flex flex-col">
-                    <h3 className="text-sm font-medium text-gray-700 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                    <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                       Available times for {selectedDateForSlots.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </h3>
                     
                     {loadingSlots ? (
                       <div className="flex-1 flex items-center justify-center">
-                        <div className="text-gray-500">Loading available times...</div>
+                        <div className="text-[var(--sf-text-muted)]">Loading available times...</div>
                       </div>
                     ) : availableSlots.length > 0 ? (
                       <div className="flex-1 overflow-y-auto space-y-2">
@@ -510,13 +524,13 @@ const CalendarPicker = ({
                           <button
                             key={index}
                             onClick={() => handleTimeSlotClick(slot)}
-                            className="w-full p-3 text-left bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors"
+                            className="w-full p-3 text-left bg-white hover:bg-[var(--sf-bg-hover)] border border-[var(--sf-border-light)] rounded-lg transition-colors"
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                 {formatTimeRange(slot.time, slot.endTime)}
                               </span>
-                              <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <span className="text-xs text-[var(--sf-text-muted)] flex items-center gap-1">
                                 {slot.availableWorkers} worker free
                                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                               </span>
@@ -526,8 +540,8 @@ const CalendarPicker = ({
                       </div>
                     ) : (
                       <div className="flex-1 flex items-center justify-center">
-                        <div className="text-center text-gray-500">
-                          <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <div className="text-center text-[var(--sf-text-muted)]">
+                          <Clock className="w-12 h-12 mx-auto mb-3 text-[var(--sf-text-muted)]" />
                           <p>No available times for this date</p>
                           <p className="text-sm mt-2">Please select another date</p>
                         </div>
@@ -536,7 +550,7 @@ const CalendarPicker = ({
                   </div>
                 ) : (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">Select a date to see available timeslots</p>
+                    <p className="text-[var(--sf-text-muted)]">Select a date to see available timeslots</p>
                   </div>
                 )}
               </div>
@@ -545,19 +559,19 @@ const CalendarPicker = ({
               <div className="space-y-6">
                 {selectedDateForSlots && (
                   <>
-                    <h3 className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                    <h3 className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                       Enter a custom time for {selectedDateForSlots.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </h3>
 
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                        <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                           Time
                         </label>
                         <select
                           value={customTime}
                           onChange={(e) => setCustomTime(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                           style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                         >
                           {generateTimeOptions().map(option => (
@@ -573,9 +587,9 @@ const CalendarPicker = ({
                           type="checkbox"
                           checked={arrivalWindow}
                           onChange={(e) => setArrivalWindow(e.target.checked)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
                         />
-                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                        <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                           Arrival window
                         </span>
                       </label>
@@ -583,7 +597,7 @@ const CalendarPicker = ({
 
                     <button
                       onClick={handleCustomTimeConfirm}
-                      className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      className="w-full py-3 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors font-medium"
                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
                       Confirm
@@ -593,7 +607,7 @@ const CalendarPicker = ({
 
                 {!selectedDateForSlots && (
                   <div className="flex items-center justify-center h-64">
-                    <p className="text-gray-500">Please select a date first</p>
+                    <p className="text-[var(--sf-text-muted)]">Please select a date first</p>
                   </div>
                 )}
               </div>

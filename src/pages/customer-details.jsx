@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { ChevronLeft, Edit, Trash2, Phone, Mail, MapPin, Calendar, DollarSign, FileText, AlertCircle, Loader2, CheckCircle, MoreVertical, Plus, Info, MessageCircle, Link as LinkIcon, RefreshCw, CreditCard } from "lucide-react"
-import { customersAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
+import { customersAPI, customerPropertiesAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 
 import CustomerModal from "../components/customer-modal"
+import ServiceAddressModal from "../components/service-address-modal"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 
 const CustomerDetails = () => {
@@ -28,6 +29,11 @@ const CustomerDetails = () => {
   const [successMessage, setSuccessMessage] = useState("")
   const [showMenuDropdown, setShowMenuDropdown] = useState(false)
   const menuRef = useRef(null)
+  const [properties, setProperties] = useState([])
+  const [showPropertyModal, setShowPropertyModal] = useState(false)
+  const [editingProperty, setEditingProperty] = useState(null)
+  const [propertyMenuOpenId, setPropertyMenuOpenId] = useState(null)
+  const propertyMenuRef = useRef(null)
 
   // New state for job filters
   const [jobFilter, setJobFilter] = useState("upcoming") // upcoming, past, canceled
@@ -48,21 +54,94 @@ const CustomerDetails = () => {
       const customerData = await customersAPI.getById(customerId)
       setCustomer(customerData)
 
-      const [jobsData, estimatesData, invoicesData] = await Promise.all([
+      const [jobsData, estimatesData, invoicesData, propsData] = await Promise.all([
         jobsAPI.getAll(user.id, "", "", 1, 50, "", "", "scheduled_date", "DESC", "", "", customerId),
         estimatesAPI.getAll(user.id, { customerId: customerId }),
-        invoicesAPI.getAll(user.id, { customerId: customerId })
+        invoicesAPI.getAll(user.id, { customerId: customerId }),
+        customerPropertiesAPI.list(customerId).catch((e) => {
+          console.error('Failed to load properties:', e)
+          return []
+        })
       ])
 
       setJobs(jobsData.jobs || jobsData)
       setEstimates(estimatesData.estimates || estimatesData)
       setInvoices(invoicesData.invoices || invoicesData)
+      setProperties(propsData || [])
 
     } catch (error) {
       console.error('Error fetching customer data:', error)
       setError("Failed to load customer data. Please try again.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const reloadProperties = async () => {
+    try {
+      const list = await customerPropertiesAPI.list(customerId)
+      setProperties(list || [])
+    } catch (e) {
+      console.error('Error reloading properties:', e)
+    }
+  }
+
+  const handleOpenAddProperty = () => {
+    setEditingProperty(null)
+    setShowPropertyModal(true)
+    setPropertyMenuOpenId(null)
+  }
+
+  const handleOpenEditProperty = (property) => {
+    setEditingProperty(property)
+    setShowPropertyModal(true)
+    setPropertyMenuOpenId(null)
+  }
+
+  const handleSavePropertyFromModal = async (addr) => {
+    try {
+      const payload = {
+        street: addr.street || '',
+        city: addr.city || '',
+        state: addr.state || '',
+        zipCode: addr.zipCode || '',
+        country: addr.country || 'USA'
+      }
+      if (editingProperty) {
+        await customerPropertiesAPI.update(customerId, editingProperty.id, payload)
+      } else {
+        await customerPropertiesAPI.create(customerId, payload)
+      }
+      await reloadProperties()
+      setShowPropertyModal(false)
+      setEditingProperty(null)
+    } catch (e) {
+      console.error('Error saving property:', e)
+      setError('Failed to save property. Please try again.')
+    }
+  }
+
+  const handleSetDefaultProperty = async (property) => {
+    try {
+      await customerPropertiesAPI.update(customerId, property.id, { isDefault: true })
+      await reloadProperties()
+      setPropertyMenuOpenId(null)
+    } catch (e) {
+      console.error('Error setting default property:', e)
+    }
+  }
+
+  const handleDeleteProperty = async (property) => {
+    if (!window.confirm('Delete this property?')) {
+      setPropertyMenuOpenId(null)
+      return
+    }
+    try {
+      await customerPropertiesAPI.remove(customerId, property.id)
+      await reloadProperties()
+      setPropertyMenuOpenId(null)
+    } catch (e) {
+      console.error('Error deleting property:', e)
     }
   }
 
@@ -107,6 +186,9 @@ const CustomerDetails = () => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowMenuDropdown(false)
+      }
+      if (propertyMenuRef.current && !propertyMenuRef.current.contains(event.target)) {
+        setPropertyMenuOpenId(null)
       }
     }
 
@@ -165,7 +247,7 @@ const CustomerDetails = () => {
 
   // Calculate total revenue from completed jobs
   const calculateTotalRevenue = () => {
-    const completedJobs = jobs.filter(job => job.status === 'completed')
+    const completedJobs = jobs.filter(job => job.status === 'completed' || job.status === 'paid')
     const total = completedJobs.reduce((sum, job) => {
       // Use total if available, otherwise use price, otherwise 0
       const jobTotal = parseFloat(job.total) || parseFloat(job.price) || 0
@@ -176,11 +258,12 @@ const CustomerDetails = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'paid': return 'bg-emerald-100 text-emerald-800'
       case 'completed': return 'bg-green-100 text-green-800'
       case 'pending': return 'bg-yellow-100 text-yellow-800'
       case 'cancelled': return 'bg-red-100 text-red-800'
       case 'in_progress': return 'bg-blue-100 text-blue-800'
-      default: return 'bg-gray-100 text-gray-800'
+      default: return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
     }
   }
 
@@ -188,15 +271,26 @@ const CustomerDetails = () => {
   const getFilteredJobs = () => {
     const now = new Date()
     if (jobFilter === "upcoming") {
-      return jobs.filter(job =>
-        new Date(job.scheduled_date) >= now &&
-        job.status !== 'cancelled' &&
-        job.status !== 'completed'
-      )
+      // Closest upcoming date on top (ascending)
+      return jobs
+        .filter(job =>
+          new Date(job.scheduled_date) >= now &&
+          job.status !== 'cancelled' &&
+          job.status !== 'completed'
+        )
+        .sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date))
     } else if (jobFilter === "past") {
-      return jobs.filter(job => job.status === 'completed')
+      // Most recent past date on top (descending)
+      return jobs
+        .filter(job =>
+          job.status === 'completed' || job.status === 'paid' ||
+          (new Date(job.scheduled_date) < now && job.status !== 'cancelled')
+        )
+        .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date))
     } else if (jobFilter === "canceled") {
-      return jobs.filter(job => job.status === 'cancelled')
+      return jobs
+        .filter(job => job.status === 'cancelled')
+        .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date))
     }
     return jobs
   }
@@ -205,10 +299,15 @@ const CustomerDetails = () => {
     const now = new Date()
     return new Date(job.scheduled_date) >= now &&
            job.status !== 'cancelled' &&
-           job.status !== 'completed'
+           job.status !== 'completed' &&
+           job.status !== 'paid'
   }).length
 
-  const pastCount = jobs.filter(job => job.status === 'completed').length
+  const pastCount = jobs.filter(job => {
+    const now = new Date()
+    return job.status === 'completed' || job.status === 'paid' ||
+           (new Date(job.scheduled_date) < now && job.status !== 'cancelled')
+  }).length
   const canceledCount = jobs.filter(job => job.status === 'cancelled').length
 
   // Format job date for calendar display
@@ -252,7 +351,7 @@ const CustomerDetails = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
       </div>
     )
@@ -260,7 +359,7 @@ const CustomerDetails = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
       </div>
     )
@@ -268,10 +367,10 @@ const CustomerDetails = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">{error}</h3>
+          <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">{error}</h3>
           <div className="mt-6">
             <button
               onClick={() => navigate('/customers')}
@@ -287,9 +386,9 @@ const CustomerDetails = () => {
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="text-center">
-          <h3 className="mt-2 text-sm font-medium text-gray-900">Customer not found</h3>
+          <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">Customer not found</h3>
           <div className="mt-6">
             <button
               onClick={() => navigate('/customers')}
@@ -306,19 +405,19 @@ const CustomerDetails = () => {
   const filteredJobs = getFilteredJobs()
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:mx-44 xl:mx-48">
 
         <main className="flex-1 overflow-y-auto">
           {/* Header */}
-          <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10">
             <div className="px-6 py-6">
               <div className="flex items-center justify-between mb-4">
                 <button
                   onClick={() => navigate('/customers')}
-                  className="flex items-center text-sm text-gray-600 hover:text-gray-900"
+                  className="flex items-center text-sm text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                   style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" />
@@ -330,23 +429,23 @@ const CustomerDetails = () => {
                       e.stopPropagation()
                       setShowMenuDropdown(!showMenuDropdown)
                     }}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
                     type="button"
                   >
-                    <MoreVertical className="w-5 h-5 text-gray-600" />
+                    <MoreVertical className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                   </button>
                   
                   {showMenuDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-[9999]">
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-[var(--sf-border-light)] py-2 z-[9999]">
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           handleEditCustomer()
                         }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                        className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm"
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
-                        <Edit className="w-4 h-4 text-gray-600" />
+                        <Edit className="w-4 h-4 text-[var(--sf-text-secondary)]" />
                         <span>Edit Customer</span>
                       </button>
                       <button
@@ -354,10 +453,10 @@ const CustomerDetails = () => {
                           e.stopPropagation()
                           handleNewJob()
                         }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                        className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm"
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
-                        <FileText className="w-4 h-4 text-gray-600" />
+                        <FileText className="w-4 h-4 text-[var(--sf-text-secondary)]" />
                         <span>New Job</span>
                       </button>
                       <button
@@ -365,7 +464,7 @@ const CustomerDetails = () => {
                           e.stopPropagation()
                           handleDeleteCustomer()
                         }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
+                        className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         <Trash2 className="w-4 h-4 text-red-600" />
@@ -375,7 +474,7 @@ const CustomerDetails = () => {
                   )}
                 </div>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+              <h1 className="text-3xl font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                 {decodeHtmlEntities(customer.first_name || '')} {decodeHtmlEntities(customer.last_name || '')}
               </h1>
             </div>
@@ -397,66 +496,74 @@ const CustomerDetails = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Left Sidebar - Customer Details */}
               <div className="lg:col-span-1">
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-6">
+                  <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                     DETAILS
                   </h3>
 
                   <div className="space-y-4">
                     {customer.phone && (
                       <div className="flex items-center">
-                        <Phone className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{formatPhoneNumber(customer.phone)}</span>
+                        <Phone className="w-4 h-4 text-[var(--sf-text-muted)] mr-3 flex-shrink-0" />
+                        <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{formatPhoneNumber(customer.phone)}</span>
                       </div>
                     )}
 
                     {customer.email ? (
                       <div className="flex items-center">
-                        <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-900 break-all" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{customer.email}</span>
+                        <Mail className="w-4 h-4 text-[var(--sf-text-muted)] mr-3 flex-shrink-0" />
+                        <span className="text-sm text-[var(--sf-text-primary)] break-all" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{customer.email}</span>
                       </div>
                     ) : (
                       <div className="flex items-center">
-                        <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No email address</span>
+                        <Mail className="w-4 h-4 text-[var(--sf-text-muted)] mr-3 flex-shrink-0" />
+                        <span className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No email address</span>
                       </div>
                     )}
 
                     {customer.address ? (
                       <div className="flex items-center">
-                        <MapPin className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                        <MapPin className="w-4 h-4 text-[var(--sf-text-muted)] mr-3 flex-shrink-0" />
+                        <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                           {customer.address}
                           {customer.suite && `, ${customer.suite}`}
                         </span>
                       </div>
                     ) : (
                       <div className="flex items-center">
-                        <MapPin className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No location</span>
+                        <MapPin className="w-4 h-4 text-[var(--sf-text-muted)] mr-3 flex-shrink-0" />
+                        <span className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No location</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-gray-200">
+                  <div className="mt-6 pt-4 border-t border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         CUSTOMER SINCE
                       </h3>
                     </div>
-                    <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                    <p className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       {customer.created_at ? new Date(customer.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'November, 2025'}
+                    </p>
+                    <div className="flex items-center justify-between mt-3">
+                      <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                        SOURCE
+                      </h3>
+                    </div>
+                    <p className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      {customer.resolved_source || customer.source || customer.customer_source || 'No source'}
                     </p>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="mt-4 pt-4 border-t border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         TOTAL REVENUE
                       </h3>
-                      <Info className="w-3 h-3 text-gray-400" />
+                      <Info className="w-3 h-3 text-[var(--sf-text-muted)]" />
                     </div>
-                    <p className="text-sm text-gray-900 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                    <p className="text-sm text-[var(--sf-text-primary)] mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       {formatCurrency(calculateTotalRevenue())}
                     </p>
                   </div>
@@ -466,10 +573,10 @@ const CustomerDetails = () => {
               {/* Main Content Area */}
               <div className="lg:col-span-3 space-y-6">
                 {/* Jobs Section */}
-                <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
+                <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm">
+                  <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Jobs</h2>
+                      <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Jobs</h2>
                     </div>
 
                     {/* Job Filter Tabs */}
@@ -478,8 +585,8 @@ const CustomerDetails = () => {
                         onClick={() => setJobFilter("upcoming")}
                         className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
                           jobFilter === "upcoming"
-                            ? "border-blue-600 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                            ? "border-[var(--sf-blue-500)] text-[var(--sf-blue-500)] font-semibold"
+                            : "border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                         }`}
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
@@ -489,8 +596,8 @@ const CustomerDetails = () => {
                         onClick={() => setJobFilter("past")}
                         className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
                           jobFilter === "past"
-                            ? "border-blue-600 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                            ? "border-[var(--sf-blue-500)] text-[var(--sf-blue-500)] font-semibold"
+                            : "border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                         }`}
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
@@ -500,8 +607,8 @@ const CustomerDetails = () => {
                         onClick={() => setJobFilter("canceled")}
                         className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
                           jobFilter === "canceled"
-                            ? "border-blue-600 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                            ? "border-[var(--sf-blue-500)] text-[var(--sf-blue-500)] font-semibold"
+                            : "border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                         }`}
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
@@ -514,7 +621,7 @@ const CustomerDetails = () => {
                     {filteredJobs.length === 0 ? (
                       <div className="text-center py-12">
                         <Calendar className="mx-auto h-12 w-12 text-gray-300" />
-                        <p className="mt-2 text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No {jobFilter} jobs</p>
+                        <p className="mt-2 text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No {jobFilter} jobs</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -527,27 +634,27 @@ const CustomerDetails = () => {
                           return (
                             <div
                               key={job.id}
-                              className="flex items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 cursor-pointer transition-colors"
+                              className="flex items-center p-3 bg-[var(--sf-blue-50)] rounded-lg hover:bg-blue-100 cursor-pointer transition-colors"
                               onClick={() => handleViewJob(job)}
                             >
                               {/* Calendar Date */}
-                              <div className="flex-shrink-0 w-16 h-16 bg-blue-600 rounded-lg flex flex-col items-center justify-center text-white mr-4">
+                              <div className="flex-shrink-0 w-16 h-16 bg-[var(--sf-blue-500)] rounded-lg flex flex-col items-center justify-center text-white mr-4">
                                 <span className="text-xs font-semibold leading-tight" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>{dateDisplay.month}</span>
                                 <span className="text-2xl font-bold leading-none" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>{dateDisplay.day}</span>
                               </div>
 
                               {/* Job Details */}
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-blue-600 mb-1 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                <p className="text-xs font-medium text-[var(--sf-blue-500)] mb-1 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                   {dateFormatted}
                                 </p>
-                                <p className="text-sm font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                                <p className="text-sm font-semibold text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                                   JOB-#{job.id}
                                 </p>
-                                <p className="text-sm text-gray-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                <p className="text-sm text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                   {decodeHtmlEntities(job.service_name || '')}
                                 </p>
-                                <p className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                <p className="text-xs text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                   {startTime} - {endTime}
                                 </p>
                               </div>
@@ -560,54 +667,98 @@ const CustomerDetails = () => {
                 </div>
 
                 {/* Properties Section */}
-                <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
+                <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm">
+                  <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Properties</h2>
-                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                      <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Properties</h2>
+                      <button
+                        onClick={handleOpenAddProperty}
+                        className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] inline-flex items-center"
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                      >
                         <Plus className="w-4 h-4 mr-1" />
                         Add Property
                       </button>
                     </div>
                   </div>
-                  <div className="p-6">
-                    {customer.address ? (
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                            <MapPin className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="flex items-center">
-                              <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                {customer.address.split(',')[0]}
-                              </p>
-                              <span className="ml-2 px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-50 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                Default
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{customer.address}</p>
-                          </div>
-                        </div>
-                        <button className="p-2 hover:bg-gray-100 rounded-lg">
-                          <MoreVertical className="w-5 h-5 text-gray-400" />
-                        </button>
-                      </div>
-                    ) : (
+                  <div className="p-6 space-y-3">
+                    {properties.length === 0 ? (
                       <div className="text-center py-12">
                         <MapPin className="mx-auto h-12 w-12 text-gray-300" />
-                        <p className="mt-2 text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No properties added</p>
+                        <p className="mt-2 text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No properties added</p>
                       </div>
+                    ) : (
+                      properties.map((p) => {
+                        const line1 = [p.street, p.suite].filter(Boolean).join(', ') || '—'
+                        const line2 = [p.city, p.state, p.zip_code].filter(Boolean).join(', ')
+                        const isMenuOpen = propertyMenuOpenId === p.id
+                        return (
+                          <div key={p.id} className="flex items-start justify-between p-4 border border-[var(--sf-border-light)] rounded-lg">
+                            <div className="flex items-start min-w-0">
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                                <MapPin className="w-5 h-5 text-[var(--sf-blue-500)]" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center flex-wrap">
+                                  <p className="text-sm font-medium text-[var(--sf-text-primary)] truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                    {line1}
+                                  </p>
+                                  {p.is_default && (
+                                    <span className="ml-2 px-2 py-0.5 text-xs font-medium text-[var(--sf-blue-500)] bg-[var(--sf-blue-50)] rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                      Default
+                                    </span>
+                                  )}
+                                </div>
+                                {line2 && (
+                                  <p className="text-sm text-[var(--sf-text-muted)] truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{line2}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="relative flex-shrink-0 ml-2" ref={isMenuOpen ? propertyMenuRef : null}>
+                              <button
+                                onClick={() => setPropertyMenuOpenId(isMenuOpen ? null : p.id)}
+                                className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg"
+                              >
+                                <MoreVertical className="w-5 h-5 text-[var(--sf-text-muted)]" />
+                              </button>
+                              {isMenuOpen && (
+                                <div className="absolute right-0 mt-1 w-44 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg z-10 py-1">
+                                  <button
+                                    onClick={() => handleOpenEditProperty(p)}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]"
+                                  >
+                                    Edit
+                                  </button>
+                                  {!p.is_default && (
+                                    <button
+                                      onClick={() => handleSetDefaultProperty(p)}
+                                      className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]"
+                                    >
+                                      Set as default
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDeleteProperty(p)}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] text-red-600"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })
                     )}
                   </div>
                 </div>
 
                 {/* Estimates Section */}
-                <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
+                <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm">
+                  <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Estimates</h2>
-                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                      <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Estimates</h2>
+                      <button className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] inline-flex items-center" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         <Plus className="w-4 h-4 mr-1" />
                         New Estimate
                       </button>
@@ -615,10 +766,10 @@ const CustomerDetails = () => {
                   </div>
                   <div className="p-12">
                     <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
-                        <LinkIcon className="w-6 h-6 text-gray-400" />
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-[var(--sf-bg-page)] rounded-lg mb-3">
+                        <LinkIcon className="w-6 h-6 text-[var(--sf-text-muted)]" />
                       </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      <p className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         No bookable estimates have been sent to this customer
                       </p>
                     </div>
@@ -626,11 +777,11 @@ const CustomerDetails = () => {
                 </div>
 
                 {/* Notes and Files Section */}
-                <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
+                <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm">
+                  <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Notes and Files</h2>
-                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                      <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Notes and Files</h2>
+                      <button className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] inline-flex items-center" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         <Plus className="w-4 h-4 mr-1" />
                         New Note
                       </button>
@@ -638,10 +789,10 @@ const CustomerDetails = () => {
                   </div>
                   <div className="p-12">
                     <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
-                        <FileText className="w-6 h-6 text-gray-400" />
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-[var(--sf-bg-page)] rounded-lg mb-3">
+                        <FileText className="w-6 h-6 text-[var(--sf-text-muted)]" />
                       </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      <p className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         This customer doesn't have any notes attached to them
                       </p>
                     </div>
@@ -649,27 +800,27 @@ const CustomerDetails = () => {
                 </div>
 
                 {/* Payment Methods Section */}
-                <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
+                <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm">
+                  <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Payment Methods</h2>
+                      <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Payment Methods</h2>
                       <div className="flex items-center space-x-2">
-                        <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                        <button className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] inline-flex items-center" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                           <Plus className="w-4 h-4 mr-1" />
                           Add Card
                         </button>
-                        <button className="p-2 hover:bg-gray-100 rounded-lg">
-                          <MoreVertical className="w-5 h-5 text-gray-600" />
+                        <button className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg">
+                          <MoreVertical className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                         </button>
                       </div>
                     </div>
                   </div>
                   <div className="p-12">
                     <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
-                        <CreditCard className="w-6 h-6 text-gray-400" />
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-[var(--sf-bg-page)] rounded-lg mb-3">
+                        <CreditCard className="w-6 h-6 text-[var(--sf-text-muted)]" />
                       </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      <p className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         This customer doesn't have any payment cards on file
                       </p>
                     </div>
@@ -684,12 +835,12 @@ const CustomerDetails = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && customer && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+          <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-6 max-w-md w-full">
             <div className="flex items-center mb-4">
               <AlertCircle className="h-6 w-6 text-red-600 mr-3" />
-              <h3 className="text-lg font-medium text-gray-900">Delete Customer</h3>
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Delete Customer</h3>
             </div>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-[var(--sf-text-muted)] mb-6">
               Are you sure you want to delete <strong>{decodeHtmlEntities(customer.first_name || '')} {decodeHtmlEntities(customer.last_name || '')}</strong>?
               This action cannot be undone.
               {(jobs.length > 0 || estimates.length > 0 || invoices.length > 0) ? (
@@ -701,7 +852,7 @@ const CustomerDetails = () => {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
                 Cancel
               </button>
@@ -724,6 +875,19 @@ const CustomerDetails = () => {
         onSave={handleCustomerSave}
         customer={customer}
         isEditing={true}
+      />
+
+      <ServiceAddressModal
+        isOpen={showPropertyModal}
+        onClose={() => { setShowPropertyModal(false); setEditingProperty(null) }}
+        onSave={handleSavePropertyFromModal}
+        currentAddress={editingProperty ? {
+          street: editingProperty.street || '',
+          city: editingProperty.city || '',
+          state: editingProperty.state || '',
+          zipCode: editingProperty.zip_code || '',
+          country: editingProperty.country || 'USA'
+        } : null}
       />
     </div>
   )

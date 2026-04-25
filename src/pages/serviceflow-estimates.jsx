@@ -210,7 +210,7 @@ const ServiceFlowEstimates = () => {
       case 'rejected':
         return 'bg-red-100 text-red-800'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
     }
   }
 
@@ -252,13 +252,13 @@ const ServiceFlowEstimates = () => {
 
   if (!user) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Please log in</h2>
-              <p className="text-gray-500">You need to be logged in to view estimates.</p>
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Please log in</h2>
+              <p className="text-[var(--sf-text-muted)]">You need to be logged in to view estimates.</p>
             </div>
           </div>
         </div>
@@ -267,7 +267,7 @@ const ServiceFlowEstimates = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
@@ -278,26 +278,26 @@ const ServiceFlowEstimates = () => {
             <div className="mb-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Estimates</h1>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">Estimates</h1>
+                  <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
                     Create and manage estimates for your customers
                   </p>
                   {debugInfo && (
-                    <p className="mt-1 text-xs text-gray-400">{debugInfo}</p>
+                    <p className="mt-1 text-xs text-[var(--sf-text-muted)]">{debugInfo}</p>
                   )}
                 </div>
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={handleRefresh}
                     disabled={loading}
-                    className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                    className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] disabled:opacity-50"
                     title="Refresh estimates"
                   >
                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                   </button>
                   <button
                     onClick={handleCreateEstimate}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     New Estimate
@@ -307,16 +307,16 @@ const ServiceFlowEstimates = () => {
             </div>
 
             {/* Filters */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+            <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4 mb-6">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
                 <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-5 h-5" />
                   <input
                     type="text"
                     placeholder="Search estimates..."
                     value={filters.search}
                     onChange={(e) => handleFilterChange({ search: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full pl-10 pr-4 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                   />
                 </div>
 
@@ -324,7 +324,7 @@ const ServiceFlowEstimates = () => {
                   <select
                     value={filters.status}
                     onChange={(e) => handleFilterChange({ status: e.target.value })}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                   >
                     <option value="">All Status</option>
                     <option value="pending">Pending</option>
@@ -336,7 +336,7 @@ const ServiceFlowEstimates = () => {
                   <select
                     value={filters.customerId}
                     onChange={(e) => handleFilterChange({ customerId: e.target.value })}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                   >
                     <option value="">All Customers</option>
                     {customers.map((customer) => (
@@ -352,7 +352,7 @@ const ServiceFlowEstimates = () => {
                       const [sortBy, sortOrder] = e.target.value.split(":")
                       handleFilterChange({ sortBy, sortOrder })
                     }}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                   >
                     <option value="created_at:DESC">Sort by: Newest First</option>
                     <option value="created_at:ASC">Sort by: Oldest First</option>
@@ -369,7 +369,7 @@ const ServiceFlowEstimates = () => {
               <div className="flex justify-center items-center py-12">
                 <div className="flex items-center space-x-2">
                   <LoadingButton />
-                  <span className="text-gray-500">Loading estimates...</span>
+                  <span className="text-[var(--sf-text-muted)]">Loading estimates...</span>
                 </div>
               </div>
             ) : error ? (
@@ -387,10 +387,10 @@ const ServiceFlowEstimates = () => {
                 </div>
               </div>
             ) : estimates.length === 0 ? (
-              <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No estimates found</h3>
-                <p className="mt-1 text-sm text-gray-500">
+              <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-8 text-center">
+                <FileText className="mx-auto h-12 w-12 text-[var(--sf-text-muted)]" />
+                <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">No estimates found</h3>
+                <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
                   {filters.status || filters.customerId || filters.search 
                     ? 'No estimates match your current filters. Try adjusting your search criteria.'
                     : 'Get started by creating your first estimate.'
@@ -399,7 +399,7 @@ const ServiceFlowEstimates = () => {
                 <div className="mt-6">
                   <button
                     onClick={handleCreateEstimate}
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Create Estimate
@@ -408,7 +408,7 @@ const ServiceFlowEstimates = () => {
               </div>
             ) : (
               <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                <ul className="divide-y divide-gray-200">
+                <ul className="divide-y divide-[var(--sf-border-light)]">
                   {estimates.map((estimate) => (
                     <li key={estimate.id}>
                       <div className="px-4 py-4 sm:px-6">
@@ -416,12 +416,12 @@ const ServiceFlowEstimates = () => {
                           <div className="flex items-center">
                             <div className="flex-shrink-0">
                               <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                <FileText className="w-5 h-5 text-blue-600" />
+                                <FileText className="w-5 h-5 text-[var(--sf-blue-500)]" />
                               </div>
                             </div>
                             <div className="ml-4">
                               <div className="flex items-center">
-                                <p className="text-sm font-medium text-gray-900">
+                                <p className="text-sm font-medium text-[var(--sf-text-primary)]">
                                   Estimate #{estimate.id}
                                 </p>
                                 <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(estimate.status)}`}>
@@ -433,7 +433,7 @@ const ServiceFlowEstimates = () => {
                                   </span>
                                 )}
                               </div>
-                              <div className="mt-1 flex items-center text-sm text-gray-500">
+                              <div className="mt-1 flex items-center text-sm text-[var(--sf-text-muted)]">
                                 <User className="w-4 h-4 mr-1" />
                                 <button
                                   onClick={() => handleViewCustomer(estimate.customer_id)}
@@ -454,7 +454,7 @@ const ServiceFlowEstimates = () => {
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => handleViewEstimate(estimate)}
-                              className="p-2 text-gray-400 hover:text-gray-600"
+                              className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                               title="View estimate"
                             >
                               <Eye className="w-4 h-4" />
@@ -464,14 +464,14 @@ const ServiceFlowEstimates = () => {
                               <>
                                 <button
                                   onClick={() => handleSendEstimate(estimate.id)}
-                                  className="p-2 text-gray-400 hover:text-blue-600"
+                                  className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-500)]"
                                   title="Send estimate"
                                 >
                                   <Send className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => handleEditEstimate(estimate)}
-                                  className="p-2 text-gray-400 hover:text-blue-600"
+                                  className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-500)]"
                                   title="Edit estimate"
                                 >
                                   <Edit className="w-4 h-4" />
@@ -482,7 +482,7 @@ const ServiceFlowEstimates = () => {
                             {estimate.status === 'accepted' && (
                               <button
                                 onClick={() => handleConvertToInvoice(estimate.id)}
-                                className="p-2 text-gray-400 hover:text-green-600"
+                                className="p-2 text-[var(--sf-text-muted)] hover:text-green-600"
                                 title="Convert to invoice"
                               >
                                 <Check className="w-4 h-4" />
@@ -491,7 +491,7 @@ const ServiceFlowEstimates = () => {
                             
                             <button
                               onClick={() => handleDeleteEstimate(estimate.id)}
-                              className="p-2 text-gray-400 hover:text-red-600"
+                              className="p-2 text-[var(--sf-text-muted)] hover:text-red-600"
                               title="Delete estimate"
                             >
                               <Trash2 className="w-4 h-4" />

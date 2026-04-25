@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { 
   ArrowLeft, 
   Edit, 
@@ -63,8 +64,10 @@ import {
   Eye,
   RotateCw
 } from "lucide-react"
-import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, calendarAPI, notificationSettingsAPI } from "../services/api"
+import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, calendarAPI, notificationSettingsAPI, availabilityAPI, paymentMethodsAPI, paymentSettingsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
+import CancelJobModal from "../components/CancelJobModal"
+import CancellationSummary from "../components/CancellationSummary"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import AddressAutocomplete from "../components/address-autocomplete"
@@ -75,8 +78,12 @@ import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
 import { decodeHtmlEntities } from "../utils/htmlUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
+import { getMemberDrivingTime } from "../utils/slotUtils"
+import { calculateJobTotal, resolveDiscount } from "../utils/priceUtils"
 import ConvertToRecurringModal from "../components/convert-to-recurring-modal"
+import AssignJobModal from "../components/assign-job-modal"
 import DuplicateJobModal from "../components/duplicate-job-modal"
+import JobExpensesSection from "../components/job-expenses-section"
 import { 
   canViewCustomerContact, 
   canViewCustomerNotes,
@@ -128,14 +135,17 @@ const JobDetails = () => {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [showEditServiceModal, setShowEditServiceModal] = useState(false)
+  const [showDurationEditor, setShowDurationEditor] = useState(false)
   const [showEditAddressModal, setShowEditAddressModal] = useState(false)
   const [showConvertToRecurringModal, setShowConvertToRecurringModal] = useState(false)
+  const [showEditRecurringModal, setShowEditRecurringModal] = useState(false)
   const [showMobileSidebar, setShowMobileSidebar] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
   const [showDiscountModal, setShowDiscountModal] = useState(false)
   const [showTipModal, setShowTipModal] = useState(false)
+  const [showIncentiveModal, setShowIncentiveModal] = useState(false)
   const [includePaymentLink, setIncludePaymentLink] = useState(true)
   const [stripeConnected, setStripeConnected] = useState(false)
   const [manualEmail, setManualEmail] = useState('')
@@ -159,7 +169,8 @@ const JobDetails = () => {
     firstName: '',
     lastName: '',
     email: '',
-    phone: ''
+    phone: '',
+    source: ''
   })
   useEffect(() => {
     function handleClickOutside(event) {
@@ -213,24 +224,22 @@ const JobDetails = () => {
         service_modifiers: job.service_modifiers
       });
       
-      const servicePrice = job.service_price || 0;
-      const discount = job.discount || 0;
-      const additionalFees = job.additional_fees || 0;
-      const taxes = job.taxes || 0;
+      // Use initial base price (service_price) for the customize field and calculations -- not job.total
+      const servicePrice = parseFloat(job.service_price) || 0;
+      const discount = parseFloat(job.discount) || 0;
+      const additionalFees = parseFloat(job.additional_fees) || 0;
+      const taxes = parseFloat(job.taxes) || 0;
       const modifierPrice = calculateModifierPrice();
-      const calculatedTotal = servicePrice + modifierPrice + additionalFees + taxes - discount;
-      
-      // Use the backend total as the default value for the input
-      const totalPrice = parseFloat(job.total) || 0;
+      const calculatedTotal = calculateJobTotal({ servicePrice: servicePrice + modifierPrice, discount, additionalFees, taxes });
       
       setFormData(prev => ({
         ...prev,
         service_name: job.service_name || "",
         bathroom_count: job.bathroom_count || "",
         duration: job.duration || job.estimated_duration || 0,
-        service_price: totalPrice, // Set backend total as default
+        service_price: servicePrice,
         modifier_price: modifierPrice,
-        discount: discount > 0 ? discount : undefined, // Only set if discount exists
+        discount: discount > 0 ? discount : undefined,
         additional_fees: additionalFees,
         taxes: taxes,
         tip: 0,
@@ -242,8 +251,9 @@ const JobDetails = () => {
   // Data state
   const [territories, setTerritories] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
-  const [assigning, setAssigning] = useState(false)
-  const [selectedTeamMember, setSelectedTeamMember] = useState(null)
+  const [customPaymentMethods, setCustomPaymentMethods] = useState([])
+  const [tipSettings, setTipSettings] = useState({ tipCalculationMode: 'automatic', paymentTypeFees: {} })
+  const [companyDrivingTimeMinutes, setCompanyDrivingTimeMinutes] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [showDriveTime, setShowDriveTime] = useState(true)
   const [invoice, setInvoice] = useState(null)
@@ -255,6 +265,7 @@ const JobDetails = () => {
   const [paymentHistory, setPaymentHistory] = useState([])
   const [paymentFormData, setPaymentFormData] = useState({
     amount: '',
+    tipAmount: '',
     paymentMethod: 'cash',
     paymentDate: new Date().toISOString().split('T')[0],
     notes: ''
@@ -365,13 +376,22 @@ const JobDetails = () => {
       setError('No job data available')
       return
     }
-    
+
+    // Route ALL cancel transitions through the cancel modal — so the optional
+    // cancellation fee / cleaner reimbursement / reason / notes fields are
+    // captured. Without this, menu buttons bypass the modal and hit the plain
+    // status PATCH, producing a cancelled job with no cancellation metadata.
+    if (newStatus === 'cancelled') {
+      setShowCancelModal(true)
+      return
+    }
+
     try {
       setLoading(true)
       setError('')
-      
+
       console.log('Updating job status:', { jobId: job.id, newStatus })
-      
+
       // Use the same method as the existing status dropdown
       await jobsAPI.updateStatus(job.id, newStatus)
       
@@ -466,99 +486,71 @@ const JobDetails = () => {
     }
   };
 
-  // Team assignment handler
-  const handleTeamAssignment = async () => {
-    console.log('handleTeamAssignment called')
-    console.log('selectedTeamMember:', selectedTeamMember)
-    console.log('job:', job)
-    console.log('teamMembers:', teamMembers)
-    
-    if (!selectedTeamMember || !job) {
-      console.error('No team member or job selected')
-      setError('Please select a team member')
-      return
-    }
-    
+  // Team assignment handler (multi-member via AssignJobModal)
+  const handleAssignTeamMember = async (teamMemberIds, forceBook = false) => {
+    if (!job) return
+
     try {
-      setAssigning(true)
       setError('')
-      
-      console.log('Assigning team member:', { jobId: job.id, teamMemberId: selectedTeamMember })
-      
-      // ✅ ACTUALLY CALL THE API TO SAVE THE ASSIGNMENT
-      await jobsAPI.assignToTeamMember(job.id, selectedTeamMember)
-      
-      // Find the team member details
-      const teamMember = teamMembers.find(member => 
-        member.id == selectedTeamMember || 
-        member.id === parseInt(selectedTeamMember) ||
-        member.id === selectedTeamMember.toString()
+
+      const memberIdsArray = Array.isArray(teamMemberIds) ? teamMemberIds : (teamMemberIds ? [teamMemberIds] : [])
+      const normalizedMemberIds = memberIdsArray.map(id => Number(id)).filter(id => id && !isNaN(id))
+
+      // Get current assignments to remove if needed
+      const currentAssignments = job.team_assignments || []
+      const currentMemberIds = new Set(
+        currentAssignments.map(ta => Number(ta.team_member_id)).filter(id => id)
       )
-      
-      if (teamMember) {
-        // Refresh job data from API to ensure we have the latest state with proper mapping
-        try {
-          const updatedJobData = await jobsAPI.getById(job.id)
-          if (updatedJobData) {
-            // Use mapJobData to ensure assigned_team_member is properly mapped
-            const mappedJobData = mapJobData(updatedJobData)
-            setJob(mappedJobData)
-          } else {
-            // Fallback: Update local state if API refresh fails
-        setJob(prev => ({ 
-          ...prev, 
-              assigned_team_member: {
-                id: teamMember.id,
-                first_name: teamMember.first_name,
-                last_name: teamMember.last_name,
-                email: teamMember.email
-              },
-              team_member_id: selectedTeamMember,
-              assigned_team_member_id: selectedTeamMember
-            }))
-          }
-        } catch (refreshError) {
-          console.error('Error refreshing job data:', refreshError)
-          // Fallback: Update local state if refresh fails
-          setJob(prev => ({ 
-            ...prev, 
-            assigned_team_member: {
-              id: teamMember.id,
-              first_name: teamMember.first_name,
-              last_name: teamMember.last_name,
-              email: teamMember.email
-            },
-            team_member_id: selectedTeamMember,
-            assigned_team_member_id: selectedTeamMember
-          }))
-        }
-          
-        setSuccessMessage(`Team member ${teamMember.first_name} ${teamMember.last_name} assigned successfully!`)
-          setTimeout(() => setSuccessMessage(''), 3000)
-          
-          setShowAssignModal(false)
-          setSelectedTeamMember('')
-        } else {
-          setError(`Team member not found. Selected: ${selectedTeamMember}, Available: ${teamMembers.map(m => m.id).join(', ')}`)
+      if (currentMemberIds.size === 0) {
+        const singleId = job.assigned_team_member_id || job.team_member_id
+        if (singleId) currentMemberIds.add(Number(singleId))
       }
-      
+
+      if (normalizedMemberIds.length > 0) {
+        const primaryMemberId = normalizedMemberIds[0]
+        await jobsAPI.assignMultipleTeamMembers(job.id, normalizedMemberIds, primaryMemberId, forceBook)
+      } else {
+        const removePromises = Array.from(currentMemberIds).map(memberId =>
+          jobsAPI.removeTeamMember(job.id, memberId)
+        )
+        await Promise.all(removePromises)
+      }
+
+      // Reload job data from API
+      const jobData = await jobsAPI.getById(job.id)
+      if (jobData) {
+        const mappedJobData = mapJobData(jobData)
+        setJob(mappedJobData)
+      }
+
+      const actionText = normalizedMemberIds.length === 0
+        ? 'All team members unassigned successfully!'
+        : normalizedMemberIds.length === 1
+        ? 'Team member assigned successfully!'
+        : `${normalizedMemberIds.length} team members assigned successfully!`
+
+      setSuccessMessage(actionText)
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowAssignModal(false)
+
     } catch (error) {
+      if (error.response?.status === 409 && error.response?.data?.canForceBook) {
+        const conflicts = error.response.data.conflicts || []
+        const allWarnings = conflicts.flatMap(c => c.warnings.map(w => `${c.memberLabel}: ${w}`))
+        const warningText = allWarnings.length > 0 ? allWarnings.join('\n- ') : (error.response.data.error || 'Scheduling conflict')
+        const proceed = window.confirm(
+          `Scheduling conflicts detected:\n- ${warningText}\n\nDo you want to override and assign anyway?`
+        )
+        if (proceed) {
+          return handleAssignTeamMember(teamMemberIds, true)
+        }
+        return
+      }
       console.error('Error assigning team member:', error)
-      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to assign team member'
-      setError(errorMsg)
+      setError(error.response?.data?.error || 'Failed to update team member assignments')
       setTimeout(() => setError(''), 5000)
-    } finally {
-      setAssigning(false)
     }
   }
-
-  // Debug team members when modal opens
-  useEffect(() => {
-    if (showAssignModal) {
-      console.log('Team Assignment Modal opened, teamMembers:', teamMembers)
-      console.log('teamMembers length:', teamMembers.length)
-    }
-  }, [showAssignModal, teamMembers])
 
   // Click outside handler for dropdowns
   useEffect(() => {
@@ -642,8 +634,9 @@ const JobDetails = () => {
       customer_city: jobData.customers?.city || jobData.customer_city,
       customer_state: jobData.customers?.state || jobData.customer_state,
       customer_zip_code: jobData.customers?.zip_code || jobData.customer_zip_code,
+      customer_source: jobData.customers?.source || jobData.customer_source,
       service_name: decodeHtmlEntities(jobData.services?.name || jobData.service_name || ''),
-      service_price: jobData.services?.price || jobData.service_price,
+      service_price: jobData.service_price || jobData.services?.price,
       service_duration: jobData.services?.duration || jobData.service_duration,
       // Handle multiple services - check if service_name contains multiple services
       service_names: jobData.service_name && jobData.service_name.includes(', ') 
@@ -710,15 +703,33 @@ const JobDetails = () => {
           if (response.data) {
             const transactions = response.data.transactions || []
             const totalPaid = response.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+            const totalTips = response.data.totalTips || transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0)
             
             setPaymentHistory(transactions)
             
-            // Update job state with payment info
-            setJob(prev => ({
-              ...prev,
-              total_paid_amount: totalPaid,
-              invoice_paid_amount: totalPaid
-            }))
+            // Update job state with payment info.
+            // Special case: if the job is already marked PAID (e.g. imported as paid) but there are NO
+            // completed transactions, treat it as fully paid so Amount due = $0.
+            // Otherwise, use the real transaction total.
+            setJob(prev => {
+              const jobTotal =
+                parseFloat(prev?.total) ||
+                parseFloat(prev?.total_amount) ||
+                parseFloat(prev?.price) ||
+                0
+              const isPaidWithNoPayments =
+                (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') &&
+                jobTotal > 0 &&
+                totalPaid <= 0
+              const effectivePaid = isPaidWithNoPayments ? jobTotal : totalPaid
+              const effectiveTip = Math.max(parseFloat(prev?.tip_amount || 0) || 0, totalTips)
+              return {
+                ...prev,
+                total_paid_amount: effectivePaid,
+                invoice_paid_amount: effectivePaid,
+                tip_amount: effectiveTip
+              }
+            })
           }
         } catch (error) {
           console.error('Error fetching payment history:', error)
@@ -743,48 +754,89 @@ const JobDetails = () => {
         return
       }
       
+      let tipAmount = parseFloat(paymentFormData.tipAmount) || 0
+      if (tipSettings.tipCalculationMode === 'automatic') {
+        const paidAmount = parseFloat(paymentFormData.amount) || 0
+        const totalDue = parseFloat(job?.total ?? job?.total_amount ?? job?.price) || 0
+        const alreadyPaid = parseFloat(job?.total_paid_amount || 0)
+        const remaining = Math.max(0, totalDue - alreadyPaid)
+        const methodKey = paymentFormData.paymentMethod === 'other' && paymentFormData.customPaymentMethod?.trim()
+          ? paymentFormData.customPaymentMethod.trim() : paymentFormData.paymentMethod
+        const feePercent = tipSettings.paymentTypeFees?.[methodKey] || 0
+        const fee = paidAmount * (feePercent / 100)
+        tipAmount = Math.max(0, paidAmount - remaining - fee)
+      }
+
       const paymentData = {
         jobId: job.id,
         invoiceId: job.invoice_id || null,
         customerId: job.customer_id || null,
         amount: parseFloat(paymentFormData.amount),
-        paymentMethod: paymentFormData.paymentMethod,
+        tipAmount,
+        paymentMethod: paymentFormData.paymentMethod === 'other' && paymentFormData.customPaymentMethod?.trim()
+          ? paymentFormData.customPaymentMethod.trim()
+          : paymentFormData.paymentMethod,
         paymentDate: paymentFormData.paymentDate,
         notes: paymentFormData.notes || null
       }
-      
+
       console.log('💳 Recording payment:', paymentData)
-      
+
       const response = await api.post('/transactions/record-payment', paymentData)
-      
+
       console.log('✅ Payment recorded:', response.data)
-      
+
+      // Auto-save custom payment method for reuse if "Other" was selected
+      if (paymentFormData.paymentMethod === 'other' && paymentFormData.customPaymentMethod?.trim()) {
+        const customName = paymentFormData.customPaymentMethod.trim()
+        const alreadyExists = customPaymentMethods.some(pm => pm.name.toLowerCase() === customName.toLowerCase())
+        if (!alreadyExists) {
+          try {
+            const newMethod = await paymentMethodsAPI.createPaymentMethod({ name: customName })
+            setCustomPaymentMethods(prev => [...prev, newMethod])
+          } catch (err) {
+            console.warn('Could not save custom payment method for reuse:', err)
+          }
+        }
+      }
+
       // Reset form
       setPaymentFormData({
         amount: '',
+        tipAmount: '',
         paymentMethod: 'cash',
+        customPaymentMethod: '',
         paymentDate: new Date().toISOString().split('T')[0],
         notes: ''
       })
-      
+
       // Refresh payment history
       const historyResponse = await api.get(`/transactions/job/${job.id}`)
       if (historyResponse.data) {
         const transactions = historyResponse.data.transactions || []
-        const totalPaid = historyResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
-        
+        const totalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+
         setPaymentHistory(transactions)
-        
-        // Update job state with payment info
-        setJob(prev => ({
-          ...prev,
-          total_paid_amount: totalPaid,
-          invoice_paid_amount: totalPaid
-        }))
+
+        // Invoice total = job.total (already after discount) + tip. Do NOT subtract discount again.
+        setJob(prev => {
+          const jobPrice = parseFloat(prev?.total) || 0
+          const existingTip = parseFloat(prev?.tip_amount || 0) || 0
+          const totalTipsFromPayments = historyResponse.data.totalTips ?? transactions.reduce((s, tx) => s + parseFloat(tx.tip_amount || 0), 0)
+          const finalTipAmount = Math.max(existingTip, totalTipsFromPayments)
+          const invoiceTotal = jobPrice + finalTipAmount
+          const isFullyPaid = totalPaid >= invoiceTotal - 0.01
+          return {
+            ...prev,
+            total_paid_amount: totalPaid,
+            invoice_paid_amount: totalPaid,
+            tip_amount: finalTipAmount,
+            total_invoice_amount: invoiceTotal,
+            invoice_status: isFullyPaid ? 'paid' : (invoiceTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+            payment_status: isFullyPaid ? 'paid' : 'pending'
+          }
+        })
       }
-      
-      // Refresh job data
-      await fetchInvoiceStatus(job.id)
       
       setSuccessMessage('Payment recorded successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
@@ -795,6 +847,57 @@ const JobDetails = () => {
       setTimeout(() => setError(''), 3000)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Delete a recorded payment
+  const handleDeletePayment = async (paymentId) => {
+    if (!job || !paymentId) return;
+    if (!window.confirm('Are you sure you want to delete this payment? This will update the amount paid for this job.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      await api.delete(`/transactions/${paymentId}`);
+
+      // Refresh payment history and totals
+      const historyResponse = await api.get(`/transactions/job/${job.id}`);
+      if (historyResponse.data) {
+        const transactions = historyResponse.data.transactions || [];
+        const totalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+
+        setPaymentHistory(transactions);
+
+        setJob(prev => {
+          const jobPrice = parseFloat(prev?.total) || 0
+          const existingTip = parseFloat(prev?.tip_amount || 0) || 0
+          const totalTipsFromPayments = historyResponse.data.totalTips ?? transactions.reduce((s, tx) => s + parseFloat(tx.tip_amount || 0), 0)
+          const finalTipAmount = Math.max(existingTip, totalTipsFromPayments)
+          const invoiceTotal = jobPrice + finalTipAmount
+          const isFullyPaid = totalPaid >= invoiceTotal - 0.01
+          return {
+            ...prev,
+            total_paid_amount: totalPaid,
+            invoice_paid_amount: totalPaid,
+            tip_amount: finalTipAmount,
+            total_invoice_amount: invoiceTotal,
+            invoice_status: isFullyPaid ? 'paid' : (invoiceTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+            payment_status: isFullyPaid ? 'paid' : 'pending'
+          };
+        });
+      }
+
+      setSuccessMessage('Payment deleted successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      setError(error.response?.data?.error || 'Failed to delete payment');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -818,13 +921,11 @@ const JobDetails = () => {
       
       console.log('💳 API URL:', `${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
       
-      // Check transactions for this job
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
+      // Check transactions for this job (use api.get so auth is sent)
+      const response = await api.get(`/transactions/job/${jobId}`)
+      const data = response.data
       
-      console.log('💳 Transaction API response status:', response.status)
-      
-      if (response.ok) {
-        const data = await response.json()
+      if (data) {
         console.log('💳 Transaction API response data:', data)
         
         const { hasPayment, totalPaid, transactionCount, transactions } = data
@@ -832,23 +933,18 @@ const JobDetails = () => {
         console.log('💳 Payment status:', { hasPayment, totalPaid, transactionCount })
         
         if (hasPayment && totalPaid > 0) {
-          // Payment found - job is paid
-          console.log('💳 Job is PAID - found', transactionCount, 'transactions totaling $', totalPaid)
-          
           setJob(prev => {
-            // Only update if not already paid (preserve import status)
-            if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
-              console.log('💳 Job already marked as paid - preserving status');
-              return prev;
-            }
-            console.log('💳 Updating job status to PAID')
+            // job.total already includes tip (from ZB: subtotal + fees + tip = total)
+            // Don't add tip_amount again — it's already in total
+            const jobTotal = parseFloat(prev?.total) || parseFloat(prev?.total_amount) || 0
+            const isFullyPaid = totalPaid >= jobTotal - 0.01
             return {
               ...prev,
-              invoice_status: 'paid',
-              payment_status: 'paid',
+              invoice_status: isFullyPaid ? 'paid' : 'invoiced',
+              payment_status: isFullyPaid ? 'paid' : 'pending',
               total_paid_amount: totalPaid,
-              total_invoice_amount: totalPaid, // For paid jobs, invoice amount = paid amount
-              transaction_count: transactionCount
+              total_invoice_amount: jobTotal,
+              transaction_count: data.transactionCount
             }
           })
         } else {
@@ -937,20 +1033,7 @@ const JobDetails = () => {
           }
         }
       } else {
-        console.error('💳 Transaction API error:', response.status)
-        // Don't overwrite if already paid
-        setJob(prev => {
-          if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
-            return prev;
-          }
-          return {
-          ...prev,
-          invoice_status: 'none',
-          invoice_id: null,
-          total_invoice_amount: 0,
-          total_paid_amount: 0
-          }
-        })
+        console.error('💳 Transaction API returned no data')
       }
     } catch (error) {
       console.error('💳 Error checking payment status:', error)
@@ -1169,14 +1252,29 @@ const JobDetails = () => {
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}')
         if (user.id) {
-          const [territoriesData, teamData] = await Promise.all([
+          const [territoriesData, teamData, paymentMethods, paymentSettingsData] = await Promise.all([
             territoriesAPI.getAll(user.id),
-            teamAPI.getAll(user.id)
+            teamAPI.getAll(user.id),
+            paymentMethodsAPI.getPaymentMethods().catch(() => []),
+            paymentSettingsAPI.getPaymentSettings().catch(() => ({}))
           ])
           setTerritories(territoriesData.territories || territoriesData)
           console.log('Team data received:', teamData)
           setTeamMembers(teamData.teamMembers || teamData)
+          if (paymentSettingsData) {
+            setTipSettings({ tipCalculationMode: paymentSettingsData.tipCalculationMode || 'automatic', paymentTypeFees: paymentSettingsData.paymentTypeFees || {} })
+          }
           console.log('Team members set:', teamData.teamMembers || teamData)
+          setCustomPaymentMethods(paymentMethods || [])
+          // Company driving time (for showing travel buffer on job details)
+          try {
+            const avail = await availabilityAPI.getAvailability(user.id)
+            const bh = avail?.businessHours || avail?.business_hours
+            const parsed = typeof bh === 'string' ? (() => { try { return JSON.parse(bh) } catch (e) { return null } })() : bh
+            if (parsed && (parsed.drivingTime !== undefined && parsed.drivingTime !== null)) {
+              setCompanyDrivingTimeMinutes(parseInt(parsed.drivingTime, 10) || 0)
+            }
+          } catch (e) { /* ignore */ }
         }
       } catch (e) {
         console.error('Failed to fetch supporting data:', e)
@@ -1226,7 +1324,7 @@ const JobDetails = () => {
 
   const statusOptions = [
     { key: 'pending', label: 'Pending', color: 'bg-gray-400' },
-    { key: 'confirmed', label: 'Confirmed', color: 'bg-blue-500' },
+    { key: 'confirmed', label: 'Confirmed', color: 'bg-[var(--sf-blue-500)]' },
     { key: 'in_progress', label: 'In Progress', color: 'bg-orange-500' },
     { key: 'completed', label: 'Completed', color: 'bg-purple-500' },
     { key: 'cancelled', label: 'Cancelled', color: 'bg-red-500' }
@@ -1669,16 +1767,18 @@ const JobDetails = () => {
         service_price: formData.service_price,
         additional_fees: formData.additional_fees,
         taxes: formData.taxes,
-        discount: formData.discount
+        discount: formData.discount,
+        duration: formData.duration
       }
-      
+
       await jobsAPI.update(job.id, updatedJob)
       
       setSuccessMessage('Service details updated successfully!')
       setTimeout(() => setSuccessMessage(""), 3000)
-      
+
       // Close the modal
       setShowEditServiceModal(false)
+      setShowDurationEditor(false)
       
       // Update the job state with new data immediately
       setJob(prev => ({
@@ -1753,43 +1853,16 @@ const JobDetails = () => {
     return `${weekday}, ${monthName} ${d}, ${y}`
   }
 
-  const formatTime = (dateString) => {
-    if (!dateString) return 'Time placeholder'
-    
-    // Handle both ISO format (2025-08-29T09:00:00) and space format (2025-08-29 09:00:00)
-    let timePart
-    if (dateString.includes('T')) {
-      timePart = dateString.split('T')[1]
-    } else {
-      timePart = dateString.split(' ')[1]
-    }
-    
-    if (!timePart) return 'Time placeholder'
-    
-    const [hours, minutes] = timePart.split(':')
-    const hour = parseInt(hours, 10)
-    const minute = parseInt(minutes, 10)
-    
-    if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
-    
-    // Convert to 12-hour format
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    const displayMinute = minute.toString().padStart(2, '0')
-    
-    const formatted = `${displayHour}:${displayMinute} ${ampm}`
-    return formatted
-  }
+  const formatTime = (dateString) => formatTimeShared(dateString) || 'Time placeholder'
 
   // Helper function to calculate total price consistently
   const calculateTotalPriceHelper = (servicePrice, modifierPrice, additionalFees, taxes, discount) => {
-    const basePrice = parseFloat(servicePrice) || 0;
-    const modPrice = parseFloat(modifierPrice) || 0;
-    const addFees = parseFloat(additionalFees) || 0;
-    const taxAmount = parseFloat(taxes) || 0;
-    const discAmount = parseFloat(discount) || 0;
-    
-    return basePrice + modPrice + addFees + taxAmount - discAmount;
+    return calculateJobTotal({
+      servicePrice: (parseFloat(servicePrice) || 0) + (parseFloat(modifierPrice) || 0),
+      discount,
+      additionalFees,
+      taxes
+    });
   };
 
   // Calculate total modifier price
@@ -1839,34 +1912,59 @@ const JobDetails = () => {
     }
   }
 
-  // Use backend-calculated total as source of truth
+  // Backend stores job.total as (subtotal - discount), so discount is already applied. Tip is separate.
   const calculateTotalPrice = () => {
     try {
-      // Use backend-calculated total from job data
-      const baseTotal = parseFloat(job.total) || 0;
-      const tip = formData.tip || 0;
-      const calculatedTotal = baseTotal + tip;
-      
-      console.log('💰 Price calculation:', {
-        jobTotal: job.total,
-        baseTotal,
-        tip,
-        calculatedTotal,
-        jobData: {
-          service_price: job.service_price,
-          additional_fees: job.additional_fees,
-          taxes: job.taxes,
-          discount: job.discount,
-          total: job.total
-        }
-      });
-      
-      return calculatedTotal;
+      const jobPrice = parseFloat(job?.total) || 0; // already includes - discount
+      const tip = parseFloat(job?.tip_amount) || 0;
+      return jobPrice + tip;
     } catch (error) {
       console.error('Error getting total price:', error);
       return 0;
     }
   }
+
+  // Edit Service modal: total from visible breakdown (Subtotal - Discount + Fee + Taxes, no tip)
+  const getEditServiceModalTotal = () => {
+    return Math.max(0, calculateJobTotal({
+      servicePrice: parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0,
+      discount: job?.discount,
+      additionalFees: job?.additional_fees,
+      taxes: job?.taxes
+    }));
+  }
+
+  // $0 jobs are considered free -- show as paid (no amount due)
+  const totalPrice = calculateTotalPrice();
+  const jobTotal = parseFloat(job?.total) || 0;          // job.total = subtotal - discount + fees + taxes (no tip)
+  const jobDiscount = parseFloat(job?.discount) || 0;
+  const jobFees = parseFloat(job?.additional_fees) || 0;
+  const jobTaxes = parseFloat(job?.taxes) || 0;
+  const tipAmountStored = parseFloat(job?.tip_amount) || 0;
+
+  // Breakdown: Subtotal (service_price) → Discount → Total → Fee → Taxes → Total due
+  const subtotalDisplay = parseFloat(job?.service_price) || (jobTotal + jobDiscount - jobFees - jobTaxes);
+  const totalAfterDiscount = subtotalDisplay - jobDiscount;
+  const totalDueAmount = calculateJobTotal({ servicePrice: subtotalDisplay, discount: jobDiscount, additionalFees: jobFees, taxes: jobTaxes });
+  const displayServiceTotal = totalDueAmount;                           // alias for backward compat
+
+  const effectiveAmountPaid = parseFloat(job?.total_paid_amount) || 0;
+
+  // Tips = overpayment (amount paid beyond total due). Fallback to stored tip if no overpayment.
+  const derivedTip = Math.max(0, effectiveAmountPaid - totalDueAmount);
+  const displayTip = derivedTip > 0 ? derivedTip : tipAmountStored;
+
+  // Incentives = sum of per-member incentive_amount from team assignments
+  const displayIncentive = parseFloat(job?.incentive_amount) || 0;
+
+  // Balance
+  const rawBalance = totalDueAmount - effectiveAmountPaid;
+  const isFullyPaidByAmount = rawBalance <= 0.01;
+  const isPaidOrFree = totalDueAmount === 0 || isFullyPaidByAmount;
+  const displayTotalDue = Math.max(0, rawBalance);
+  // Overpayment beyond tip is credit (rare edge case)
+  const showCreditLine = false;
+  const displayCreditAmount = 0;
 
   // Parse service modifiers from JSON
   const getServiceModifiers = () => {
@@ -1955,14 +2053,14 @@ const JobDetails = () => {
 
   if (loading || !job) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--sf-bg-page)]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <span className="text-gray-500 text-lg">
+          <span className="text-[var(--sf-text-muted)] text-lg">
             {isRetrying ? 'Retrying connection...' : 'Loading job details...'}
           </span>
           {isRetrying && (
-            <p className="text-sm text-gray-400 mt-2">
+            <p className="text-sm text-[var(--sf-text-muted)] mt-2">
               Windows Defender/firewall may be blocking the request. Retrying...
             </p>
           )}
@@ -1985,13 +2083,31 @@ const JobDetails = () => {
     return 'Customer'
   }
 
-  // Check if job is late
+  // Job is late only when the scheduled END time (start + duration) has passed -- not when start time has passed.
+  // e.g. 5pm job with 2h duration is late only after 7pm, not at 5:01pm.
   const isJobLate = () => {
     if (!job?.scheduled_date) return false
-    const scheduledDate = new Date(job.scheduled_date)
-    const now = new Date()
     const status = (job?.status || '').toLowerCase()
-    return scheduledDate < now && status !== 'completed' && status !== 'cancelled'
+    if (status === 'completed' || status === 'paid' || status === 'cancelled') return false
+    let startDate
+    if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+      const [datePart, timePart] = job.scheduled_date.split(' ')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes('T')) {
+      const [datePart, timePart] = job.scheduled_date.split('T')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else {
+      startDate = new Date(job.scheduled_date)
+    }
+    let durationMin = parseInt(job.service_duration || job.duration || job.estimated_duration || 60, 10) || 60
+    if (durationMin >= 1 && durationMin <= 24) durationMin = durationMin * 60
+    const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000)
+    const now = new Date()
+    return now > endDate
   }
 
   // Format arrival window
@@ -2020,31 +2136,31 @@ const JobDetails = () => {
     const startTime = new Date(scheduledDate)
     const endTime = new Date(scheduledDate.getTime() + duration * 60000)
     
-    const start = startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-    const end = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    const start = formatTimeShared(startTime)
+    const end = formatTimeShared(endTime)
     return `${start} - ${end}`
   }
 
   return (
     <>
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--sf-bg-page)]">
       {/* Mobile View - Shown on screens smaller than lg */}
       <div className="lg:hidden w-full max-w-full overflow-x-hidden">
         {/* Mobile Header */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10">
           <div className="px-4 py-3 flex items-center justify-between">
             <button
               onClick={() => navigate('/jobs')}
               className="p-2 -ml-2"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-900" />
+              <ArrowLeft className="w-5 h-5 text-[var(--sf-text-primary)]" />
             </button>
-            <h1 className="text-base font-semibold text-gray-900">Job #{job?.id || job?.job_id}</h1>
+            <h1 className="text-base font-semibold text-[var(--sf-text-primary)]">Job #{job?.id || job?.job_id}</h1>
             <button
               onClick={() => setShowMobileSidebar(true)}
               className="p-2 -mr-2"
             >
-              <MoreVertical className="w-5 h-5 text-gray-900" />
+              <MoreVertical className="w-5 h-5 text-[var(--sf-text-primary)]" />
             </button>
           </div>
         </div>
@@ -2068,35 +2184,42 @@ const JobDetails = () => {
         </div>
 
         {/* Job Overview Card - Date, Time, Customer Info */}
-        <div className="bg-white border-b border-gray-200 px-4 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
-              <p className="text-sm text-gray-900">{formatDate(job?.scheduled_date)}</p>
+              <p className="text-sm text-[var(--sf-text-primary)]">{formatDate(job?.scheduled_date)}</p>
               {isJobLate() && (
-                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+                <span className="rounded-full px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800">
                   Late
                 </span>
               )}
             </div>
-            <button className="flex items-center space-x-1 px-2 py-1 border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-50">
+            <button className="flex items-center space-x-1 px-2 py-1 border border-[var(--sf-border-light)] rounded text-xs text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]">
               <Plus className="w-3 h-3" />
               <span>Add Tag</span>
             </button>
           </div>
-          <p className="text-sm text-gray-600 mb-4">{formatArrivalWindow()}</p>
+          <p className="text-sm text-[var(--sf-text-secondary)] mb-4">{formatArrivalWindow()}</p>
           
-          {/* Customer Name with Phone Icon */}
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-gray-900">{getCustomerName()}</p>
+          {/* Customer Name with Source Badge + Phone Icon */}
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-sm font-medium text-[var(--sf-text-primary)] truncate">{getCustomerName()}</p>
+              {job?.customer_source_resolved && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100 flex-shrink-0">
+                  {job.customer_source_resolved}
+                </span>
+              )}
+            </div>
             {canViewCustomerContact(user) && job?.customer_phone && (
-              <a href={`tel:${job.customer_phone}`} className="p-1.5 hover:bg-gray-100 rounded">
-                <Phone className="w-4 h-4 text-gray-600" />
+              <a href={`tel:${job.customer_phone}`} className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded flex-shrink-0">
+                <Phone className="w-4 h-4 text-[var(--sf-text-secondary)]" />
               </a>
             )}
           </div>
           
           {/* Address */}
-          <p className="text-sm text-gray-600 mb-1">
+          <p className="text-sm text-[var(--sf-text-secondary)] mb-1">
             {job?.service_address_street || ''}
             {job?.service_address_unit && (
               <>
@@ -2105,21 +2228,21 @@ const JobDetails = () => {
               </>
             )}
           </p>
-          <p className="text-sm text-gray-600 mb-3">
+          <p className="text-sm text-[var(--sf-text-secondary)] mb-3">
             {[job?.service_address_city, job?.service_address_state, job?.service_address_zip, job?.service_address_country].filter(Boolean).join(', ')}
           </p>
           
           {/* Google Calendar Sync Indicator */}
           {job?.google_calendar_event_id && (
-            <div className="flex items-center space-x-2 mb-4 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-              <CalendarCheck className="w-4 h-4 text-blue-600 flex-shrink-0" />
-              <span className="text-xs text-blue-700 font-medium flex-1">Synced to Google Calendar</span>
+            <div className="flex items-center space-x-2 mb-4 p-2 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg">
+              <CalendarCheck className="w-4 h-4 text-[var(--sf-blue-500)] flex-shrink-0" />
+              <span className="text-xs text-[var(--sf-blue-500)] font-medium flex-1">Synced to Google Calendar</span>
               {job?.google_calendar_event_link ? (
                 <a
                   href={job.google_calendar_event_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-1"
+                  className="text-xs text-[var(--sf-blue-500)] hover:text-blue-800 underline flex items-center space-x-1"
                 >
                   <span>View</span>
                   <ExternalLink className="w-3 h-3" />
@@ -2129,7 +2252,7 @@ const JobDetails = () => {
                   href={`https://calendar.google.com/calendar/u/0/r/day/${new Date(job.scheduled_date || Date.now()).toISOString().split('T')[0].replace(/-/g, '/')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-1"
+                  className="text-xs text-[var(--sf-blue-500)] hover:text-blue-800 underline flex items-center space-x-1"
                 >
                   <span>View</span>
                   <ExternalLink className="w-3 h-3" />
@@ -2146,7 +2269,7 @@ const JobDetails = () => {
               )}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-blue-600 font-medium"
+              className="text-sm text-[var(--sf-blue-500)] font-medium"
             >
               View directions →
             </a>
@@ -2157,7 +2280,7 @@ const JobDetails = () => {
                 setSuccessMessage('Address copied to clipboard!')
                 setTimeout(() => setSuccessMessage(''), 3000)
               }}
-              className="text-sm text-blue-600 font-medium flex items-center space-x-1"
+              className="text-sm text-[var(--sf-blue-500)] font-medium flex items-center space-x-1"
             >
               <Copy className="w-3 h-3" />
               <span>Copy Address</span>
@@ -2169,14 +2292,14 @@ const JobDetails = () => {
             {canMarkJobStatus(user) && (
               <button
                 onClick={() => handleStatusChange('en_route')}
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm"
+                className="flex-1 bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium text-sm"
               >
                 En Route
               </button>
             )}
             <button
               onClick={() => setShowMobileSidebar(true)}
-              className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm"
+              className="flex-1 bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)]"
             >
               More Actions
             </button>
@@ -2184,20 +2307,20 @@ const JobDetails = () => {
         </div>
 
         {/* Services Section */}
-        <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-900">Services</h2>
+            <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">Services</h2>
             {canEditJobDetails(user) && (
               <button
                 onClick={() => setShowEditServiceModal(true)}
-                className="text-sm text-blue-600 font-medium"
+                className="text-sm text-[var(--sf-blue-500)] font-medium"
               >
                 Edit
               </button>
             )}
           </div>
           <div className="space-y-3">
-            <p className="text-sm font-medium text-gray-900">{job?.service_name || 'Service'}</p>
+            <p className="text-sm font-medium text-[var(--sf-text-primary)]">{job?.service_name || 'Service'}</p>
             {(() => {
               // Get intake questions and answers
               const intakeQuestions = getServiceIntakeQuestions()
@@ -2215,35 +2338,35 @@ const JobDetails = () => {
                 <>
                   {equipmentQuestion?.answer && (
                     <div>
-                      <p className="text-xs text-gray-600 mb-1">Type of Equipment:</p>
-                      <p className="text-sm text-gray-900">{equipmentQuestion.answer}</p>
+                      <p className="text-xs text-[var(--sf-text-secondary)] mb-1">Type of Equipment:</p>
+                      <p className="text-sm text-[var(--sf-text-primary)]">{equipmentQuestion.answer}</p>
                     </div>
                   )}
                   {problemQuestion?.answer && (
                     <div>
-                      <p className="text-xs text-gray-600 mb-1">Nature of Problem:</p>
-                      <p className="text-sm text-gray-900">{problemQuestion.answer}</p>
+                      <p className="text-xs text-[var(--sf-text-secondary)] mb-1">Nature of Problem:</p>
+                      <p className="text-sm text-[var(--sf-text-primary)]">{problemQuestion.answer}</p>
                     </div>
                   )}
                   {/* Fallback to job fields if no intake questions */}
                   {!equipmentQuestion?.answer && job?.service_type && (
                     <div>
-                      <p className="text-xs text-gray-600 mb-1">Type of Equipment:</p>
-                      <p className="text-sm text-gray-900">{job.service_type}</p>
+                      <p className="text-xs text-[var(--sf-text-secondary)] mb-1">Type of Equipment:</p>
+                      <p className="text-sm text-[var(--sf-text-primary)]">{job.service_type}</p>
                     </div>
                   )}
                   {!problemQuestion?.answer && job?.service_description && (
                     <div>
-                      <p className="text-xs text-gray-600 mb-1">Nature of Problem:</p>
-                      <p className="text-sm text-gray-900">{job.service_description}</p>
+                      <p className="text-xs text-[var(--sf-text-secondary)] mb-1">Nature of Problem:</p>
+                      <p className="text-sm text-[var(--sf-text-primary)]">{job.service_description}</p>
                     </div>
                   )}
                 </>
               )
             })()}
             <div>
-              <p className="text-xs text-gray-600 mb-1">Estimated duration:</p>
-              <p className="text-sm text-gray-900">
+              <p className="text-xs text-[var(--sf-text-secondary)] mb-1">Estimated duration:</p>
+              <p className="text-sm text-[var(--sf-text-primary)]">
                 {(() => {
                   const duration = parseInt(job?.service_duration || job?.duration || 60)
                   const hours = Math.floor(duration / 60)
@@ -2262,80 +2385,126 @@ const JobDetails = () => {
         </div>
 
         {/* Notes and Attachments Section */}
-        <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
-          <h2 className="text-base font-semibold text-gray-900 mb-3">Notes and attachments</h2>
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
+          <h2 className="text-base font-semibold text-[var(--sf-text-primary)] mb-3">Notes and attachments</h2>
           {canViewCustomerNotes(user) ? (
             <button
               onClick={() => setEditingField('notes')}
-              className="w-full border-2 border-dashed border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors"
+              className="w-full border-2 border-dashed border-[var(--sf-border-light)] rounded-lg px-4 py-3 text-sm text-[var(--sf-text-secondary)] hover:border-blue-500 hover:text-[var(--sf-blue-500)] transition-colors"
             >
               + Add Note
             </button>
           ) : (
-            <p className="text-sm text-gray-500 italic">You don't have permission to view notes.</p>
+            <p className="text-sm text-[var(--sf-text-muted)] italic">You don't have permission to view notes.</p>
           )}
         </div>
 
         {/* Invoice Section */}
         {canViewEditJobPrice(user) && (
-          <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
+          <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-gray-900">Invoice</h2>
+              <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">Invoice</h2>
               <div className="flex items-center space-x-2">
-                <button className="p-1.5 hover:bg-gray-100 rounded">
-                  <Mail className="w-4 h-4 text-gray-600" />
+                <button className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded">
+                  <Mail className="w-4 h-4 text-[var(--sf-text-secondary)]" />
                 </button>
-                <button className="p-1.5 hover:bg-gray-100 rounded">
-                  <Printer className="w-4 h-4 text-gray-600" />
+                <button className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded">
+                  <Printer className="w-4 h-4 text-[var(--sf-text-secondary)]" />
                 </button>
-                <button className="p-1.5 hover:bg-gray-100 rounded">
-                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                <button className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded">
+                  <MoreVertical className="w-4 h-4 text-[var(--sf-text-secondary)]" />
                 </button>
               </div>
             </div>
             <div className="space-y-2 mb-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{job?.service_name || 'Service'}</p>
-                  <p className="text-xs text-gray-600">Base Price (${(parseFloat(job?.services?.price) || calculateTotalPrice()).toFixed(2)})</p>
+                  <p className="text-sm font-medium text-[var(--sf-text-primary)]">{job?.service_name || 'Service'}</p>
+                  <p className="text-xs text-[var(--sf-text-secondary)]">Base Price (${(parseFloat(job?.service_price) || parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)})</p>
                 </div>
-                <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.services?.price) || calculateTotalPrice()).toFixed(2)}</span>
+                <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(job?.service_price) || parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)}</span>
               </div>
               {canEditJobDetails(user) && (
                 <button 
                   onClick={() => setShowEditServiceModal(true)}
-                  className="text-sm text-blue-600 font-medium flex items-center space-x-1"
+                  className="text-sm text-[var(--sf-blue-500)] font-medium flex items-center space-x-1"
                 >
                   <Edit className="w-3 h-3" />
                   <span>Edit Service & Pricing</span>
                 </button>
               )}
-              <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+              <div className="border-t border-[var(--sf-border-light)] pt-2 mt-2 space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                  <span className="text-[var(--sf-text-secondary)]">Subtotal</span>
+                  <span className="text-[var(--sf-text-primary)]">${subtotalDisplay.toFixed(2)}</span>
                 </div>
+                {jobDiscount > 0 ? (
+                  <div className="flex justify-between text-sm">
+                    <button onClick={() => setShowDiscountModal(true)} className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">Discount</button>
+                    <span className="text-red-600">-${jobDiscount.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowDiscountModal(true)} className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">
+                    Add Discount
+                  </button>
+                )}
                 <div className="flex justify-between text-sm font-semibold">
-                  <span className="text-gray-900">Total</span>
-                  <span className="text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                  <span className="text-[var(--sf-text-primary)]">Total</span>
+                  <span className="text-[var(--sf-text-primary)]">${totalAfterDiscount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                  <span className="text-gray-600">Amount paid</span>
-                  <span className="text-gray-900">${job?.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Total due</span>
-                  <span className={`font-semibold ${job?.invoice_status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>
-                    ${job?.invoice_status === 'paid' ? '0.00' : (job?.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                {jobFees > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[var(--sf-text-secondary)]">Fee</span>
+                    <span className="text-[var(--sf-text-primary)]">${jobFees.toFixed(2)}</span>
+                  </div>
+                )}
+                {jobTaxes > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[var(--sf-text-secondary)]">Taxes</span>
+                    <span className="text-[var(--sf-text-primary)]">${jobTaxes.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm pt-2 border-t border-[var(--sf-border-light)]">
+                  <span className="text-[var(--sf-text-secondary)]">Total due</span>
+                  <span className={`font-semibold ${displayTotalDue === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${displayTotalDue.toFixed(2)}
                   </span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--sf-text-secondary)]">Amount paid</span>
+                  <span className="text-[var(--sf-text-primary)]">${effectiveAmountPaid.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--sf-text-secondary)]">Tip</span>
+                  <button
+                    onClick={() => { const curTip = parseFloat(job?.tip_amount) || 0; setFormData(prev => ({ ...prev, tipInput: curTip > 0 ? curTip.toFixed(2) : '' })); setShowTipModal(true); }}
+                    className={displayTip > 0 ? "text-green-600 hover:text-green-700" : "text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"}
+                  >
+                    {displayTip > 0 ? `+$${displayTip.toFixed(2)}` : 'Add Tip'}
+                  </button>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--sf-text-secondary)]">Incentives</span>
+                  <button
+                    onClick={() => { const curIncentive = parseFloat(job?.incentive_amount) || 0; setFormData(prev => ({ ...prev, incentiveInput: curIncentive > 0 ? curIncentive.toFixed(2) : '' })); setShowIncentiveModal(true); }}
+                    className={displayIncentive > 0 ? "text-purple-600 hover:text-purple-700" : "text-purple-600 hover:text-purple-700"}
+                  >
+                    {displayIncentive > 0 ? `+$${displayIncentive.toFixed(2)}` : 'Add Incentive'}
+                  </button>
+                </div>
+                {showCreditLine && displayCreditAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[var(--sf-text-secondary)]">Credit</span>
+                    <span className="font-semibold text-green-600">+${displayCreditAmount.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
             {canProcessPayments(user) && (
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowSendInvoiceModal(true)}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center space-x-2"
+                  className="flex-1 bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center space-x-2"
                 >
                   <CreditCard className="w-4 h-4" />
                   <span>Charge Customer</span>
@@ -2350,7 +2519,7 @@ const JobDetails = () => {
                     })
                     setShowAddPaymentModal(true)
                   }}
-                  className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm"
+                  className="flex-1 bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)]"
                 >
                   Record a Payment
                 </button>
@@ -2361,38 +2530,69 @@ const JobDetails = () => {
 
         {/* Payments Section */}
         {canProcessPayments(user) && (
-          <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
-            <h2 className="text-base font-semibold text-gray-900 mb-3">Payments</h2>
+          <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
+            <h2 className="text-base font-semibold text-[var(--sf-text-primary)] mb-3">Payments</h2>
             {paymentHistory && paymentHistory.length > 0 ? (
               <div className="space-y-3">
                 {paymentHistory.map((payment, index) => (
-                  <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div key={payment.id || payment.transaction_id || index} className={`flex items-center justify-between p-3 rounded-lg border ${payment.status === 'voided' ? 'bg-red-50 border-red-200 opacity-60' : 'bg-[var(--sf-bg-page)] border-[var(--sf-border-light)]'}`}>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold text-gray-900">
+                        <span className="text-sm font-semibold text-[var(--sf-text-primary)]">
                           ${parseFloat(payment.amount || 0).toFixed(2)}
                         </span>
-                        <span className="text-xs text-gray-500 capitalize">
+                        {parseFloat(payment.tip_amount || 0) > 0 && (
+                          <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                            +${parseFloat(payment.tip_amount).toFixed(2)} tip
+                          </span>
+                        )}
+                        <span className="text-xs text-[var(--sf-text-muted)] capitalize">
                           {payment.payment_method || 'cash'}
                         </span>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric', 
+                      <div className="text-xs text-[var(--sf-text-muted)]">
+                        {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
                           year: 'numeric',
                           hour: 'numeric',
                           minute: '2-digit'
                         }) : 'Date not available'}
                       </div>
                       {payment.notes && (
-                        <div className="text-xs text-gray-600 mt-1">
+                        <div className="text-xs text-[var(--sf-text-secondary)] mt-1">
                           {payment.notes}
                         </div>
                       )}
                     </div>
-                    <div className="text-xs text-green-600 font-semibold">
-                      Completed
+                    <div className="flex flex-col items-end space-y-2">
+                      <span className={`text-xs font-semibold ${payment.status === 'voided' ? 'text-red-500' : 'text-green-600'}`}>
+                        {payment.status === 'voided' ? 'Voided' : 'Completed'}
+                      </span>
+                      {payment.status !== 'voided' && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const txId = payment.id || payment.transaction_id;
+                            if (!txId || !window.confirm('Void this payment? This cannot be undone.')) return;
+                            try {
+                              await api.post(`/transactions/${txId}/void`);
+                              // Refresh payment history
+                              const resp = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${job.id}`);
+                              if (resp.ok) {
+                                const data = await resp.json();
+                                setPaymentHistory(data.transactions || []);
+                                setJob(prev => ({ ...prev, total_paid_amount: data.totalPaid || 0, payment_status: data.totalPaid > 0 ? 'paid' : 'pending' }));
+                              }
+                            } catch (err) { console.error('Void failed:', err); alert('Failed to void payment'); }
+                          }}
+                          className="text-xs text-orange-600 hover:text-orange-800 flex items-center gap-1"
+                          title="Void payment"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          Void
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2400,7 +2600,7 @@ const JobDetails = () => {
             ) : (
               <div className="text-center py-8">
                 <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-[var(--sf-text-muted)]">
                   No payments. When you process or record a payment for this invoice, it will appear here.
                 </p>
               </div>
@@ -2408,10 +2608,24 @@ const JobDetails = () => {
           </div>
         )}
 
+        {/* Cancellation summary (cancelled jobs only) */}
+        {job?.status === 'cancelled' && (
+          <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
+            <CancellationSummary job={job} />
+          </div>
+        )}
+
+        {/* Expenses / Reimbursements Section */}
+        {job?.id && (
+          <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
+            <JobExpensesSection jobId={job.id} teamMembers={teamMembers} />
+          </div>
+        )}
+
         {/* Customer Section */}
-        <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-900">Customer</h2>
+            <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">Customer</h2>
             {canEditJobDetails(user) && (
               <button 
                 onClick={() => {
@@ -2419,11 +2633,12 @@ const JobDetails = () => {
                     firstName: job?.customer_first_name || '',
                     lastName: job?.customer_last_name || '',
                     email: job?.customer_email || '',
-                    phone: job?.customer_phone || ''
+                    phone: job?.customer_phone || '',
+                    source: job?.customer_source || ''
                   })
                   setShowEditCustomerModal(true)
                 }}
-                className="text-sm text-blue-600 font-medium"
+                className="text-sm text-[var(--sf-blue-500)] font-medium"
               >
                 Edit
               </button>
@@ -2437,19 +2652,26 @@ const JobDetails = () => {
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">{getCustomerName()}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium text-[var(--sf-text-primary)]">{getCustomerName()}</p>
+                  {job?.customer_source_resolved && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+                      {job.customer_source_resolved}
+                    </span>
+                  )}
+                </div>
                 {canViewCustomerContact(user) && job?.customer_phone && (
                   <div className="flex items-center space-x-1 mt-1">
-                    <Phone className="w-3 h-3 text-gray-500" />
-                    <a href={`tel:${job.customer_phone}`} className="text-xs text-gray-600">
+                    <Phone className="w-3 h-3 text-[var(--sf-text-muted)]" />
+                    <a href={`tel:${job.customer_phone}`} className="text-xs text-[var(--sf-text-secondary)]">
                       {formatPhoneNumber(job.customer_phone)}
                     </a>
                   </div>
                 )}
                 {canViewCustomerContact(user) && job?.customer_email && (
                   <div className="flex items-center space-x-1 mt-1">
-                    <Mail className="w-3 h-3 text-gray-500" />
-                    <a href={`mailto:${job.customer_email}`} className="text-xs text-gray-600 truncate">
+                    <Mail className="w-3 h-3 text-[var(--sf-text-muted)]" />
+                    <a href={`mailto:${job.customer_email}`} className="text-xs text-[var(--sf-text-secondary)] truncate">
                       {job.customer_email}
                     </a>
                   </div>
@@ -2458,30 +2680,30 @@ const JobDetails = () => {
             </div>
             {canViewEditJobPrice(user) && (
             <div>
-              <p className="text-xs text-gray-600 mb-1">EXPECTED PAYMENT METHOD</p>
+              <p className="text-xs text-[var(--sf-text-secondary)] mb-1">EXPECTED PAYMENT METHOD</p>
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-900">No payment method on file</p>
+                <p className="text-sm text-[var(--sf-text-primary)]">No payment method on file</p>
                   {canEditJobDetails(user) && (
-                <button className="text-sm text-blue-600 font-medium">Change</button>
+                <button className="text-sm text-[var(--sf-blue-500)] font-medium">Change</button>
                   )}
               </div>
             </div>
             )}
             {canEditJobDetails(user) && (
             <div>
-              <p className="text-xs text-gray-600 mb-1">NOTIFICATION PREFERENCES</p>
+              <p className="text-xs text-[var(--sf-text-secondary)] mb-1">NOTIFICATION PREFERENCES</p>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${emailNotifications ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${emailNotifications ? 'bg-green-100 text-green-800' : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-secondary)]'}`}>
                     Email {emailNotifications ? 'Enabled' : 'Disabled'}
                   </span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${smsNotifications ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${smsNotifications ? 'bg-green-100 text-green-800' : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-secondary)]'}`}>
                     SMS {smsNotifications ? 'Enabled' : 'Disabled'}
                   </span>
                 </div>
                 <button 
                   onClick={() => setShowNotificationModal(true)}
-                  className="text-sm text-blue-600 font-medium"
+                  className="text-sm text-[var(--sf-blue-500)] font-medium"
                 >
                   Edit
                 </button>
@@ -2489,16 +2711,16 @@ const JobDetails = () => {
             </div>
             )}
             <div>
-              <p className="text-xs text-gray-600 mb-1">BILLING ADDRESS</p>
-              <p className="text-sm text-gray-900">Same as service address</p>
+              <p className="text-xs text-[var(--sf-text-secondary)] mb-1">BILLING ADDRESS</p>
+              <p className="text-sm text-[var(--sf-text-primary)]">Same as service address</p>
             </div>
           </div>
         </div>
 
         {/* Team Section */}
-        <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2 mb-20">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2 mb-20">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-900">Team</h2>
+            <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">Team</h2>
             {canEditJobDetails(user) && !isWorker(user) && (
               <button 
                 onClick={() => {
@@ -2508,7 +2730,7 @@ const JobDetails = () => {
                   })
                   setShowEditJobRequirementsModal(true)
                 }}
-                className="text-sm text-blue-600 font-medium"
+                className="text-sm text-[var(--sf-blue-500)] font-medium"
               >
                 Edit
               </button>
@@ -2516,108 +2738,133 @@ const JobDetails = () => {
           </div>
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-gray-600 mb-1">JOB REQUIREMENTS</p>
-              <p className="text-sm text-gray-900 mb-1">Workers needed: {job?.workers_needed || 1} service provider</p>
-              <p className="text-sm text-gray-900">Skills needed: {job?.required_skills && job.required_skills.length > 0 ? job.required_skills.join(', ') : 'No skill tags required'}</p>
+              <p className="text-xs text-[var(--sf-text-secondary)] mb-1">JOB REQUIREMENTS</p>
+              <p className="text-sm text-[var(--sf-text-primary)] mb-1">Workers needed: {job?.workers_needed || 1} service provider</p>
+              <p className="text-sm text-[var(--sf-text-primary)]">Skills needed: {job?.required_skills && job.required_skills.length > 0 ? job.required_skills.join(', ') : 'No skill tags required'}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-600 mb-2">ASSIGNED</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-[var(--sf-text-secondary)]">ASSIGNED</p>
+                {canEditJobDetails(user) && (
+                  <button
+                    onClick={() => setShowAssignModal(true)}
+                    className="text-sm text-[var(--sf-blue-500)] font-medium"
+                  >
+                    Assign
+                  </button>
+                )}
+              </div>
               {(() => {
-                // First, try to get from team_assignments array (multiple team members support)
-                let assignedMember = null;
-                if (job?.team_assignments && Array.isArray(job.team_assignments) && job.team_assignments.length > 0) {
-                  // Get the primary team member (first one or one marked as primary)
-                  const primaryAssignment = job.team_assignments.find(ta => ta.is_primary) || job.team_assignments[0];
-                  if (primaryAssignment) {
-                    // Try nested team_members object first (from backend relation)
-                    assignedMember = primaryAssignment.team_members || null;
-                    // If not found, find in teamMembers array
-                    if (!assignedMember && primaryAssignment.team_member_id) {
-                      assignedMember = teamMembers.find(m => Number(m.id) === Number(primaryAssignment.team_member_id)) || null;
-                    }
-                  }
-                }
-                
-                // Fallback: try direct assignment fields
-                if (!assignedMember) {
-                  assignedMember = teamMembers.find(m => 
-                    Number(m.id) === Number(job?.assigned_team_member_id) || 
-                    Number(m.id) === Number(job?.team_member_id) ||
-                    (job?.assigned_team_member && Number(m.id) === Number(job.assigned_team_member.id))
-                  ) || null;
-                }
-                
-                // Also check if job has team_members relation directly
-                if (!assignedMember && job?.team_members) {
-                  assignedMember = job.team_members;
-                }
+                const teamAssignments = job?.team_assignments || [];
+
                 const getTeamMemberInitials = (member) => {
                   if (!member) return '?'
                   const firstName = member.first_name || member.name || ''
                   const lastName = member.last_name || ''
-                  if (firstName && lastName) {
-                    return (firstName[0] + lastName[0]).toUpperCase()
-                  }
-                  if (firstName) {
-                    return firstName.substring(0, 2).toUpperCase()
-                  }
+                  if (firstName && lastName) return (firstName[0] + lastName[0]).toUpperCase()
+                  if (firstName) return firstName.substring(0, 2).toUpperCase()
                   return '?'
                 }
                 const getTeamMemberName = (member) => {
                   if (!member) return ''
                   if (member.name) return member.name
-                  return `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                  const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                  return fullName || member.email || ''
                 }
-                
-                return assignedMember ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 flex-1 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-blue-600 font-semibold text-xs">
-                          {getTeamMemberInitials(assignedMember)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-900 truncate flex-1 min-w-0" title={getTeamMemberName(assignedMember)}>
-                        {(() => {
-                          const name = getTeamMemberName(assignedMember);
-                          return name.length > 25 ? `${name.substring(0, 25)}...` : name;
-                        })()}
-                      </p>
+
+                if (teamAssignments.length > 0) {
+                  return (
+                    <div className="space-y-3">
+                      {teamAssignments.map((assignment, index) => {
+                        let member = assignment.team_members || null;
+                        if (!member && assignment.team_member_id) {
+                          member = teamMembers.find(m => Number(m.id) === Number(assignment.team_member_id)) || null;
+                        }
+                        // Build name from assignment fields as last fallback
+                        if (!member && (assignment.first_name || assignment.last_name)) {
+                          member = { first_name: assignment.first_name, last_name: assignment.last_name, email: assignment.email };
+                        }
+                        const memberName = member ? getTeamMemberName(member) : 'Unknown Team Member';
+
+                        // Resolve full member for driving time
+                        const fullMember = member && member.id
+                          ? teamMembers.find(m => Number(m.id) === Number(member.id)) || member
+                          : (assignment.team_member_id ? teamMembers.find(m => Number(m.id) === Number(assignment.team_member_id)) || member : member);
+                        const drivingMin = fullMember ? getMemberDrivingTime(fullMember, companyDrivingTimeMinutes) : 0;
+
+                        return (
+                          <div key={assignment.team_member_id || index} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                <div className="relative flex-shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span className="text-[var(--sf-blue-500)] font-semibold text-xs">
+                                      {getTeamMemberInitials(member)}
+                                    </span>
+                                  </div>
+                                  {assignment.is_primary && (
+                                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 rounded-full flex items-center justify-center border border-white">
+                                      <Star className="w-2 h-2 text-white" fill="white" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-1.5 min-w-0">
+                                  <p className="text-sm text-[var(--sf-text-primary)] truncate" title={memberName}>
+                                    {memberName.length > 22 ? `${memberName.substring(0, 22)}...` : memberName}
+                                  </p>
+                                  {assignment.is_primary && (
+                                    <span className="rounded-full px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 flex-shrink-0">
+                                      Primary
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {drivingMin > 0 && (
+                              <p className="text-xs text-amber-700 flex items-center gap-1 ml-10">
+                                <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                                Travel time: {drivingMin} min before & after — blocks this cleaner's schedule
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {canEditJobDetails(user) && (
-                      <div className="flex items-center space-x-2">
-                        <button 
-                          onClick={() => setShowAssignModal(true)}
-                          className="text-sm text-blue-600 font-medium"
-                        >
-                          Assign more
-                        </button>
-                        <button 
-                          onClick={async () => {
-                            try {
-                              setLoading(true)
-                              await jobsAPI.update(job.id, { assigned_team_member_id: null })
-                              setJob(prev => ({ ...prev, assigned_team_member_id: null }))
-                              setSuccessMessage('Team member unassigned')
-                              setTimeout(() => setSuccessMessage(''), 3000)
-                            } catch (error) {
-                              setError('Failed to unassign team member')
-                            } finally {
-                              setLoading(false)
-                            }
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded"
-                        >
-                          <X className="w-4 h-4 text-gray-600" />
-                        </button>
-                      </div>
-                    )}
+                  );
+                }
+
+                // Fallback: single member from direct assignment fields
+                let assignedMember = null;
+                if (!assignedMember) {
+                  assignedMember = teamMembers.find(m =>
+                    Number(m.id) === Number(job?.assigned_team_member_id) ||
+                    Number(m.id) === Number(job?.team_member_id) ||
+                    (job?.assigned_team_member && Number(m.id) === Number(job.assigned_team_member.id))
+                  ) || null;
+                }
+                if (!assignedMember && job?.team_members) {
+                  assignedMember = job.team_members;
+                }
+                if (!assignedMember && job?.assigned_team_member) {
+                  assignedMember = job.assigned_team_member;
+                }
+
+                return assignedMember ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[var(--sf-blue-500)] font-semibold text-xs">
+                        {getTeamMemberInitials(assignedMember)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[var(--sf-text-primary)] truncate flex-1 min-w-0" title={getTeamMemberName(assignedMember)}>
+                      {getTeamMemberName(assignedMember)}
+                    </p>
                   </div>
                 ) : (
                   canEditJobDetails(user) && (
-                    <button 
+                    <button
                       onClick={() => setShowAssignModal(true)}
-                      className="text-sm text-blue-600 font-medium"
+                      className="text-sm text-[var(--sf-blue-500)] font-medium"
                     >
                       Assign team member
                     </button>
@@ -2626,9 +2873,9 @@ const JobDetails = () => {
               })()}
             </div>
             {canEditJobDetails(user) && (
-            <div className="pt-3 border-t border-gray-200">
+            <div className="pt-3 border-t border-[var(--sf-border-light)]">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-900">Offer job to service providers</span>
+                <span className="text-sm font-medium text-[var(--sf-text-primary)]">Offer job to service providers</span>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
@@ -2652,11 +2899,11 @@ const JobDetails = () => {
                     }}
                     className="sr-only peer"
                   />
-                    <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                    <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--sf-blue-500)] ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                 </label>
               </div>
-              <p className="text-xs text-gray-600">
-                  Allows qualified, available providers to see and claim this job. <button className="text-blue-600 hover:text-blue-700">Learn more</button>
+              <p className="text-xs text-[var(--sf-text-secondary)]">
+                  Allows qualified, available providers to see and claim this job. <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">Learn more</button>
               </p>
             </div>
             )}
@@ -2665,7 +2912,7 @@ const JobDetails = () => {
       </div>
 
       {/* Desktop View - Shown on lg screens and above */}
-      <div className="hidden lg:flex min-h-screen bg-gray-50">
+      <div className="hidden lg:flex min-h-screen bg-[var(--sf-bg-page)]">
         {/* Sidebar */}
         
         {/* Main Content Area */}
@@ -2675,7 +2922,7 @@ const JobDetails = () => {
         <div className="hidden lg:block  px-4 sm:px-6 py-4">
           <div className="mb-4">
             <button
-              className="flex items-center text-gray-600 hover:text-gray-700 flex-shrink-0"
+              className="flex items-center text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] flex-shrink-0"
               onClick={() => navigate('/jobs')}
               style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
             >
@@ -2686,24 +2933,35 @@ const JobDetails = () => {
           
           <div className="flex items-center justify-between mb-4">
             <div className="min-w-0 flex-1">
-              <h1 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-xl font-bold text-gray-900 mb-1">
+              <h1 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-xl font-bold text-[var(--sf-text-primary)] mb-1">
                 {job.service_names && job.service_names.length > 1 
                   ? `${job.service_names.length} Services` 
                   : decodeHtmlEntities(job.service_name || 'Service')
-                } <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="font-normal text-gray-500">for</span> {job.customer_first_name} {job.customer_last_name}
+                } <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="font-normal text-[var(--sf-text-muted)]">for</span>{' '}
+                {job.customer_id ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); navigate(`/customer/${job.customer_id}`) }}
+                    className="text-[var(--sf-blue-500)] hover:underline"
+                  >
+                    {job.customer_first_name} {job.customer_last_name}
+                  </button>
+                ) : (
+                  <>{job.customer_first_name} {job.customer_last_name}</>
+                )}
               </h1>
               <div className="flex items-center space-x-3">
-              <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{job.id || job.job_id}</p>
+              <p className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{job.id || job.job_id}</p>
                 {job?.google_calendar_event_id && (
-                  <div className="flex items-center space-x-1.5 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded-md">
-                    <CalendarCheck className="w-3.5 h-3.5 text-blue-600" />
-                    <span className="text-xs text-blue-700 font-medium">Synced</span>
+                  <div className="flex items-center space-x-1.5 px-2 py-0.5 bg-[var(--sf-blue-50)] border border-blue-200 rounded-md">
+                    <CalendarCheck className="w-3.5 h-3.5 text-[var(--sf-blue-500)]" />
+                    <span className="text-xs text-[var(--sf-blue-500)] font-medium">Synced</span>
                     {job?.google_calendar_event_link ? (
                       <a
                         href={job.google_calendar_event_link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-0.5 ml-1"
+                        className="text-xs text-[var(--sf-blue-500)] hover:text-blue-800 underline flex items-center space-x-0.5 ml-1"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <span>View</span>
@@ -2714,7 +2972,7 @@ const JobDetails = () => {
                         href={`https://calendar.google.com/calendar/u/0/r/day/${new Date(job.scheduled_date || Date.now()).toISOString().split('T')[0].replace(/-/g, '/')}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-0.5 ml-1"
+                        className="text-xs text-[var(--sf-blue-500)] hover:text-blue-800 underline flex items-center space-x-0.5 ml-1"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <span>View</span>
@@ -2724,28 +2982,37 @@ const JobDetails = () => {
                   </div>
                 )}
               </div>
+              <p className="text-xs text-[var(--sf-text-muted)] mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                Source:{' '}
+                <span className="font-medium text-[var(--sf-text-primary)]">
+                  {job?.customer_source
+                    || job?.customer?.source
+                    || job?.customers?.source
+                    || 'No source'}
+                </span>
+              </p>
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
               {/* Mobile sidebar toggle */}
               <button
                 onClick={() => setShowMobileSidebar(true)}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="lg:hidden p-2 rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors"
               >
-                <Menu className="w-5 h-5 text-gray-600" />
+                <Menu className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
               
               {/* Territory Assignment */}
               <div className="hidden sm:flex items-center space-x-2 relative" ref={territoryRef}>
-                <span className="text-sm text-gray-600">Territory</span>
+                <span className="text-sm text-[var(--sf-text-secondary)]">Territory</span>
                 <div 
-                  className="flex items-center bg-gray-100 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors relative min-w-0"
+                  className="flex items-center bg-[var(--sf-bg-page)] px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors relative min-w-0"
                   onClick={() => setEditingField(editingField === 'territory' ? null : 'territory')}
                 >
                   {job?.territory_id ? (
                     <Target className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" />
                   ) : (
-                    <Target className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                    <Target className="w-4 h-4 text-[var(--sf-text-muted)] mr-2 flex-shrink-0" />
                   )}
                   <span className="text-sm font-medium mr-2 truncate flex-1 min-w-0" title={territories.find(t => t.id === job?.territory_id)?.name || 'Unassigned'}>
                     {(() => {
@@ -2753,34 +3020,34 @@ const JobDetails = () => {
                       return territoryName.length > 20 ? `${territoryName.substring(0, 20)}...` : territoryName;
                     })()}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <ChevronDown className="w-4 h-4 text-[var(--sf-text-muted)] flex-shrink-0" />
                 </div>
                 {editingField === 'territory' && (
-                  <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
                     <button
-                      className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                        !job?.territory_id ? 'font-semibold bg-gray-50' : ''
+                      className={`w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-2 ${
+                        !job?.territory_id ? 'font-semibold bg-[var(--sf-bg-page)]' : ''
                       }`}
                       onClick={() => {
                         handleTerritoryChange(null)
                         setEditingField(null)
                       }}
                     >
-                      <Target className="w-4 h-4 text-gray-400" />
+                      <Target className="w-4 h-4 text-[var(--sf-text-muted)]" />
                       <span>Unassigned</span>
                     </button>
                     {territories.map(t => (
                       <button
                         key={t.id}
-                        className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          job?.territory_id === t.id ? 'font-semibold bg-blue-50' : ''
+                        className={`w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-2 ${
+                          job?.territory_id === t.id ? 'font-semibold bg-[var(--sf-blue-50)]' : ''
                         }`}
                         onClick={() => {
                           handleTerritoryChange(t.id)
                           setEditingField(null)
                         }}
                       >
-                        <Target className={`w-4 h-4 ${job?.territory_id === t.id ? 'text-blue-500' : 'text-gray-400'}`} />
+                        <Target className={`w-4 h-4 ${job?.territory_id === t.id ? 'text-blue-500' : 'text-[var(--sf-text-muted)]'}`} />
                         <span>{t.name}</span>
                       </button>
                     ))}
@@ -2807,14 +3074,14 @@ const JobDetails = () => {
           // Only show 3 options: En Route (confirmed), In Progress (in_progress), Complete (completed)
           let nextStatus = null
           let buttonLabel = 'Mark as En Route'
-          let buttonColor = 'bg-blue-600 hover:bg-blue-700'
+          let buttonColor = 'bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)]'
           let isDisabled = false
           
           // Status progression: pending → confirmed → in_progress → completed
           if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
             nextStatus = 'confirmed' // Maps to "confirmed" in backend (En Route)
             buttonLabel = 'Mark as En Route'
-            buttonColor = 'bg-blue-600 hover:bg-blue-700'
+            buttonColor = 'bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)]'
           } else if (normalizedStatus === 'confirmed' || normalizedStatus === 'en_route' || normalizedStatus === 'enroute') {
             nextStatus = 'in_progress' // Maps to "in_progress" in backend (In Progress)
             buttonLabel = 'Mark as In Progress'
@@ -2827,6 +3094,10 @@ const JobDetails = () => {
             isDisabled = false
             buttonLabel = 'Job Complete'
             buttonColor = 'bg-green-600 hover:bg-green-700'
+          } else if (normalizedStatus === 'paid') {
+            isDisabled = false
+            buttonLabel = 'Job Paid'
+            buttonColor = 'bg-emerald-600 hover:bg-emerald-700'
           } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
             isDisabled = true
             buttonLabel = 'Job Cancelled'
@@ -2855,9 +3126,9 @@ const JobDetails = () => {
         })()}
         
         {statusDropdown && (
-          <div className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] z-10">
+          <div className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-xl border border-[var(--sf-border-light)] py-2 min-w-[200px] z-10">
             {[
-              { label: 'Mark as En Route', backendStatus: 'confirmed', color: 'bg-blue-500' },
+              { label: 'Mark as En Route', backendStatus: 'confirmed', color: 'bg-[var(--sf-blue-500)]' },
               { label: 'Mark as In Progress', backendStatus: 'in_progress', color: 'bg-orange-500' },
               { label: 'Mark as Complete', backendStatus: 'completed', color: 'bg-green-500' }
             ].map((statusOption) => {
@@ -2868,6 +3139,7 @@ const JobDetails = () => {
                 currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
                 currentStatus === 'started' || currentStatus === 'in_progress' || currentStatus === 'in_prog' || currentStatus === 'in-progress' ? 'in_progress' :
                 currentStatus === 'complete' || currentStatus === 'completed' ? 'completed' :
+                currentStatus === 'paid' ? 'paid' :
                 currentStatus
               const isCurrentStatus = normalizedCurrent === statusOption.backendStatus
               
@@ -2879,8 +3151,8 @@ const JobDetails = () => {
                     setStatusDropdown(false)
                   }}
                   disabled={loading}
-                  className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-xs disabled:opacity-50 ${
-                    isCurrentStatus ? 'bg-blue-50 text-blue-700' : ''
+                  className={`w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-xs disabled:opacity-50 ${
+                    isCurrentStatus ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]' : ''
                   }`}
                 >
                   <div className={`w-3 h-3 rounded-full ${statusOption.color}`}></div>
@@ -2897,17 +3169,17 @@ const JobDetails = () => {
       <div className="relative" ref={moreRef}>
         <button 
           onClick={() => setMoreDropdown(!moreDropdown)}
-          className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 p-3 rounded-lg transition-colors"
+          className="bg-white hover:bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] p-3 rounded-lg transition-colors"
         >
           <MoreHorizontal size={20} />
         </button>
         
         {moreDropdown && (
-          <div className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] z-10">
+          <div className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-xl border border-[var(--sf-border-light)] py-2 min-w-[200px] z-10">
             {(() => {
-              const isCompleted = (job?.status || '').toLowerCase() === 'completed' || (job?.status || '').toLowerCase() === 'complete';
-              
-              // If job is completed, only show Duplicate and Reset options
+              const isCompleted = ['completed', 'complete', 'paid'].includes((job?.status || '').toLowerCase());
+
+              // If job is completed/paid, only show Duplicate and Reset options
               if (isCompleted) {
                 return (
                   <>
@@ -2917,21 +3189,23 @@ const JobDetails = () => {
                           setShowDuplicateModal(true)
                           setMoreDropdown(false)
                         }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                        className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm"
                       >
-                        <Copy size={18} className="text-gray-600" />
+                        <Copy size={18} className="text-[var(--sf-text-secondary)]" />
                         Duplicate Job
                       </button>
                     )}
                     {canResetJobStatuses(user) && (
-                      <button 
+                      <button
                         onClick={() => {
-                          handleStatusUpdate('pending')
-                          setMoreDropdown(false)
+                          if (window.confirm('Reset this completed job? Ledger entries (earnings, tips, incentives) will be removed. Job goes back to pending.')) {
+                            handleStatusUpdate('pending')
+                            setMoreDropdown(false)
+                          }
                         }}
-                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                        className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm"
                       >
-                        <RotateCw size={18} className="text-gray-600" />
+                        <RotateCw size={18} className="text-[var(--sf-text-secondary)]" />
                         Reset Job Status
                       </button>
                     )}
@@ -2943,37 +3217,39 @@ const JobDetails = () => {
               return (
                 <>
             {canEditJobDetails(user) && (
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <ClipboardList size={18} className="text-gray-600" />
+            <button className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm">
+              <ClipboardList size={18} className="text-[var(--sf-text-secondary)]" />
               Edit Service
             </button>
             )}
             {canEditJobDetails(user) && (
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <MapPin size={18} className="text-gray-600" />
+            <button className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm">
+              <MapPin size={18} className="text-[var(--sf-text-secondary)]" />
               Edit Address
             </button>
             )}
             {canRescheduleJobs(user) && (
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <Calendar size={18} className="text-gray-600" />
+            <button onClick={() => { handleStatusUpdate('rescheduled'); setMoreDropdown(false) }}
+              className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm">
+              <Calendar size={18} className="text-[var(--sf-text-secondary)]" />
               Reschedule
             </button>
             )}
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <XCircle size={18} className="text-gray-600" />
+            <button onClick={() => { setShowCancelModal(true); setMoreDropdown(false) }}
+              className="w-full text-left px-4 py-2.5 hover:bg-red-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm">
+              <XCircle size={18} className="text-red-400" />
               Cancel Job
             </button>
-            <div className="border-t border-gray-200 my-1"></div>
+            <div className="border-t border-[var(--sf-border-light)] my-1"></div>
                   {canEditJobDetails(user) && (
                     <button 
                       onClick={() => {
                         setShowDuplicateModal(true)
                         setMoreDropdown(false)
                       }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                      className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm"
                     >
-                      <Copy size={18} className="text-gray-600" />
+                      <Copy size={18} className="text-[var(--sf-text-secondary)]" />
                       Duplicate Job
                     </button>
                   )}
@@ -2981,9 +3257,9 @@ const JobDetails = () => {
                     <button 
                       onClick={handleSyncToCalendar}
                       disabled={loading}
-                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm disabled:opacity-50"
+                      className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm disabled:opacity-50"
                     >
-                      <CalendarCheck size={18} className="text-gray-600" />
+                      <CalendarCheck size={18} className="text-[var(--sf-text-secondary)]" />
                       Sync to Calendar
                     </button>
                   )}
@@ -2993,14 +3269,14 @@ const JobDetails = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => setMoreDropdown(false)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                      className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm"
                     >
-                      <ExternalLink size={18} className="text-gray-600" />
+                      <ExternalLink size={18} className="text-[var(--sf-text-secondary)]" />
                       View in Calendar
                     </a>
                   )}
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <ExternalLink size={18} className="text-gray-600" />
+            <button className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm">
+              <ExternalLink size={18} className="text-[var(--sf-text-secondary)]" />
               Rescheduling Page
             </button>
                 </>
@@ -3045,7 +3321,7 @@ const JobDetails = () => {
           {/* Left Column */}
           <div className="flex-1 lg:max-w-xl p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 min-w-0">
             {/* Map Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3 sm:mb-4 lg:mb-6 divide-y divide-gray-200">
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm mb-3 sm:mb-4 lg:mb-6 divide-y divide-[var(--sf-border-light)]">
               <div className="relative">
                 {/* Google Maps Integration */}
                 <div className="w-full h-40 sm:h-40 bg-gradient-to-br from-green-100 to-blue-100 rounded-t-lg flex items-center justify-center">
@@ -3072,13 +3348,13 @@ const JobDetails = () => {
                     />
                   ) : null}
                   <div className={`text-center ${job.service_address_street && job.service_address_city ? 'hidden' : 'flex flex-col items-center justify-center'}`}>
-                    <div className="w-10 sm:w-12 h-10 sm:h-12 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <div className="w-10 sm:w-12 h-10 sm:h-12 bg-[var(--sf-blue-500)] rounded-lg flex items-center justify-center mx-auto mb-3">
                       <MapPin className="w-5 sm:w-6 h-5 sm:h-6 text-white" />
                     </div>
-                    <p className="text-gray-600 font-medium">
+                    <p className="text-[var(--sf-text-secondary)] font-medium">
                       {job.service_address_street ? 'Map unavailable' : 'No address set'}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-[var(--sf-text-muted)]">
                       {job.service_address_street ? 'Unable to load map for this address' : 'Add an address to see the map'}
                     </p>
                   </div>
@@ -3086,13 +3362,13 @@ const JobDetails = () => {
               </div>
               <div className=" m-4 sm:mb-6 p-3 sm:p-4 lg:p-6">
               <div className="flex items-start justify-between">
-                <MapPin className="w-5 h-5 text-gray-700 flex-shrink-0 mt-5 mr-2" />
+                <MapPin className="w-5 h-5 text-[var(--sf-text-primary)] flex-shrink-0 mt-5 mr-2" />
                 <div className="min-w-0 flex-1">
-                  <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-500 mb-1 text-xs sm:text-xs">JOB LOCATION</h3>
-                  <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-gray-700 capitalize font-medium text-lg sm:text-md truncate">
+                  <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-[var(--sf-text-muted)] mb-1 text-xs sm:text-xs">JOB LOCATION</h3>
+                  <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-[var(--sf-text-primary)] capitalize font-medium text-lg sm:text-md truncate">
                     {job.service_address_street || 'Address not set'}
                   </p>
-                  <p className="text-gray-700 text-sm sm:text-base">
+                  <p className="text-[var(--sf-text-primary)] text-sm sm:text-base">
                     {job.service_address_city}, {job.service_address_state} {job.service_address_zip}
                   </p>
                   {job.service_address_street && (
@@ -3102,14 +3378,14 @@ const JobDetails = () => {
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium mt-1 flex items-center"
+                      className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-xs sm:text-sm font-medium mt-1 flex items-center"
                     >
                       View directions <ExternalLink className="w-3 h-3 ml-1" />
                     </a>
                   )}
                 </div>
                 <button
-                   className="text-gray-600 hover:text-blue-700 bg-gray-300/50 hover:bg-blue-300/30 rounded-sm px-3 py-2 text-xs font-medium"
+                   className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)]"
                    onClick={() => setShowEditAddressModal(true)}
                 >
                  
@@ -3117,18 +3393,18 @@ const JobDetails = () => {
                 </button>
               </div>
             </div>
-            <div className="border-t border-gray-500 m-4 sm:mb-6 p-3 sm:p-4 lg:p-6">
+            <div className="border-t border-[var(--sf-border-light)] m-4 sm:mb-6 p-3 sm:p-4 lg:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0">
              
                 <div>
-                  <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600 mb-2 ml-5">DATE & TIME</h3>
+                  <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-[var(--sf-text-secondary)] mb-2 ml-5">DATE & TIME</h3>
                   <div className="flex items-center space-x-3">
-                  <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0 mr-2" />
+                  <Calendar className="w-5 h-5 text-[var(--sf-text-muted)] flex-shrink-0 mr-2" />
                     <div>
-                      <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-lg sm:text-xl font-semibold text-gray-900">
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-lg sm:text-xl font-semibold text-[var(--sf-text-primary)]">
                         {formatTime(job.scheduled_date) || 'Time placeholder'}
                       </p>
-                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600 text-sm sm:text-base">{formatDate(job.scheduled_date) || 'Date placeholder'}</p>
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-[var(--sf-text-secondary)] text-sm sm:text-base">{formatDate(job.scheduled_date) || 'Date placeholder'}</p>
                     </div>
                   </div>
                 </div>
@@ -3144,7 +3420,7 @@ const JobDetails = () => {
                   <button 
                   style={{fontFamily: 'Montserrat', fontWeight: 500}}
                     onClick={() => setShowRescheduleModal(true)}
-                    className="text-gray-600 hover:text-blue-700 bg-gray-300/50 hover:bg-blue-300/30 rounded-sm px-3 py-2 text-xs font-medium"
+                    className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)]"
                     >
                     Reschedule
                   </button>
@@ -3155,30 +3431,41 @@ const JobDetails = () => {
             
             {/* REPEATS Section - Show if job is recurring */}
             {job.is_recurring && (
-              <div className="m-4 sm:mb-6 p-3 sm:p-4 lg:p-6 border-t border-gray-200">
+              <div className="m-4 sm:mb-6 p-3 sm:p-4 lg:p-6 border-t border-[var(--sf-border-light)]">
                 <div className="flex flex-row items-start space-x-4">
-                  <RotateCw className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
+                  <RotateCw className="w-5 h-5 text-[var(--sf-text-muted)] mt-1 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600 mb-2">REPEATS</h3>
-                    <div className="bg-red-50 border border-red-200 rounded-full px-4 py-2 inline-block">
-                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm text-red-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-[var(--sf-text-secondary)]">REPEATS</h3>
+                      {canEditJobDetails(user) && (
+                        <button
+                          onClick={() => setShowEditRecurringModal(true)}
+                          className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-xs font-medium"
+                          style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                    <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-full px-4 py-2 inline-block">
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm text-blue-800">
                         {(() => {
                           const frequency = job.recurring_frequency || job.recurringFrequency || ''
                           const scheduledDate = job.scheduled_date ? new Date(job.scheduled_date) : null
                           const formatted = formatRecurringFrequency(frequency, scheduledDate)
-                          console.log('🔍 Job Details - Recurring Frequency Debug:', {
-                            rawFrequency: frequency,
-                            isRecurring: job.is_recurring,
-                            scheduledDate: scheduledDate,
-                            formatted: formatted
-                          })
-                          return formatted
+                          if (formatted && formatted !== 'Never') return formatted
+                          // Frequency missing: derive weekday from scheduled_date
+                          if (scheduledDate && !isNaN(scheduledDate.getTime())) {
+                            const weekday = scheduledDate.toLocaleDateString('en-US', { weekday: 'long' })
+                            return `Every week on ${weekday}`
+                          }
+                          return 'Recurring'
                         })()}
                       </p>
                     </div>
                     <button
                       onClick={() => navigate('/recurring')}
-                      className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                      className="mt-2 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium flex items-center gap-1"
                       style={{fontFamily: 'Montserrat', fontWeight: 500}}
                     >
                       View recurring booking →
@@ -3190,10 +3477,10 @@ const JobDetails = () => {
             
             {/* Convert to Recurring Button - Show if job is NOT recurring */}
             {!job.is_recurring && canEditJobDetails(user) && (
-              <div className="m-4 sm:mb-6 p-3 sm:p-4 lg:p-6 border-t border-gray-200">
+              <div className="m-4 sm:mb-6 p-3 sm:p-4 lg:p-6 border-t border-[var(--sf-border-light)]">
                 <button
                   onClick={() => setShowConvertToRecurringModal(true)}
-                  className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] flex items-center justify-center gap-2"
                   style={{fontFamily: 'Montserrat', fontWeight: 500}}
                 >
                   <RotateCw className="w-4 h-4" />
@@ -3205,31 +3492,54 @@ const JobDetails = () => {
             <div className=" m-4 sm:mb-6 p-3 sm:p-4 lg:p-6    ">
             <div className="flex flex-row items-start space-x-4 justify-between">
               <div className="flex flex-row items-start space-x-4">
-              <Clipboard className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
+              <Clipboard className="w-5 h-5 text-[var(--sf-text-muted)] mt-1 flex-shrink-0" />
             
                <div className="flex-1 min-w-0">
-               <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600">JOB DETAILS</h3>
+               <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-[var(--sf-text-secondary)]">JOB DETAILS</h3>
               
                   {/* Display multiple services if available */}
                   {job.service_names && Array.isArray(job.service_names) && job.service_names.length > 1 ? (
                     <div className="">
-                      <p className="font-semibold text-gray-900">Multiple Services</p>
+                      <p className="font-semibold text-[var(--sf-text-primary)]">Multiple Services</p>
                       <div className="space-y-1">
                         {job.service_names.map((serviceName, index) => (
                           <div key={index} className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span className="text-sm text-gray-700">{decodeHtmlEntities(serviceName || '')}</span>
+                            <div className="w-2 h-2 bg-[var(--sf-blue-500)] rounded-full"></div>
+                            <span className="text-sm text-[var(--sf-text-primary)]">{decodeHtmlEntities(serviceName || '')}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                  <p className="font-semibold text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
+                  <p className="font-semibold text-[var(--sf-text-primary)]">{decodeHtmlEntities(job.service_name || '')}</p>
                   )}
-                  <p className="text-gray-600 text-sm mb-2">
+                  <p className="text-[var(--sf-text-secondary)] text-sm mb-1">
                     {job.service_names && job.service_names.length > 1 ? `${job.service_names.length} services` : 'Default service category'}
                   </p>
-                  <p className="text-sm text-gray-600 mt-2">{formatDuration(job.duration || 0)}</p>
+                  {(job.bedroom_count || job.bathroom_count) && (
+                    <p className="text-sm text-[var(--sf-text-primary)] mb-1">
+                      {job.bedroom_count ? `${job.bedroom_count} bed` : ''}{job.bedroom_count && job.bathroom_count ? ' / ' : ''}{job.bathroom_count ? `${job.bathroom_count} bath` : ''}
+                    </p>
+                  )}
+                  {job.addons && Array.isArray(job.addons) && job.addons.length > 0 && (
+                    <div className="mb-1">
+                      {job.addons.filter(a => a.price > 0 || (a.value && a.value !== 'No')).map((addon, idx) => (
+                        <p key={idx} className="text-sm text-[var(--sf-text-secondary)]">
+                          {addon.name}: {addon.value || addon.name}{addon.price > 0 ? ` (+$${parseFloat(addon.price).toFixed(0)})` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-sm text-[var(--sf-text-secondary)] mt-2">
+                    {formatDuration(job.duration || 0)}
+                    {(job.status === 'completed' || job.status === 'paid') && job.start_time && job.end_time && (() => {
+                      const realMin = Math.round((new Date(job.end_time) - new Date(job.start_time)) / 60000);
+                      const estMin = job.duration || 0;
+                      const diff = realMin - estMin;
+                      const color = diff > estMin * 0.1 ? 'text-red-600' : diff < -estMin * 0.1 ? 'text-green-600' : 'text-[var(--sf-text-muted)]';
+                      return <span className={`ml-2 text-xs font-medium ${color}`}>(Actual: {formatDuration(realMin)})</span>;
+                    })()}
+                  </p>
                   {(() => {
                 const serviceModifiers = getServiceModifiers();
                 if (!serviceModifiers || serviceModifiers.length === 0) return null;
@@ -3238,22 +3548,31 @@ const JobDetails = () => {
                   <div className="mt-6 pt-6 space-y-1">
                     {serviceModifiers.map((modifier, modifierIndex) => {
                       if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) return null;
-                      
+
                       const modifierTitle = modifier.title || modifier.name || 'Modifier';
-                      
+
                       return (
                         <div key={modifier.id || modifierIndex} className="space-y-2">
-                          <p className="font-semibold text-gray-900">{modifierTitle}:</p>
-                          <div className="space-y-1">
+                          <p className="font-semibold text-[var(--sf-text-primary)]">{modifierTitle}:</p>
+                          <div className="space-y-2">
                             {modifier.selectedOptions.map((option, optionIndex) => {
-                              const optionLabel = option.selectedQuantity 
+                              const optionLabel = option.selectedQuantity
                                 ? `${option.selectedQuantity}x ${option.label || option.description || option.name || 'Item'}`
                                 : (option.label || option.description || option.name || 'Item');
-                              
+
                               return (
-                                <p key={option.id || optionIndex} className="text-gray-700 text-sm">
-                                  {optionLabel}
-                                </p>
+                                <div key={option.id || optionIndex} className="flex items-center space-x-2">
+                                  {option.image && (
+                                    <img
+                                      src={option.image}
+                                      alt={option.label || option.name || 'Option'}
+                                      className="w-12 h-12 object-cover rounded border border-[var(--sf-border-light)] flex-shrink-0"
+                                    />
+                                  )}
+                                  <p className="text-[var(--sf-text-primary)] text-sm">
+                                    {optionLabel}
+                                  </p>
+                                </div>
                               );
                             })}
                           </div>
@@ -3325,7 +3644,7 @@ const JobDetails = () => {
 
                       return (
                         <div key={question.id || index} className="space-y-2">
-                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700">{questionText}</p>
+                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-[var(--sf-text-primary)]">{questionText}</p>
                           {displayAnswer ? (
                             <div className="space-y-1">
                               {isObjectArrayAnswer ? (
@@ -3333,13 +3652,13 @@ const JobDetails = () => {
                                 displayAnswer.map((item, itemIndex) => (
                                   <div key={itemIndex} className="space-y-2">
                                     {item.text && (
-                                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-700 text-xs">{item.text}</p>
+                                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-[var(--sf-text-primary)] text-xs">{item.text}</p>
                                     )}
                                     {item.color && (
                                       <>
-                                        {item.text && <div className="border-t border-gray-200 pt-2 mt-2"></div>}
+                                        {item.text && <div className="border-t border-[var(--sf-border-light)] pt-2 mt-2"></div>}
                                         <div 
-                                          className="w-8 h-8 rounded-full border border-gray-300 flex-shrink-0"
+                                          className="w-8 h-8 rounded-full border border-[var(--sf-border-light)] flex-shrink-0"
                                           style={{ backgroundColor: item.color }}
                                         />
                                       </>
@@ -3363,13 +3682,13 @@ const JobDetails = () => {
                                 // Single object with text/image/color
                                 <div className="space-y-2">
                                   {parsedAnswer.text && (
-                                    <p className="text-gray-700 text-sm">{parsedAnswer.text}</p>
+                                    <p className="text-[var(--sf-text-primary)] text-sm">{parsedAnswer.text}</p>
                                   )}
                                   {parsedAnswer.color && (
                                     <>
-                                      {parsedAnswer.text && <div className="border-t border-gray-200 pt-2 mt-2"></div>}
+                                      {parsedAnswer.text && <div className="border-t border-[var(--sf-border-light)] pt-2 mt-2"></div>}
                                       <div 
-                                        className="w-8 h-8 rounded-full border border-gray-300 flex-shrink-0"
+                                        className="w-8 h-8 rounded-full border border-[var(--sf-border-light)] flex-shrink-0"
                                         style={{ backgroundColor: parsedAnswer.color }}
                                       />
                                     </>
@@ -3379,7 +3698,7 @@ const JobDetails = () => {
                                       <img 
                                         src={parsedAnswer.image} 
                                         alt={parsedAnswer.text || `Answer ${index + 1}`}
-                                        className="max-w-full h-auto max-h-48 object-contain rounded border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                                        className="max-w-full h-auto max-h-48 object-contain rounded border border-[var(--sf-border-light)] hover:shadow-md transition-shadow cursor-pointer"
                                         onClick={() => window.open(parsedAnswer.image, '_blank')}
                                         onError={(e) => {
                                           e.target.style.display = 'none';
@@ -3395,7 +3714,7 @@ const JobDetails = () => {
                                       <img 
                                         src={imageUrl} 
                                         alt={`Answer ${index + 1} - ${imgIndex + 1}`}
-                                        className="w-full h-24 sm:h-32 object-cover rounded border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                                        className="w-full h-24 sm:h-32 object-cover rounded border border-[var(--sf-border-light)] hover:shadow-md transition-shadow cursor-pointer"
                                         onClick={() => window.open(imageUrl, '_blank')}
                                         onError={(e) => {
                                           e.target.style.display = 'none';
@@ -3409,7 +3728,7 @@ const JobDetails = () => {
                                   <img 
                                     src={displayAnswer} 
                                     alt={`Answer ${index + 1}`}
-                                    className="max-w-full h-auto max-h-48 object-contain rounded border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                                    className="max-w-full h-auto max-h-48 object-contain rounded border border-[var(--sf-border-light)] hover:shadow-md transition-shadow cursor-pointer"
                                     onClick={() => window.open(displayAnswer, '_blank')}
                                     onError={(e) => {
                                       e.target.style.display = 'none';
@@ -3418,30 +3737,30 @@ const JobDetails = () => {
                                 </div>
                               ) : isListAnswer && answerList ? (
                                 answerList.map((line, lineIndex) => (
-                                  <p key={lineIndex} className="text-gray-700 text-sm">
+                                  <p key={lineIndex} className="text-[var(--sf-text-primary)] text-sm">
                                     {line.trim()}
                                   </p>
                                 ))
                               ) : isCommaSeparated && commaSeparatedList ? (
                                 commaSeparatedList.map((item, itemIndex) => (
-                                  <p key={itemIndex} className="text-gray-700 text-sm">
+                                  <p key={itemIndex} className="text-[var(--sf-text-primary)] text-sm">
                                     {item}
                                   </p>
                                 ))
                               ) : isArrayAnswer ? (
                                 displayAnswer.map((item, itemIndex) => (
-                                  <p key={itemIndex} className="text-gray-700 text-sm">
+                                  <p key={itemIndex} className="text-[var(--sf-text-primary)] text-sm">
                                     {item}
                                   </p>
                                 ))
                               ) : (
-                                <p className="text-gray-700 text-sm">
+                                <p className="text-[var(--sf-text-primary)] text-sm">
                                   {typeof displayAnswer === 'string' ? displayAnswer : JSON.stringify(displayAnswer)}
                                 </p>
                               )}
                             </div>
                           ) : (
-                            <p className="text-gray-400 text-sm italic">No answer provided</p>
+                            <p className="text-[var(--sf-text-muted)] text-sm italic">No answer provided</p>
                           )}
                         </div>
                       );
@@ -3454,7 +3773,7 @@ const JobDetails = () => {
               </div>
               
               <button
-                   className="text-gray-600 hover:text-blue-700 bg-gray-300/50 hover:bg-blue-300/30 rounded-sm px-3 py-2 text-xs font-medium"
+                   className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)]"
                    onClick={() => setShowEditServiceModal(true)}
                 >
                   <span>Edit Service</span>
@@ -3470,98 +3789,24 @@ const JobDetails = () => {
 
           
 
-            {/* Team Assignment Modal */}
-            {assigning && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
-                      <button
-                        onClick={() => {
-                          setAssigning(false);
-                          setSelectedTeamMember(null);
-                        }}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Select Team Member
-                        </label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                          value={selectedTeamMember || ''}
-                          onChange={(e) => setSelectedTeamMember(e.target.value)}
-                        >
-                          <option value="">Choose a team member...</option>
-                          {teamMembers.map((member) => (
-                            <option key={member.id} value={member.id}>
-                              {member.first_name} {member.last_name} ({member.email})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      {teamMembers.length === 0 && (
-                        <div className="text-center py-4">
-                          <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-500 text-sm">No team members available</p>
-                          <p className="text-gray-400 text-xs">Add team members in the Team section first</p>
-                        </div>
-                      )}
-                      
-                      <div className="flex justify-end space-x-3 pt-4">
-                        <button
-                          onClick={() => {
-                            setAssigning(false);
-                            setSelectedTeamMember(null);
-                          }}
-                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (selectedTeamMember) {
-                              handleTeamAssignment();
-                              setAssigning(false);
-                              setSelectedTeamMember(null);
-                            }
-                          }}
-                          disabled={!selectedTeamMember}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Assign Member
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Invoice Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-6">
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-3 sm:p-4 lg:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-2 sm:space-y-0 sm:space-x-2">
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
-                    <h3 className="text-xl font-bold text-gray-900">Invoice</h3>
-                    <span className={`px-2 py-1 text-xs font-bold rounded-sm ${
-                      job.invoice_status === 'paid' 
-                        ? 'bg-green-100 text-green-800' 
+                    <h3 className="text-xl font-bold text-[var(--sf-text-primary)]">Invoice</h3>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      isPaidOrFree
+                        ? 'bg-green-100 text-green-800'
                         : job.invoice_status === 'invoiced' || job.invoice_status === 'sent'
                         ? 'bg-yellow-100 text-yellow-800'
                         : job.invoice_status === 'draft'
                         ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
+                        : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
                     }`}>
-                      {job.invoice_status === 'paid' 
-                        ? 'Paid' 
+                      {isPaidOrFree
+                        ? (displayServiceTotal === 0 ? 'Free' : 'Paid')
                         : job.invoice_status === 'invoiced' || job.invoice_status === 'sent'
                         ? 'Unpaid'
                         : job.invoice_status === 'draft'
@@ -3569,15 +3814,23 @@ const JobDetails = () => {
                         : 'Draft'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600">Due Oct 2, 2025</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">Due Oct 2, 2025</p>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-                  <button 
-                    onClick={() => setShowAddPaymentModal(true)}
-                    className="px-2 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-1 text-xs font-medium"
+                  <button
+                    onClick={() => {
+                      setPaymentFormData({
+                        amount: (parseFloat(job?.total) || parseFloat(job?.service_price) || 0).toString(),
+                        paymentMethod: 'cash',
+                        paymentDate: new Date().toISOString().split('T')[0],
+                        notes: ''
+                      })
+                      setShowAddPaymentModal(true)
+                    }}
+                    className="px-2 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] flex items-center justify-center space-x-1 text-xs font-medium"
                   >
-                   
+
                     <span>Add Payment</span>
                     <ChevronDown className="w-4 h-4" />
                   </button>
@@ -3590,15 +3843,15 @@ const JobDetails = () => {
                         setShowSendInvoiceModal(true)
                       }
                     }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                    className="px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)] text-sm font-medium"
                   >
                     <MailCheck className="w-4 h-4" />
                   </button>
                   <div className="flex space-x-2">
-                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-lg">
+                    <button className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)] rounded-lg">
                       <Printer className="w-4 h-4" />
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-lg">
+                    <button className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)] rounded-lg">
                       <MoreVertical className="w-4 h-4" />
                     </button>
                   </div>
@@ -3607,39 +3860,42 @@ const JobDetails = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Amount paid</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-1">Amount paid</p>
+                  <p className="text-lg font-semibold text-[var(--sf-text-primary)]">
+                    ${effectiveAmountPaid.toFixed(2)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-600 mb-1">Amount due</p>
-                  <p className={`text-lg font-semibold ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-red-600 underline'}`}>
-                    ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-1">Amount due</p>
+                  <p className={`text-lg font-semibold ${displayTotalDue <= 0 ? 'text-green-600' : 'text-red-600 underline'}`}>
+                    ${Math.max(0, displayTotalDue).toFixed(2)}
                   </p>
+                  {showCreditLine && displayCreditAmount > 0 && (
+                    <p className="text-sm font-semibold text-green-600 mt-0.5">Credit +${displayCreditAmount.toFixed(2)}</p>
+                  )}
                 </div>
                 </div>
 
               {/* Payment Status Section */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+              <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4 mb-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${job.invoice_status === 'paid' ? 'bg-green-500' : job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${isPaidOrFree ? 'bg-green-500' : job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {job.invoice_status === 'paid' ? 'Payment Received' : 
+                      <p className="text-sm font-medium text-[var(--sf-text-primary)]">
+                        {isPaidOrFree ? 'Payment Received' : 
                          job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice Sent' : 
                          'No Invoice Sent'}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {job.invoice_status === 'paid' ? 'Customer has paid the invoice' : 
+                      <p className="text-xs text-[var(--sf-text-muted)]">
+                        {isPaidOrFree ? (displayServiceTotal === 0 ? 'Free -- no payment required' : 'Customer has paid the invoice') :
                          job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice sent to customer, awaiting payment' : 
                          'Invoice not yet sent to customer'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {job.invoice_status === 'paid' && (
+                    {isPaidOrFree && (
                       <div className="flex items-center space-x-2 text-green-600">
                         <CheckCircle className="w-5 h-5" />
                         <span className="text-sm font-medium">Paid</span>
@@ -3650,7 +3906,7 @@ const JobDetails = () => {
                         console.log('💳 Manual refresh clicked for job ID:', job.id)
                         fetchInvoiceStatus(job.id)
                       }}
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                       title="Refresh payment status"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3663,16 +3919,16 @@ const JobDetails = () => {
 
               {/* Service Details Section - Only show if user has permission */}
               {canViewEditJobPrice(user) ? (
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-4">{decodeHtmlEntities(job.service_name || '')}</h4>
+              <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-[var(--sf-text-primary)] mb-4">{decodeHtmlEntities(job.service_name || '')}</h4>
                 
                 <div className="space-y-3">
                   {/* Base Price */}
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm text-gray-600">Base Price (${(parseFloat(job.services?.price) || 0).toFixed(2)})</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Base Price (${(parseFloat(job.service_price) || parseFloat(job.services?.price) || 0).toFixed(2)})</p>
                   </div>
-                    <span className="text-sm font-medium text-gray-900">${(parseFloat(job.services?.price) || 0).toFixed(2)}</span>
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(job.service_price) || parseFloat(job.services?.price) || 0).toFixed(2)}</span>
                   </div>
                   
                   {/* Modifiers */}
@@ -3691,11 +3947,11 @@ const JobDetails = () => {
                           return modifier.selectedOptions.map((option, index) => (
                             <div key={`${modifier.id}-${option.id}-${index}`} className="flex justify-between items-center">
                               <div>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-sm text-[var(--sf-text-secondary)]">
                                   {option.selectedQuantity ? `${option.selectedQuantity} ${option.label || option.description}` : (option.label || option.description)}
                                 </p>
                               </div>
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="text-sm font-medium text-[var(--sf-text-primary)]">
                                 ${parseFloat(option.price || 0).toFixed(2)}
                                 </span>
                             </div>
@@ -3705,39 +3961,20 @@ const JobDetails = () => {
                     );
                   })()}
                   
-                  {/* Discount */}
-                  {(() => {
-                    const discount = formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0);
-                    
-                    if (discount > 0) {
-                      return (
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="text-sm text-gray-600">Discount</p>
-                          </div>
-                          <span className="text-sm font-medium text-green-600">
-                            -${discount.toFixed(2)}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                  
                   {/* Service Adjustment Price */}
                   {(() => {
                     const basePrice = parseFloat(job.services?.price) || 0;
                     const modifierPrice = calculateModifierPrice();
-                    const totalPrice = parseFloat(job.total) || 0;
-                    const serviceAdjustment = totalPrice - (basePrice + modifierPrice);
+                    const servicePriceVal = parseFloat(job.service_price) || parseFloat(job.total) || 0;
+                    const serviceAdjustment = servicePriceVal - (basePrice + modifierPrice);
                     
                     if (Math.abs(serviceAdjustment) > 0.01) {
                       return (
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="text-sm text-gray-600">Service Adjustment Price (${Math.abs(serviceAdjustment).toFixed(2)})</p>
+                            <p className="text-sm text-[var(--sf-text-secondary)]">Service Adjustment Price (${Math.abs(serviceAdjustment).toFixed(2)})</p>
                           </div>
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium text-[var(--sf-text-primary)]">
                             ${Math.abs(serviceAdjustment).toFixed(2)}
                           </span>
                         </div>
@@ -3746,21 +3983,12 @@ const JobDetails = () => {
                     return null;
                   })()}
                   
-                  {/* Total */}
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">Total</p>
-                    </div>
-                    <span className="text-sm font-semibold text-gray-900">
-                      ${calculateTotalPrice().toFixed(2)}
-                    </span>
-                  </div>
                 </div>
-                
-                <div className="mt-4 pt-4 border-t border-gray-200">
+
+                <div className="mt-4 pt-4 border-t border-[var(--sf-border-light)]">
                   <button 
                     onClick={() => setShowEditServiceModal(true)}
-                    className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium"
+                    className="px-3 py-1 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded hover:bg-[var(--sf-bg-page)] flex items-center space-x-2 text-sm font-medium"
                   >
                     <Edit className="w-4 h-4" />
                     <span>Edit Service & Pricing</span>
@@ -3768,113 +3996,188 @@ const JobDetails = () => {
                     </div>
               </div>
               ) : (
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-gray-500 italic">Price and invoice information is not available. You don't have permission to view job pricing.</p>
+                <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 mb-6">
+                  <p className="text-sm text-[var(--sf-text-muted)] italic">Price and invoice information is not available. You don't have permission to view job pricing.</p>
                 </div>
               )}
 
               {/* Summary Section - Only show if user has permission */}
               {canViewEditJobPrice(user) && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">Subtotal</span>
-                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
-                    </div>
-                
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">Total</span>
-                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
-                    </div>
-                
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">Amount paid</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
-                  </span>
-                        </div>
-                
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">Total due</span>
-                  <span className={`text-sm font-medium ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-gray-900'}`}>
-                    ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
-                  </span>
-                  </div>
+              <div className="space-y-0">
+                <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Subtotal</span>
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">${subtotalDisplay.toFixed(2)}</span>
                 </div>
+                {jobDiscount > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Discount</span>
+                  <span className="text-sm font-medium text-red-600">-${jobDiscount.toFixed(2)}</span>
+                </div>
+                )}
+                <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Total</span>
+                  <span className="text-sm font-semibold text-[var(--sf-text-primary)]">${totalAfterDiscount.toFixed(2)}</span>
+                </div>
+                {jobFees > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Fee</span>
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">${jobFees.toFixed(2)}</span>
+                </div>
+                )}
+                {jobTaxes > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Taxes</span>
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">${jobTaxes.toFixed(2)}</span>
+                </div>
+                )}
+
+                <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Total due</span>
+                  <span className={`text-sm font-semibold ${displayTotalDue === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${displayTotalDue.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Amount paid</span>
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">
+                    ${effectiveAmountPaid.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Tip</span>
+                  <button type="button" onClick={() => { const curTip = parseFloat(job?.tip_amount) || 0; setFormData(prev => ({ ...prev, tipInput: curTip > 0 ? curTip.toFixed(2) : '' })); setShowTipModal(true); }} className={`text-sm font-medium ${displayTip > 0 ? 'text-green-600 hover:text-green-700' : 'text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]'}`}>
+                    {displayTip > 0 ? `+$${displayTip.toFixed(2)}` : 'Add Tip'}
+                  </button>
+                </div>
+
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Incentives</span>
+                  <button type="button" onClick={() => { const curIncentive = parseFloat(job?.incentive_amount) || 0; setFormData(prev => ({ ...prev, incentiveInput: curIncentive > 0 ? curIncentive.toFixed(2) : '' })); setShowIncentiveModal(true); }} className={`text-sm font-medium ${displayIncentive > 0 ? 'text-purple-600 hover:text-purple-700' : 'text-purple-600 hover:text-purple-700'}`}>
+                    {displayIncentive > 0 ? `+$${displayIncentive.toFixed(2)}` : 'Add Incentive'}
+                  </button>
+                </div>
+              </div>
               )}
 
               {/* Payments Section - Only show if user has permission */}
               {canProcessPayments(user) && (
               <div className="mt-8">
-                <h4 className="font-semibold text-gray-900 mb-4">Payments</h4>
+                <h4 className="font-semibold text-[var(--sf-text-primary)] mb-4">Payments</h4>
                 {paymentHistory && paymentHistory.length > 0 ? (
                   <div className="space-y-3">
                     {paymentHistory.map((payment, index) => (
-                      <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div key={payment.id || payment.transaction_id || index} className={`flex items-center justify-between p-3 rounded-lg border ${payment.status === 'voided' ? 'bg-red-50 border-red-200 opacity-60' : 'bg-[var(--sf-bg-page)] border-[var(--sf-border-light)]'}`}>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-semibold text-gray-900">
+                            <span className={`text-sm font-semibold ${payment.status === 'voided' ? 'line-through text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'}`}>
                               ${parseFloat(payment.amount || 0).toFixed(2)}
                             </span>
-                            <span className="text-xs text-gray-500 capitalize">
+                            {parseFloat(payment.tip_amount || 0) > 0 && (
+                              <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                                +${parseFloat(payment.tip_amount).toFixed(2)} tip
+                              </span>
+                            )}
+                            <span className="text-xs text-[var(--sf-text-muted)] capitalize">
                               {payment.payment_method || 'cash'}
                             </span>
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric', 
+                          <div className="text-xs text-[var(--sf-text-muted)]">
+                            {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
                               year: 'numeric',
                               hour: 'numeric',
                               minute: '2-digit'
                             }) : 'Date not available'}
                           </div>
                           {payment.notes && (
-                            <div className="text-xs text-gray-600 mt-1">
+                            <div className="text-xs text-[var(--sf-text-secondary)] mt-1">
                               {payment.notes}
                             </div>
                           )}
                         </div>
-                        <div className="text-xs text-green-600 font-semibold">
-                          Completed
+                        <div className="flex flex-col items-end space-y-2">
+                          <span className={`text-xs font-semibold ${payment.status === 'voided' ? 'text-red-500' : 'text-green-600'}`}>
+                            {payment.status === 'voided' ? 'Voided' : 'Completed'}
+                          </span>
+                          {payment.status !== 'voided' && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const txId = payment.id || payment.transaction_id;
+                                if (!txId || !window.confirm('Void this payment? This cannot be undone.')) return;
+                                try {
+                                  await api.post(`/transactions/${txId}/void`);
+                                  const resp = await api.get(`/transactions/job/${job.id}`);
+                                  if (resp.data) {
+                                    setPaymentHistory(resp.data.transactions || []);
+                                    setJob(prev => ({ ...prev, total_paid_amount: resp.data.totalPaid || 0 }));
+                                  }
+                                } catch (err) { console.error('Void failed:', err); alert('Failed to void payment'); }
+                              }}
+                              className="text-xs text-orange-600 hover:text-orange-800 flex items-center gap-1"
+                              title="Void payment"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Void
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <CreditCard className="w-6 h-6 text-gray-400" />
+                  <div className="w-12 h-12 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CreditCard className="w-6 h-6 text-[var(--sf-text-muted)]" />
                   </div>
-                    <p className="text-gray-500 font-medium">No payments</p>
-                  <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-[var(--sf-text-muted)] font-medium">No payments</p>
+                  <p className="text-sm text-[var(--sf-text-muted)] mt-1">
                       When you process or record a payment for this invoice, it will appear here.
                     </p>
                   </div>
                 )}
                 </div>
               )}
+
+              {/* Cancellation summary (cancelled jobs only) */}
+              {job?.status === 'cancelled' && (
+                <div className="mt-8">
+                  <CancellationSummary job={job} />
+                </div>
+              )}
+
+              {/* Expenses / Reimbursements Section */}
+              {job?.id && (
+                <div className="mt-8">
+                  <JobExpensesSection jobId={job.id} teamMembers={teamMembers} />
+                </div>
+              )}
             </div>
-           
+
           </div>
            {/* Right Sidebar - Mobile Collapsible */}
            <div className="lg:block w-full lg:w-80 xl:w-96 p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6">
             {/* Customer Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 py-2">
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm py-2">
               {/* Customer Section */}
               <div className="flex items-center justify-between mb-1 px-4">
-                <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-700 text-md">Customer</h3>
+                <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-[var(--sf-text-primary)] text-md">Customer</h3>
                 <button
                   onClick={() => {
                     setEditCustomerData({
                       firstName: job.customer_first_name || '',
                       lastName: job.customer_last_name || '',
                       email: job.customer_email || '',
-                      phone: job.customer_phone || ''
+                      phone: job.customer_phone || '',
+                      source: job.customer_source || ''
                     })
                     setShowEditCustomerModal(true)
                   }}
                   style={{fontFamily: 'Montserrat', fontWeight: 500}}
-                  className=" text-blue-700 rounded hover:bg-blue-800 flex items-center space-x-2 text-sm font-medium"
+                  className=" text-[var(--sf-blue-500)] rounded hover:bg-blue-800 flex items-center space-x-2 text-sm font-medium"
                 >
                   <span>Edit</span>
                 </button>
@@ -3885,7 +4188,7 @@ const JobDetails = () => {
                   <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-white font-semibold text-sm">{getCustomerInitials()}</span>
                 </div>
                 <div>
-                  <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="font-bold text-gray-900 text-lg">
+                  <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="font-bold text-[var(--sf-text-primary)] text-lg">
                     {(() => {
                       // Try multiple sources for customer name
                       const firstName = (job.customer_first_name || job.customer?.first_name || job.customers?.first_name || '').trim()
@@ -3917,14 +4220,14 @@ const JobDetails = () => {
               {canViewCustomerContact(user) && (
                 <div className="space-y-4 mb-6 px-6">   
                   <div className="flex items-center space-x-3 text-sm">
-                    <Phone className="w-4 h-4 text-gray-500" />
-                    <span className="text-gray-700 font-medium">
+                    <Phone className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                    <span className="text-[var(--sf-text-primary)] font-medium">
                       {job.customer_phone ? formatPhoneNumber(job.customer_phone) : 'Phone placeholder'}
                     </span>
                   </div>
                   <div className="flex items-center space-x-3 text-sm">
-                    <Mail className="w-4 h-4 text-gray-500" />
-                    <span className="text-gray-700 font-medium truncate">
+                    <Mail className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                    <span className="text-[var(--sf-text-primary)] font-medium truncate">
                       {job.customer_email || 'No email address'}
                     </span>
                   </div>
@@ -3932,46 +4235,46 @@ const JobDetails = () => {
               )}
               {!canViewCustomerContact(user) && (
                 <div className="mb-6 px-6">
-                  <p className="text-xs text-gray-500 italic">Contact information not available</p>
+                  <p className="text-xs text-[var(--sf-text-muted)] italic">Contact information not available</p>
                 </div>
               )}
 
               {/* Billing Address Section */}
-              <div className="mb-6 border-t border-gray-200 px-6 pt-3">
+              <div className="mb-6 border-t border-[var(--sf-border-light)] px-6 pt-3">
                 <div className="flex justify-between items-center mb-1">
-                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">BILLING ADDRESS</span>
-                  <button style={{fontFamily: 'Montserrat', fontWeight: 500}} className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium">
+                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-[var(--sf-text-primary)] text-xs">BILLING ADDRESS</span>
+                  <button style={{fontFamily: 'Montserrat', fontWeight: 500}} className=" text-[var(--sf-blue-500)] rounded hover:bg-[var(--sf-blue-50)] flex items-center space-x-2 text-sm font-medium">
                    
                     <span>Edit</span>
                   </button>
                 </div>
-                <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600">Same as service address</p>
+                <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-[var(--sf-text-secondary)]">Same as service address</p>
               </div>
 
               {/* Expected Payment Method Section */}
-              <div className="border-t border-gray-200 px-6 py-3">
+              <div className="border-t border-[var(--sf-border-light)] px-6 py-3">
                 <div className="mb-1">
-                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-600 text-xs">EXPECTED PAYMENT METHOD</span>
+                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-[var(--sf-text-secondary)] text-xs">EXPECTED PAYMENT METHOD</span>
                 </div>
-                <div className="flex items-center space-x-3 text-gray-600 mb-1">
-                  <CreditCard className="w-4 h-4 text-gray-400" />
+                <div className="flex items-center space-x-3 text-[var(--sf-text-secondary)] mb-1">
+                  <CreditCard className="w-4 h-4 text-[var(--sf-text-muted)]" />
                   <span className="text-sm">No payment method on file</span>
                 </div>
-                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium">
                   Add a card to charge later
                 </button>
               </div>
             </div>
 
             {/* Team Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 py-3">
-              <h3 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="font-semibold text-gray-700 text-lg mb-2 px-6">Team</h3>
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm py-3">
+              <h3 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="font-semibold text-[var(--sf-text-primary)] text-lg mb-2 px-6">Team</h3>
               
               <div className="space-y-4">
                 {/* Job Requirements Section */}
                 <div className="px-6">
                   <div className="flex justify-between items-center mb-1">
-                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">JOB REQUIREMENTS</span>
+                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-[var(--sf-text-primary)] text-xs">JOB REQUIREMENTS</span>
                     {canEditJobDetails(user) && !isWorker(user) && (
                       <button 
                         onClick={() => {
@@ -3982,7 +4285,7 @@ const JobDetails = () => {
                           setShowEditJobRequirementsModal(true)
                         }}
                         style={{fontFamily: 'Montserrat', fontWeight: 500}} 
-                        className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium"
+                        className=" text-[var(--sf-blue-500)] rounded hover:bg-[var(--sf-blue-50)] flex items-center space-x-2 text-sm font-medium"
                       >
                         <span>Edit</span>
                       </button>
@@ -3990,17 +4293,17 @@ const JobDetails = () => {
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">Workers needed</span>
+                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-[var(--sf-text-secondary)]">Workers needed</span>
                       <span className="font-medium">{job.workers_needed || 1} service provider</span>
                     </div>
                     <div className="flex justify-between">
-                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">Skills needed</span>
+                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-[var(--sf-text-secondary)]">Skills needed</span>
                       <span className="font-medium">
                         {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">Intake questions</span>
+                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-[var(--sf-text-secondary)]">Intake questions</span>
                       <span className="font-medium">
                         {(() => {
                           const intakeQuestions = getServiceIntakeQuestions();
@@ -4019,24 +4322,24 @@ const JobDetails = () => {
                   
                   if (!canSee) {
                     return (
-                      <div className="px-6 border-y border-gray-200 py-3">
+                      <div className="px-6 border-y border-[var(--sf-border-light)] py-3">
                         <div className="flex justify-between items-center mb-2">
-                          <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">ASSIGNED</span>
+                          <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-[var(--sf-text-primary)] text-xs">ASSIGNED</span>
                         </div>
-                        <p className="text-xs text-gray-500 italic">Other assigned providers are not visible. You don't have permission to see other providers.</p>
+                        <p className="text-xs text-[var(--sf-text-muted)] italic">Other assigned providers are not visible. You don't have permission to see other providers.</p>
                       </div>
                     );
                   }
                   
                   return (
-                    <div className="px-6 border-y border-gray-200 py-3">
+                    <div className="px-6 border-y border-[var(--sf-border-light)] py-3">
                       <div className="flex justify-between items-center mb-2">
-                        <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">ASSIGNED</span>
+                        <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-[var(--sf-text-primary)] text-xs">ASSIGNED</span>
                         {canEditJobDetails(user) && (
                         <button 
                           onClick={() => setShowAssignModal(true)}
                           style={{fontFamily: 'Montserrat', fontWeight: 500}}
-                          className="text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium"
+                          className="text-[var(--sf-blue-500)] rounded hover:bg-[var(--sf-blue-50)] flex items-center space-x-2 text-sm font-medium"
                         >
                           Assign
                         </button>
@@ -4062,19 +4365,18 @@ const JobDetails = () => {
                                 }
                                 
                                 // Build member name from available data
-                                const memberName = member 
-                                  ? `${member.first_name || ''} ${member.last_name || ''}`.trim()
-                                  : (assignment.team_members?.first_name && assignment.team_members?.last_name
-                                    ? `${assignment.team_members.first_name} ${assignment.team_members.last_name}`.trim()
-                                    : (assignment.first_name && assignment.last_name 
-                                      ? `${assignment.first_name} ${assignment.last_name}`.trim()
-                                      : 'Unknown Team Member'));
+                                const memberName =
+                                  (member && (member.first_name || member.last_name))
+                                    ? `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                                    : (assignment.first_name || assignment.last_name)
+                                      ? `${assignment.first_name || ''} ${assignment.last_name || ''}`.trim()
+                                      : (member?.email || assignment.email || 'Unknown Team Member');
                                 const memberEmail = member?.email || assignment.email || '';
                                 
                                 return (
                                   <div key={assignment.team_member_id || index} className="flex items-center space-x-2">
                                     <div className="relative">
-                                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                      <div className="w-10 h-10 bg-[var(--sf-blue-500)] rounded-full flex items-center justify-center">
                                         <span className="text-white font-semibold text-sm">
                                           {member?.first_name?.[0] || assignment.first_name?.[0] || '?'}
                                           {member?.last_name?.[0] || assignment.last_name?.[0] || ''}
@@ -4088,17 +4390,17 @@ const JobDetails = () => {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center space-x-2">
-                                        <p className="font-semibold text-gray-900 truncate" title={memberName}>
+                                        <p className="font-semibold text-[var(--sf-text-primary)] truncate" title={memberName}>
                                           {memberName}
                                         </p>
                                         {assignment.is_primary && (
-                                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                                          <span className="rounded-full px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800">
                                             Primary
                                           </span>
                                         )}
                                       </div>
                                       {memberEmail && (
-                                        <p className="text-sm text-gray-600 truncate" title={memberEmail}>
+                                        <p className="text-sm text-[var(--sf-text-secondary)] truncate" title={memberEmail}>
                                           {memberEmail}
                                         </p>
                                       )}
@@ -4112,16 +4414,16 @@ const JobDetails = () => {
                           // Fallback: single team member (backward compatibility)
                           return (
                         <div className="flex items-center space-x-2">
-                          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                          <div className="w-10 h-10 bg-[var(--sf-blue-500)] rounded-full flex items-center justify-center">
                             <span className="text-white font-semibold text-sm">
                               {job.assigned_team_member.first_name?.[0]}{job.assigned_team_member.last_name?.[0]}
                             </span>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-gray-900 truncate" title={`${job.assigned_team_member.first_name} ${job.assigned_team_member.last_name}`}>
+                            <p className="font-semibold text-[var(--sf-text-primary)] truncate" title={`${job.assigned_team_member.first_name} ${job.assigned_team_member.last_name}`}>
                               {job.assigned_team_member.first_name} {job.assigned_team_member.last_name}
                             </p>
-                            <p className="text-sm text-gray-600 truncate" title={job.assigned_team_member.email}>
+                            <p className="text-sm text-[var(--sf-text-secondary)] truncate" title={job.assigned_team_member.email}>
                               {job.assigned_team_member.email}
                             </p>
                           </div>
@@ -4132,10 +4434,10 @@ const JobDetails = () => {
                           return (
                         <div className="text-center py-2">
                           <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                            <UserX className="w-8 h-8 text-gray-400" />
+                            <UserX className="w-8 h-8 text-[var(--sf-text-muted)]" />
                           </div>
-                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
-                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
+                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-[var(--sf-text-primary)] mb-1">Unassigned</p>
+                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-[var(--sf-text-muted)]">No service providers are assigned to this job</p>
                         </div>
                           );
                         }
@@ -4148,7 +4450,7 @@ const JobDetails = () => {
                 {canEditJobDetails(user) && (
                 <div className="px-6 pt-1 pb-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-700 text-sm">Offer job to service providers</span>
+                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-[var(--sf-text-primary)] text-sm">Offer job to service providers</span>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
                         type="checkbox" 
@@ -4172,12 +4474,12 @@ const JobDetails = () => {
                         }}
                         className="sr-only peer" 
                       />
-                        <div className={`w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                        <div className={`w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--sf-blue-500)] ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                     </label>
                   </div>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-[var(--sf-text-secondary)]">
                     Allows qualified, available providers to see and claim this job. 
-                    <button className="text-blue-600 hover:text-blue-700 ml-1">Learn more</button>
+                    <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] ml-1">Learn more</button>
                   </p>
                 </div>
                 )}
@@ -4187,25 +4489,25 @@ const JobDetails = () => {
           
 
             {/* Notes & Files */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Notes & Files</h3>
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-4">
+              <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Notes & Files</h3>
               <div className="py-4 justify-center items-center">
                 <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 {editingField === 'notes' ? (
                   <>
                     <textarea
-                      className="w-full border border-gray-300 rounded p-2 mb-2"
+                      className="w-full border border-[var(--sf-border-light)] rounded p-2 mb-2"
                       rows={4}
                       value={formData.notes}
                       onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                     />
                     <div className="flex justify-end space-x-2">
                       <button
-                        className="px-3 py-1 text-gray-600 border border-gray-300 rounded"
+                        className="px-3 py-1 text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)] rounded"
                         onClick={() => setEditingField(null)}
                       >Cancel</button>
                       <button
-                        className="px-3 py-1 bg-blue-600 text-white rounded"
+                        className="px-3 py-1 bg-[var(--sf-blue-500)] text-white rounded"
                         onClick={handleSave}
                       >Save</button>
                     </div>
@@ -4214,12 +4516,12 @@ const JobDetails = () => {
                   <>
                     {canViewCustomerNotes(user) ? (
                       <>
-                        <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px] text-center">
-                          {job.notes || <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">No internal job or customer notes </span>}<br/>
-                          {job.notes || <span className="text-gray-400 text-xs">Notes and attachments are only visible to employees with appropriate permissions. </span>}
+                        <p className="text-[var(--sf-text-primary)] mb-2 whitespace-pre-line min-h-[48px] text-center">
+                          {job.notes || <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-[var(--sf-text-secondary)]">No internal job or customer notes </span>}<br/>
+                          {job.notes || <span className="text-[var(--sf-text-muted)] text-xs">Notes and attachments are only visible to employees with appropriate permissions. </span>}
                         </p>
                         <button
-                          className="px-3 py-1 border border-gray-300 border-dashed text-blue-500 rounded hover:text-blue-700 hover:border-blue-500 flex items-center justify-self-center space-x-2"
+                          className="px-3 py-1 border border-[var(--sf-border-light)] border-dashed text-blue-500 rounded hover:text-[var(--sf-blue-500)] hover:border-blue-500 flex items-center justify-self-center space-x-2"
                           onClick={() => setEditingField('notes')}
                         >
                           <Plus className="w-4 h-4" />
@@ -4227,7 +4529,7 @@ const JobDetails = () => {
                         </button>
                       </>
                     ) : (
-                      <p className="text-gray-500 mb-2 whitespace-pre-line min-h-[48px] text-center text-sm italic">
+                      <p className="text-[var(--sf-text-muted)] mb-2 whitespace-pre-line min-h-[48px] text-center text-sm italic">
                         Customer notes are not available. You don't have permission to view customer notes.
                       </p>
                     )}
@@ -4237,16 +4539,16 @@ const JobDetails = () => {
             </div>
 
             {/* Customer Notifications */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Customer notifications</h3>
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-4">
+              <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Customer notifications</h3>
               
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-xs font-medium text-gray-600 mb-3">NOTIFICATION PREFERENCES</h4>
+                  <h4 className="text-xs font-medium text-[var(--sf-text-secondary)] mb-3">NOTIFICATION PREFERENCES</h4>
                   
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-700">Emails</span>
+                      <span className="text-sm text-[var(--sf-text-primary)]">Emails</span>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input 
                           type="checkbox" 
@@ -4255,12 +4557,12 @@ const JobDetails = () => {
                           disabled={loading}
                           className="sr-only peer" 
                         />
-                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-[var(--sf-blue-500)] peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                       </label>
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <span className={`text-sm ${!userTwilioConnected ? 'text-gray-400' : 'text-gray-700'}`}>
+                      <span className={`text-sm ${!userTwilioConnected ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'}`}>
                         Text messages
                         {!userTwilioConnected && <span className="text-xs block text-red-500">(Twilio not connected)</span>}
                       </span>
@@ -4272,24 +4574,24 @@ const JobDetails = () => {
                           disabled={loading || !userTwilioConnected}
                           className="sr-only peer" 
                         />
-                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-[var(--sf-blue-500)] peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                       </label>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-[var(--sf-border-light)]">
                   <div className="flex items-start space-x-3 items-center">
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                      <Mail className="w-5 h-5 text-blue-600" />
+                      <Mail className="w-5 h-5 text-[var(--sf-blue-500)]" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between ">
-                        <span className="text-xs text-gray-500">Confirmation</span>
+                        <span className="text-xs text-[var(--sf-text-muted)]">Confirmation</span>
                        
                       </div>
-                      <p className="text-sm font-semibold text-gray-900 ">Appointment Confirmation</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm font-semibold text-[var(--sf-text-primary)] ">Appointment Confirmation</p>
+                      <p className="text-xs text-[var(--sf-text-muted)]">
                         {job.confirmation_sent && job.confirmation_sent_at
                           ? `${getTimeAgo(job.confirmation_sent_at)} • Email Sent`
                           : job.confirmation_failed
@@ -4302,19 +4604,19 @@ const JobDetails = () => {
                     <div className="relative" ref={confirmationMenuRef}>
                           <button
                             onClick={() => setOpenNotificationMenu(openNotificationMenu === 'confirmation' ? null : 'confirmation')}
-                            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                            className="w-8 h-8 rounded-full bg-[var(--sf-bg-page)] hover:bg-gray-200 flex items-center justify-center transition-colors"
                           >
-                            <MoreVertical className="w-4 h-4 text-blue-600" />
+                            <MoreVertical className="w-4 h-4 text-[var(--sf-blue-500)]" />
                           </button>
                           {openNotificationMenu === 'confirmation' && (
-                            <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                            <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 min-w-[180px] z-50">
                               <button
                                 onClick={() => {
                                   setViewingMessageType('confirmation')
                                   setShowMessageViewer(true)
                                   setOpenNotificationMenu(null)
                                 }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] transition-colors"
                               >
                                 <Eye className="w-4 h-4" />
                                 View Message
@@ -4336,7 +4638,7 @@ const JobDetails = () => {
                                   setShowNotificationModal(true)
                                   setOpenNotificationMenu(null)
                                 }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] transition-colors"
                                 disabled={!emailNotifications && !smsNotifications}
                               >
                                 <RotateCw className="w-4 h-4" />
@@ -4348,18 +4650,18 @@ const JobDetails = () => {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-[var(--sf-border-light)]">
                   <div className="flex items-start space-x-3 items-center">
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center  flex-shrink-0">
-                      <Mail className="w-5 h-5 text-blue-600" />
+                      <Mail className="w-5 h-5 text-[var(--sf-blue-500)]" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Reminder</span>
+                        <span className="text-xs text-[var(--sf-text-muted)]">Reminder</span>
                         
                       </div>
-                      <p className="text-sm font-semibold text-gray-900 ">Appointment Reminder</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm font-semibold text-[var(--sf-text-primary)] ">Appointment Reminder</p>
+                      <p className="text-xs text-[var(--sf-text-muted)]">
                         {job.reminder_sent && job.reminder_sent_at
                           ? `${getTimeAgo(job.reminder_sent_at)} • Email Sent`
                           : job.reminder_failed
@@ -4372,19 +4674,19 @@ const JobDetails = () => {
                     <div className="relative" ref={reminderMenuRef}>
                           <button
                             onClick={() => setOpenNotificationMenu(openNotificationMenu === 'reminder' ? null : 'reminder')}
-                            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                            className="w-8 h-8 rounded-full bg-[var(--sf-bg-page)] hover:bg-gray-200 flex items-center justify-center transition-colors"
                           >
-                            <MoreVertical className="w-4 h-4 text-blue-600" />
+                            <MoreVertical className="w-4 h-4 text-[var(--sf-blue-500)]" />
                           </button>
                           {openNotificationMenu === 'reminder' && (
-                            <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                            <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 min-w-[180px] z-50">
                               <button
                                 onClick={() => {
                                   setViewingMessageType('reminder')
                                   setShowMessageViewer(true)
                                   setOpenNotificationMenu(null)
                                 }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] transition-colors"
                               >
                                 <Eye className="w-4 h-4" />
                                 View Message
@@ -4406,7 +4708,7 @@ const JobDetails = () => {
                                   setShowNotificationModal(true)
                                   setOpenNotificationMenu(null)
                                 }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] transition-colors"
                                 disabled={!emailNotifications && !smsNotifications}
                               >
                                 <RotateCw className="w-4 h-4" />
@@ -4418,11 +4720,11 @@ const JobDetails = () => {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-[var(--sf-border-light)]">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700">Custom Notifications</h4>
-                      <p className="text-xs text-gray-500">Send custom messages to customer</p>
+                      <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">Custom Notifications</h4>
+                      <p className="text-xs text-[var(--sf-text-muted)]">Send custom messages to customer</p>
                     </div>
                     <button 
                       onClick={() => {
@@ -4430,7 +4732,7 @@ const JobDetails = () => {
                         setCustomMessage('')
                         setShowCustomMessageModal(true)
                       }}
-                      className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                      className="px-3 py-1 bg-[var(--sf-blue-500)] text-white rounded text-xs hover:bg-[var(--sf-blue-600)]"
                     >
                       Send Message
                     </button>
@@ -4440,26 +4742,26 @@ const JobDetails = () => {
             </div>
 
             {/* Customer Feedback */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Customer feedback</h3>
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-4">
+              <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Customer feedback</h3>
               
-              <p className="text-sm text-gray-600 mb-2">
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-2">
                 An email will be sent to the customer asking them to rate the service after the job is marked complete.
               </p>
-              <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+              <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium">
                 Learn more.
               </button>
             </div>
 
             {/* Conversion Summary */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Conversion summary</h3>
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-4">
+              <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Conversion summary</h3>
               
               <div className="text-center py-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Target className="w-6 h-6 text-gray-400" />
+                <div className="w-12 h-12 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Target className="w-6 h-6 text-[var(--sf-text-muted)]" />
                 </div>
-                <p className="text-gray-500 text-sm">No conversion data available</p>
+                <p className="text-[var(--sf-text-muted)] text-sm">No conversion data available</p>
               </div>
             </div>
           </div>
@@ -4468,32 +4770,32 @@ const JobDetails = () => {
        
 
           {/* Mobile Navigation Bar */}
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--sf-border-light)] z-30">
             <div className="flex items-center justify-around py-2">
               <button
                 onClick={() => setShowMobileSidebar(true)}
-                className="flex flex-col items-center space-y-1 px-3 py-2 text-gray-600 hover:text-blue-600 transition-colors"
+                className="flex flex-col items-center space-y-1 px-3 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-blue-500)] transition-colors"
               >
                 <User className="w-5 h-5" />
                 <span className="text-xs font-medium">Customer</span>
               </button>
               <button
                 onClick={() => setShowMobileSidebar(true)}
-                className="flex flex-col items-center space-y-1 px-3 py-2 text-gray-600 hover:text-blue-600 transition-colors"
+                className="flex flex-col items-center space-y-1 px-3 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-blue-500)] transition-colors"
               >
                 <Users className="w-5 h-5" />
                 <span className="text-xs font-medium">Team</span>
               </button>
               <button
                 onClick={() => setShowMobileSidebar(true)}
-                className="flex flex-col items-center space-y-1 px-3 py-2 text-gray-600 hover:text-blue-600 transition-colors"
+                className="flex flex-col items-center space-y-1 px-3 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-blue-500)] transition-colors"
               >
                 <DollarSign className="w-5 h-5" />
                 <span className="text-xs font-medium">Invoice</span>
               </button>
               <button
                 onClick={() => setShowMobileSidebar(true)}
-                className="flex flex-col items-center space-y-1 px-3 py-2 text-gray-600 hover:text-blue-600 transition-colors"
+                className="flex flex-col items-center space-y-1 px-3 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-blue-500)] transition-colors"
               >
                 <Settings className="w-5 h-5" />
                 <span className="text-xs font-medium">More</span>
@@ -4509,12 +4811,12 @@ const JobDetails = () => {
                 onClick={() => setShowMobileSidebar(false)}
               />
               <div className="fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-[9997] lg:hidden overflow-y-auto">
-                <div className="p-4 border-b border-gray-200">
+                <div className="p-4 border-b border-[var(--sf-border-light)]">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Job Details</h2>
+                    <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Job Details</h2>
                     <button
                       onClick={() => setShowMobileSidebar(false)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                     >
                       <X className="w-6 h-6" />
                     </button>
@@ -4522,15 +4824,15 @@ const JobDetails = () => {
                 </div>
                 <div className="p-2 space-y-2">
                   {/* Customer Card */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1">
-                    <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-gray-900 mb-4 text-xs">Customer</h3>
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-1">
+                    <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-[var(--sf-text-primary)] mb-4 text-xs">Customer</h3>
                     
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
                         <span className="text-white font-semibold text-sm">{getCustomerInitials()}</span>
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">
+                        <p className="font-semibold text-[var(--sf-text-primary)]">
                           {job.customer_first_name} {job.customer_last_name}
                         </p>
                       </div>
@@ -4540,39 +4842,39 @@ const JobDetails = () => {
                     {canViewCustomerContact(user) ? (
                       <div className="space-y-3">
                         <div className="flex items-center space-x-2 text-sm">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700">
+                          <Phone className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                          <span className="text-[var(--sf-text-primary)]">
                             {formatPhoneNumber(job.customer_phone)}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2 text-sm">
-                          <Mail className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700 truncate">
+                          <Mail className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                          <span className="text-[var(--sf-text-primary)] truncate">
                             {job.customer_email}
                           </span>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-500 italic">Contact information not available</p>
+                      <p className="text-xs text-[var(--sf-text-muted)] italic">Contact information not available</p>
                     )}
                   </div>
 
                   {/* Job Requirements Section */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4">Job Requirements</h3>
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-4">
+                    <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Job Requirements</h3>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Workers needed</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Workers needed</span>
                         <span className="font-medium">{job.workers_needed || 1} service provider</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Skills needed</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Skills needed</span>
                         <span className="font-medium text-right max-w-xs">
                           {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Intake questions</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Intake questions</span>
                         <span className="font-medium">
                           {(() => {
                             const intakeQuestions = getServiceIntakeQuestions();
@@ -4588,15 +4890,15 @@ const JobDetails = () => {
                   <IntakeAnswersDisplay intakeAnswers={job.intake_answers || []} />
 
                   {/* Notes & Files */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4">Notes & Files</h3>
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-4">
+                    <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Notes & Files</h3>
                     <div className="py-4">
                       <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px]">
-                        {job.notes || <span className="text-gray-400">No notes</span>}
+                      <p className="text-[var(--sf-text-primary)] mb-2 whitespace-pre-line min-h-[48px]">
+                        {job.notes || <span className="text-[var(--sf-text-muted)]">No notes</span>}
                       </p>
                       <button
-                        className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
+                        className="px-3 py-1 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded hover:bg-[var(--sf-bg-page)] flex items-center space-x-2"
                         onClick={() => setEditingField('notes')}
                       >
                         <Edit className="w-4 h-4" />
@@ -4606,16 +4908,16 @@ const JobDetails = () => {
                   </div>
 
                   {/* Customer Notifications */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4">Customer notifications</h3>
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-4">
+                    <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Customer notifications</h3>
                     
                     <div className="space-y-4">
                       <div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-3">NOTIFICATION PREFERENCES</h4>
+                        <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">NOTIFICATION PREFERENCES</h4>
                         
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700">Emails</span>
+                            <span className="text-sm text-[var(--sf-text-primary)]">Emails</span>
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input 
                                 type="checkbox" 
@@ -4624,12 +4926,12 @@ const JobDetails = () => {
                                 disabled={loading}
                                 className="sr-only peer" 
                               />
-                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-[var(--sf-blue-500)] peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                             </label>
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <span className={`text-sm ${!userTwilioConnected ? 'text-gray-400' : 'text-gray-700'}`}>
+                            <span className={`text-sm ${!userTwilioConnected ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'}`}>
                               Text messages
                               {!userTwilioConnected && <span className="text-xs block text-red-500">(Twilio not connected)</span>}
                             </span>
@@ -4641,7 +4943,7 @@ const JobDetails = () => {
                                 disabled={loading || !userTwilioConnected}
                                 className="sr-only peer" 
                               />
-                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-[var(--sf-blue-500)] peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                             </label>
                           </div>
                         </div>
@@ -4664,31 +4966,31 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Reschedule Job</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Reschedule Job</h3>
                   <button
                     onClick={() => setShowRescheduleModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Date</label>
                     <input
                       type="date"
                       value={formData.scheduledDate}
                       onChange={(e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Time</label>
                     <input
                       type="time"
                       value={formData.scheduledTime}
                       onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                 </div>
@@ -4696,13 +4998,13 @@ const JobDetails = () => {
                 <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
                   <button
                     onClick={() => setShowRescheduleModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleReschedule}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2"
                   >
                     Reschedule
                   </button>
@@ -4712,44 +5014,25 @@ const JobDetails = () => {
           </div>
         )}
 
-        {/* Cancel Modal */}
+        {/* Cancel Modal — optional financial adjustments */}
         {showCancelModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Cancel Job</h3>
-                  <button
-                    onClick={() => setShowCancelModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <p className="text-gray-600 mb-6">
-                  Are you sure you want to cancel this job? This action cannot be undone.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
-                  <button
-                    onClick={() => setShowCancelModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
-                  >
-                    Keep Job
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleStatusChange('cancelled')
-                      setShowCancelModal(false)
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 order-1 sm:order-2"
-                  >
-                    Cancel Job
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <CancelJobModal
+            job={job}
+            teamMembers={teamMembers}
+            onClose={() => setShowCancelModal(false)}
+            onCancelled={(result) => {
+              setJob(prev => ({
+                ...prev,
+                status: 'cancelled',
+                cancellation_fee: result.cancellation_fee,
+                cancellation_fee_status: result.cancellation_fee_status,
+              }))
+              setSuccessMessage('Job cancelled')
+              setTimeout(() => setSuccessMessage(''), 3000)
+              setShowCancelModal(false)
+            }}
+            onError={(msg) => setError(msg || 'Failed to cancel job')}
+          />
         )}
 
         {/* Edit Service Modal */}
@@ -4758,11 +5041,12 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
               <div className="p-6 flex-1 overflow-y-auto">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900">Edit Job</h3>
+                  <h3 className="text-2xl font-bold text-[var(--sf-text-primary)]">Edit Job</h3>
                   <div className="flex space-x-3">
                   <button
                     onClick={() => {
                       setShowEditServiceModal(false);
+                      setShowDurationEditor(false);
                         setOriginalJobData(null);
                       if (originalJobData) {
                         setJob(prev => ({
@@ -4771,13 +5055,13 @@ const JobDetails = () => {
                         }));
                       }
                     }}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg text-sm font-medium"
+                      className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg text-sm font-medium"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveService}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                      className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] text-sm font-medium"
                     >
                       Save Job
                   </button>
@@ -4787,7 +5071,7 @@ const JobDetails = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {/* Services Section */}
                   <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Services</h4>
+                    <h4 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Services</h4>
                     
                     {/* Search and Add Options */}
                     <div className="space-y-3 mb-6">
@@ -4795,54 +5079,163 @@ const JobDetails = () => {
                     <input
                       type="text"
                           placeholder="Search services..."
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-4 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
-                        <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
+                        <Search className="absolute right-3 top-2.5 w-4 h-4 text-[var(--sf-text-muted)]" />
                   </div>
                       <div className="flex space-x-2">
-                        <button className="px-3 py-2 text-blue-600 hover:text-blue-700 text-sm font-medium border border-blue-200 rounded-lg">
+                        <button className="px-3 py-2 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium border border-blue-200 rounded-lg">
                           Add Custom Service or Item
                         </button>
-                        <button className="px-3 py-2 text-gray-600 hover:text-gray-700 text-sm font-medium border border-gray-300 rounded-lg">
+                        <button className="px-3 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] text-sm font-medium border border-[var(--sf-border-light)] rounded-lg">
                           Browse Services
                         </button>
                     </div>
                   </div>
                   
                     {/* Service List */}
-                    <div className="border border-gray-200 rounded-lg">
-                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-                        <div className="grid grid-cols-2 gap-4 text-sm font-medium text-gray-600">
+                    <div className="border border-[var(--sf-border-light)] rounded-lg">
+                      <div className="px-4 py-3 bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)]">
+                        <div className="grid grid-cols-2 gap-4 text-sm font-medium text-[var(--sf-text-secondary)]">
                           <span>SERVICE</span>
                           <span>PRICE</span>
                         </div>
                       </div>
                       <div className="p-4">
-                        <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                        <div className="flex items-center justify-between py-3 border-b border-[var(--sf-border-light)]">
                   <div>
-                            <p className="font-medium text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
-                            <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium">
+                            <p className="font-medium text-[var(--sf-text-primary)]">{decodeHtmlEntities(job.service_name || '')}</p>
+                            <button
+                              onClick={() => setShowDurationEditor(prev => !prev)}
+                              className="px-3 py-1 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded hover:bg-[var(--sf-bg-page)] flex items-center space-x-2 text-sm font-medium"
+                            >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
                             </button>
-                            <button className="text-gray-600 hover:text-gray-700 text-sm ml-4">Show details &gt;</button>
+                            <button
+                              onClick={() => setShowDurationEditor(prev => !prev)}
+                              className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] text-sm ml-4"
+                            >
+                              {showDurationEditor ? 'Hide details' : 'Show details'} &gt;
+                            </button>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-900">${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
-                            <button className="p-1 text-gray-400 hover:text-gray-600">
+                            <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(formData.service_price) || parseFloat(job.service_price) || 0).toFixed(2)}</span>
+                            <button
+                              onClick={() => setShowDurationEditor(true)}
+                              className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
+                            >
                               <Edit className="w-4 h-4" />
-                            </button>
-                            <button className="p-1 text-gray-400 hover:text-red-600">
-                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
+
+                        {/* Service Details Editor */}
+                        {showDurationEditor && (
+                          <div className="mt-3 p-4 bg-[var(--sf-bg-page)] rounded-lg border border-[var(--sf-border-light)] space-y-4">
+                            {/* Duration */}
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Duration</label>
+                              <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={Math.floor((formData.duration || 0) / 60)}
+                                    onChange={e => {
+                                      const hours = parseInt(e.target.value) || 0;
+                                      const currentMins = (formData.duration || 0) % 60;
+                                      setFormData(prev => ({ ...prev, duration: hours * 60 + currentMins }));
+                                    }}
+                                    className="w-16 px-2 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-center"
+                                  />
+                                  <span className="text-sm text-[var(--sf-text-secondary)]">hrs</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="59"
+                                    value={(formData.duration || 0) % 60}
+                                    onChange={e => {
+                                      const mins = Math.min(59, parseInt(e.target.value) || 0);
+                                      const currentHours = Math.floor((formData.duration || 0) / 60);
+                                      setFormData(prev => ({ ...prev, duration: currentHours * 60 + mins }));
+                                    }}
+                                    className="w-16 px-2 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-center"
+                                  />
+                                  <span className="text-sm text-[var(--sf-text-secondary)]">min</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Service Price (base price of the service itself) */}
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Service Price</label>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-[var(--sf-text-muted)]">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.service_price === 0 ? "" : formData.service_price}
+                                  onFocus={e => { if (e.target.value === "0" || e.target.value === "0.00") e.target.value = ""; }}
+                                  onChange={e => {
+                                    const newPrice = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0;
+                                    setFormData(prev => ({ ...prev, service_price: newPrice }));
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Additional Fees */}
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Additional Fees</label>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-[var(--sf-text-muted)]">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.additional_fees === 0 ? "" : formData.additional_fees}
+                                  onFocus={e => { if (e.target.value === "0" || e.target.value === "0.00") e.target.value = ""; }}
+                                  onChange={e => {
+                                    const val = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0;
+                                    setFormData(prev => ({ ...prev, additional_fees: val }));
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Taxes */}
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Taxes</label>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-[var(--sf-text-muted)]">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.taxes === 0 ? "" : formData.taxes}
+                                  onFocus={e => { if (e.target.value === "0" || e.target.value === "0.00") e.target.value = ""; }}
+                                  onChange={e => {
+                                    const val = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0;
+                                    setFormData(prev => ({ ...prev, taxes: val }));
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Customize Price */}
-                        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Customize price</label>
+                        <div className="mt-4 p-3 bg-[var(--sf-blue-50)] rounded-lg border border-blue-200">
+                          <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Customize price</label>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-500">$</span>
+                            <span className="text-sm text-[var(--sf-text-muted)]">$</span>
                     <input
                       type="number"
                           step="0.01"
@@ -4859,7 +5252,7 @@ const JobDetails = () => {
                                 service_price: newPrice
                                 }));
                               }}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                           placeholder="0.00"
                         />
                             <button className="text-sm text-red-600 hover:text-red-800">Reset</button>
@@ -4867,13 +5260,13 @@ const JobDetails = () => {
                           <div className="flex space-x-2 mt-2">
                             <button 
                               onClick={() => setShowEditServiceModal(false)}
-                              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                              className="px-3 py-1 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                             >
                               Cancel
                             </button>
                             <button 
                               onClick={handleSaveService}
-                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                              className="px-3 py-1 text-sm bg-[var(--sf-blue-500)] text-white rounded hover:bg-[var(--sf-blue-600)]"
                             >
                               Save
                             </button>
@@ -4884,48 +5277,81 @@ const JobDetails = () => {
                     
                     {/* Cost Breakdown */}
                     <div className="mt-6 space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-sm text-gray-600">Subtotal</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Subtotal</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0).toFixed(2)}</span>
                       </div>
-                      <button 
-                        onClick={() => setShowDiscountModal(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Add Discount
-                      </button>
+                      {parseFloat(job.discount || 0) > 0 ? (
+                        <div className="flex justify-between items-center py-2">
+                          <button onClick={() => { setFormData(prev => ({ ...prev, discountInput: parseFloat(job.discount).toFixed(2) })); setShowDiscountModal(true); }} className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">Discount</button>
+                          <span className="text-sm font-medium text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowDiscountModal(true)}
+                          className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
+                        >
+                          Add Discount
+                        </button>
+                      )}
+                      <div className="flex justify-between items-center py-2 border-t border-[var(--sf-border-light)]">
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Total</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${Math.max(0, (parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0) - (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
+                      </div>
+                      {jobFees > 0 && (
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-sm text-gray-600">Taxes</span>
-                        <span className="text-sm font-medium text-gray-900">$0.00</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Fee</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${jobFees.toFixed(2)}</span>
                       </div>
-                      <button 
-                        onClick={() => setShowTipModal(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Add tip
-                      </button>
-                      <div className="flex justify-between items-center py-2 border-t border-gray-200">
-                        <span className="text-sm font-medium text-gray-900">Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      )}
+                      {jobTaxes > 0 && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Taxes</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${jobTaxes.toFixed(2)}</span>
+                      </div>
+                      )}
+                      {(jobFees > 0 || jobTaxes > 0) && (
+                      <div className="flex justify-between items-center py-2 border-t border-[var(--sf-border-light)]">
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Total due</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${getEditServiceModalTotal().toFixed(2)}</span>
+                      </div>
+                      )}
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Tip</span>
+                        <button
+                          onClick={() => { setError(''); const curTip = parseFloat(job?.tip_amount) || 0; setFormData(prev => ({ ...prev, tipInput: curTip > 0 ? curTip.toFixed(2) : '' })); setShowTipModal(true); }}
+                          className={`text-sm font-medium ${displayTip > 0 ? 'text-green-600 hover:text-green-700' : 'text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]'}`}
+                        >
+                          {displayTip > 0 ? `+$${displayTip.toFixed(2)}` : 'Add Tip'}
+                        </button>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Incentives</span>
+                        <button
+                          onClick={() => { setError(''); const curIncentive = parseFloat(job?.incentive_amount) || 0; setFormData(prev => ({ ...prev, incentiveInput: curIncentive > 0 ? curIncentive.toFixed(2) : '' })); setShowIncentiveModal(true); }}
+                          className={`text-sm font-medium ${displayIncentive > 0 ? 'text-purple-600 hover:text-purple-700' : 'text-purple-600 hover:text-purple-700'}`}
+                        >
+                          {displayIncentive > 0 ? `+$${displayIncentive.toFixed(2)}` : 'Add Incentive'}
+                        </button>
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Summary Section */}
                       <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Summary</h4>
+                    <h4 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Summary</h4>
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-sm text-gray-600">Previous Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Previous Total</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${getEditServiceModalTotal().toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-sm text-gray-600">Updated Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Updated Total</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${getEditServiceModalTotal().toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-sm text-gray-600">Estimated duration</span>
-                        <span className="text-sm font-medium text-gray-900">{formatDuration(job.duration || 0)}</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Estimated duration</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">{formatDuration(formData.duration || job.duration || 0)}</span>
                       </div>
                     </div>
                   </div>
@@ -4941,10 +5367,10 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Edit Address</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Address</h3>
                   <button
                     onClick={() => setShowEditAddressModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -4952,12 +5378,12 @@ const JobDetails = () => {
                 
                 {/* Copy Customer Address Button */}
                 {job && (job.customer_address || job.customer_city || job.customer_state || job.customer_zip_code) && (
-                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                  <div className="flex items-center justify-between p-3 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg mb-4">
                     <div className="flex items-center">
-                      <MapPin className="w-4 h-4 text-blue-600 mr-2" />
+                      <MapPin className="w-4 h-4 text-[var(--sf-blue-500)] mr-2" />
                       <div>
                         <p className="text-sm font-medium text-blue-900">Customer Address Available</p>
-                        <p className="text-xs text-blue-700">
+                        <p className="text-xs text-[var(--sf-blue-500)]">
                           {job.customer_address || `${job.customer_city}, ${job.customer_state} ${job.customer_zip_code}`}
                         </p>
                       </div>
@@ -4965,7 +5391,7 @@ const JobDetails = () => {
                     <button
                       type="button"
                       onClick={copyCustomerAddressToService}
-                      className="px-3 py-1 text-xs font-medium text-blue-600 bg-white border border-blue-300 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-1 text-xs font-medium text-[var(--sf-blue-500)] bg-white border border-blue-300 rounded-md hover:bg-[var(--sf-blue-50)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                     >
                       Copy Address
                     </button>
@@ -4974,7 +5400,7 @@ const JobDetails = () => {
                 
                 <div className="space-y-4">
                   <div className="relative">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Street Address
                       {addressAutoPopulated && formData.serviceAddress.street && (
                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
@@ -5012,11 +5438,11 @@ const JobDetails = () => {
                         setAddressAutoPopulated(true);
                       }}
                       placeholder={job?.service_address_street || "Start typing address..."}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       City
                       {addressAutoPopulated && formData.serviceAddress.city && (
                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
@@ -5034,13 +5460,13 @@ const JobDetails = () => {
                           city: e.target.value
                         }
                       }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder={job?.service_address_city || "Enter city"}
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                         State
                         {addressAutoPopulated && formData.serviceAddress.state && (
                           <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
@@ -5058,12 +5484,12 @@ const JobDetails = () => {
                             state: e.target.value
                           }
                         }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         placeholder={job?.service_address_state || "Enter state"}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                         ZIP Code
                         {addressAutoPopulated && formData.serviceAddress.zipCode && (
                           <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
@@ -5081,7 +5507,7 @@ const JobDetails = () => {
                             zipCode: e.target.value
                           }
                         }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         placeholder={job?.service_address_zip || "Enter ZIP code"}
                       />
                     </div>
@@ -5091,7 +5517,7 @@ const JobDetails = () => {
                 <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
                   <button
                     onClick={() => setShowEditAddressModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
                   >
                     Cancel
                   </button>
@@ -5100,7 +5526,7 @@ const JobDetails = () => {
                       handleSave()
                       setShowEditAddressModal(false)
                     }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2"
                   >
                     Save Changes
                   </button>
@@ -5116,13 +5542,13 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">Email Invoice</h3>
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)]">Email Invoice</h3>
                   <button
                     onClick={() => {
                       setShowSendInvoiceModal(false);
                       setManualEmail('');
                     }}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -5130,10 +5556,10 @@ const JobDetails = () => {
 
                 <div className="space-y-6">
                   {/* Payment Link Option */}
-                  <div className={`flex items-center justify-between p-4 rounded-lg ${stripeConnected ? 'bg-gray-50' : 'bg-red-50 border border-red-200'}`}>
+                  <div className={`flex items-center justify-between p-4 rounded-lg ${stripeConnected ? 'bg-[var(--sf-bg-page)]' : 'bg-red-50 border border-red-200'}`}>
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">Include a link to pay this invoice online</h4>
-                      <p className="text-sm text-gray-600">
+                      <h4 className="font-medium text-[var(--sf-text-primary)]">Include a link to pay this invoice online</h4>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">
                         {stripeConnected 
                           ? 'Allow customer to pay directly via Stripe' 
                           : 'Stripe is not connected. Please connect Stripe in Settings to enable online payments.'
@@ -5154,7 +5580,7 @@ const JobDetails = () => {
                               console.error('Error refreshing Stripe status:', error)
                             }
                           }}
-                          className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                          className="mt-2 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] underline"
                         >
                           Refresh Stripe Status
                         </button>
@@ -5168,58 +5594,58 @@ const JobDetails = () => {
                         disabled={!stripeConnected}
                         onChange={(e) => setIncludePaymentLink(e.target.checked)}
                       />
-                      <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 ${stripeConnected ? 'bg-gray-200' : 'bg-gray-300'}`}></div>
+                      <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--sf-blue-500)] ${stripeConnected ? 'bg-gray-200' : 'bg-gray-300'}`}></div>
                     </label>
                   </div>
 
                   {/* Email Details */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Send to</label>
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Send to</label>
                     <input
                       type="email"
                       value={manualEmail || job.customer_email || ''}
                       onChange={(e) => setManualEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="Enter email address"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Subject</label>
                     <input
                       type="text"
                         defaultValue={`You have a new invoice from ${user?.business_name || 'Your Business'}`}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   </div>
 
                   {/* Invoice Summary */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-4">Invoice Summary</h4>
+                  <div className="bg-[var(--sf-bg-page)] rounded-lg p-4">
+                    <h4 className="font-medium text-[var(--sf-text-primary)] mb-4">Invoice Summary</h4>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">AMOUNT DUE</span>
-                        <span className="font-semibold">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">AMOUNT DUE</span>
+                        <span className="font-semibold">${displayServiceTotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">DUE BY</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">DUE BY</span>
                         <span className="text-sm">{new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">SERVICE DATE</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">SERVICE DATE</span>
                         <span className="text-sm">{new Date(job.scheduled_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">SERVICE ADDRESS</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">SERVICE ADDRESS</span>
                         <span className="text-sm">{job.customer_address || 'Address not provided'}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Service Details */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Service Details</h4>
+                  <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4">
+                    <h4 className="font-medium text-[var(--sf-text-primary)] mb-3">Service Details</h4>
                     <div className="space-y-2">
                       {job.service_names && job.service_names.length > 0 ? (
                         job.service_names.map((service, index) => (
@@ -5238,32 +5664,62 @@ const JobDetails = () => {
                   </div>
 
                   {/* Financial Summary */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Financial Summary</h4>
+                  <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4">
+                    <h4 className="font-medium text-[var(--sf-text-primary)] mb-3">Financial Summary</h4>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
-                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                        <span>${subtotalDisplay.toFixed(2)}</span>
                       </div>
+                      {jobDiscount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Discount</span>
+                        <span className="text-red-600">-${jobDiscount.toFixed(2)}</span>
+                      </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span>Total</span>
-                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                        <span>${totalAfterDiscount.toFixed(2)}</span>
                       </div>
+                      {jobFees > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span>Total Paid</span>
-                        <span>${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}</span>
+                        <span>Fee</span>
+                        <span>${jobFees.toFixed(2)}</span>
                       </div>
+                      )}
+                      {jobTaxes > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Taxes</span>
+                        <span>${jobTaxes.toFixed(2)}</span>
+                      </div>
+                      )}
                       <div className="flex justify-between font-semibold border-t pt-2">
                         <span>Total Due</span>
-                        <span className={job.invoice_status === 'paid' ? 'text-green-600' : ''}>
-                          ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                        <span className={isPaidOrFree ? 'text-green-600' : 'text-red-600'}>
+                          ${displayTotalDue.toFixed(2)}
                         </span>
                       </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Amount Paid</span>
+                        <span>${effectiveAmountPaid.toFixed(2)}</span>
+                      </div>
+                      {displayTip > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Tip</span>
+                        <span className="text-green-600">+${displayTip.toFixed(2)}</span>
+                      </div>
+                      )}
+                      {displayIncentive > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Incentives</span>
+                        <span className="text-purple-600">+${displayIncentive.toFixed(2)}</span>
+                      </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Closing Message */}
-                  <div className="text-center text-sm text-gray-600">
+                  <div className="text-center text-sm text-[var(--sf-text-secondary)]">
                     We appreciate your business.
                   </div>
 
@@ -5293,13 +5749,13 @@ const JobDetails = () => {
                       setShowSendInvoiceModal(false);
                       setManualEmail('');
                     }}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSendInvoice}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2"
                   >
                     Send
                   </button>
@@ -5314,25 +5770,25 @@ const JobDetails = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Email Required</h3>
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Email Required</h3>
                 <button
                   onClick={() => {
                     setShowEmailRequiredModal(false);
                     setPendingAction(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
               
               <div className="space-y-4">
-                <p className="text-gray-600">
+                <p className="text-[var(--sf-text-secondary)]">
                   This customer doesn't have an email address. Please provide an email to {pendingAction === 'send' ? 'send the invoice' : 'resend the notification'}.
                 </p>
                 
                 <div>
-                  <label htmlFor="customer-email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="customer-email" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Customer Email
                   </label>
                   <input
@@ -5340,7 +5796,7 @@ const JobDetails = () => {
                     id="customer-email"
                     value={manualEmail}
                     onChange={(e) => setManualEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Enter customer email address"
                     required
                   />
@@ -5353,7 +5809,7 @@ const JobDetails = () => {
                       setPendingAction(null);
                       setManualEmail('');
                     }}
-                    className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="flex-1 px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                   >
                     Cancel
                   </button>
@@ -5372,7 +5828,7 @@ const JobDetails = () => {
                         setError('Please enter a valid email address');
                       }
                     }}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                   >
                     {pendingAction === 'send' ? 'Send Invoice' : 'Resend'}
                   </button>
@@ -5387,10 +5843,10 @@ const JobDetails = () => {
           <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Edit Customer</h3>
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Customer</h3>
                 <button
                   onClick={() => setShowEditCustomerModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -5398,7 +5854,7 @@ const JobDetails = () => {
               
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="edit-first-name" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="edit-first-name" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     First Name
                   </label>
                   <input
@@ -5406,12 +5862,12 @@ const JobDetails = () => {
                     id="edit-first-name"
                     value={editCustomerData.firstName}
                     onChange={(e) => setEditCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="edit-last-name" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="edit-last-name" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Last Name
                   </label>
                   <input
@@ -5419,12 +5875,12 @@ const JobDetails = () => {
                     id="edit-last-name"
                     value={editCustomerData.lastName}
                     onChange={(e) => setEditCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="edit-email" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Email Address
                   </label>
                   <input
@@ -5432,13 +5888,13 @@ const JobDetails = () => {
                     id="edit-email"
                     value={editCustomerData.email}
                     onChange={(e) => setEditCustomerData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Enter email address"
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="edit-phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="edit-phone" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Phone Number
                   </label>
                   <input
@@ -5446,15 +5902,29 @@ const JobDetails = () => {
                     id="edit-phone"
                     value={editCustomerData.phone}
                     onChange={(e) => setEditCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Enter phone number"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="edit-source" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
+                    Source
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-source"
+                    value={editCustomerData.source ?? ''}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, source: e.target.value }))}
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                    placeholder="e.g. Website, Referral"
                   />
                 </div>
                 
                 <div className="flex space-x-3 pt-4">
                   <button
                     onClick={() => setShowEditCustomerModal(false)}
-                    className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="flex-1 px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                   >
                     Cancel
                   </button>
@@ -5484,7 +5954,8 @@ const JobDetails = () => {
                           firstName: editCustomerData.firstName,
                           lastName: editCustomerData.lastName,
                           email: editCustomerData.email,
-                          phone: editCustomerData.phone
+                          phone: editCustomerData.phone,
+                          source: editCustomerData.source ?? ''
                         });
 
                         console.log('✅ Customer updated successfully:', response.data);
@@ -5495,7 +5966,8 @@ const JobDetails = () => {
                           customer_first_name: editCustomerData.firstName,
                           customer_last_name: editCustomerData.lastName,
                           customer_email: editCustomerData.email,
-                          customer_phone: editCustomerData.phone
+                          customer_phone: editCustomerData.phone,
+                          customer_source: editCustomerData.source ?? ''
                         }));
 
                         setSuccessMessage('Customer updated successfully!');
@@ -5508,7 +5980,7 @@ const JobDetails = () => {
                         setLoading(false);
                       }
                     }}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                     disabled={loading}
                   >
                     {loading ? 'Saving...' : 'Save Changes'}
@@ -5525,7 +5997,7 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)]">
                     {notificationType === 'confirmation' ? 'Appointment Confirmation' : 'Appointment Reminder'}
                   </h3>
                   <button
@@ -5534,7 +6006,7 @@ const JobDetails = () => {
                       setNotificationType(null);
                       setNotificationEmail('');
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -5543,7 +6015,7 @@ const JobDetails = () => {
                 <div className="space-y-6">
                   {/* Notification Method Selection */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-3">
                       Send via
                     </label>
                     <div className="grid grid-cols-2 gap-3">
@@ -5557,19 +6029,19 @@ const JobDetails = () => {
                         disabled={!emailNotifications}
                         className={`p-3 border rounded-lg text-center transition-colors ${
                           !emailNotifications
-                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                            ? 'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed'
                             : selectedNotificationMethod === 'email'
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-300 hover:border-gray-400'
+                            ? 'border-blue-500 bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]'
+                            : 'border-[var(--sf-border-light)] hover:border-gray-400'
                         }`}
                         title={!emailNotifications ? 'Email notifications are disabled' : ''}
                       >
-                        <Mail className={`w-5 h-5 mx-auto mb-1 ${!emailNotifications ? 'text-gray-400' : ''}`} />
-                        <div className={`text-sm font-medium ${!emailNotifications ? 'text-gray-400' : ''}`}>
+                        <Mail className={`w-5 h-5 mx-auto mb-1 ${!emailNotifications ? 'text-[var(--sf-text-muted)]' : ''}`} />
+                        <div className={`text-sm font-medium ${!emailNotifications ? 'text-[var(--sf-text-muted)]' : ''}`}>
                           Email
                           {!emailNotifications && <span className="text-xs block text-red-500">(Disabled)</span>}
                         </div>
-                        <div className="text-xs text-gray-500">Send via email</div>
+                        <div className="text-xs text-[var(--sf-text-muted)]">Send via email</div>
                       </button>
                       <button
                         onClick={() => {
@@ -5581,19 +6053,19 @@ const JobDetails = () => {
                         disabled={!smsNotifications}
                         className={`p-3 border rounded-lg text-center transition-colors ${
                           !smsNotifications
-                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                            ? 'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed'
                             : selectedNotificationMethod === 'sms'
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-300 hover:border-gray-400'
+                            ? 'border-blue-500 bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]'
+                            : 'border-[var(--sf-border-light)] hover:border-gray-400'
                         }`}
                         title={!smsNotifications ? 'SMS notifications are disabled' : ''}
                       >
-                        <Phone className={`w-5 h-5 mx-auto mb-1 ${!smsNotifications ? 'text-gray-400' : ''}`} />
-                        <div className={`text-sm font-medium ${!smsNotifications ? 'text-gray-400' : ''}`}>
+                        <Phone className={`w-5 h-5 mx-auto mb-1 ${!smsNotifications ? 'text-[var(--sf-text-muted)]' : ''}`} />
+                        <div className={`text-sm font-medium ${!smsNotifications ? 'text-[var(--sf-text-muted)]' : ''}`}>
                           SMS
                           {!smsNotifications && <span className="text-xs block text-red-500">(Disabled)</span>}
                         </div>
-                        <div className="text-xs text-gray-500">Send via text</div>
+                        <div className="text-xs text-[var(--sf-text-muted)]">Send via text</div>
                       </button>
                     </div>
                   </div>
@@ -5602,7 +6074,7 @@ const JobDetails = () => {
                   {selectedNotificationMethod === 'email' ? (
                     <div>
                       <label htmlFor="notification-email" className={`block text-sm font-medium mb-2 ${
-                        !emailNotifications ? 'text-gray-400' : 'text-gray-700'
+                        !emailNotifications ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'
                       }`}>
                         Email Address
                         {!emailNotifications && <span className="text-red-500 ml-1">(Disabled)</span>}
@@ -5613,10 +6085,10 @@ const JobDetails = () => {
                         value={notificationEmail}
                         onChange={(e) => setNotificationEmail(e.target.value)}
                         disabled={!emailNotifications}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-[var(--sf-blue-500)] ${
                           !emailNotifications 
-                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' 
-                            : 'border-gray-300 focus:ring-blue-500'
+                            ? 'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed' 
+                            : 'border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]'
                         }`}
                         placeholder={!emailNotifications ? "Email notifications are disabled" : "Enter email address"}
                         required
@@ -5625,7 +6097,7 @@ const JobDetails = () => {
                   ) : (
                     <div>
                       <label htmlFor="notification-phone" className={`block text-sm font-medium mb-2 ${
-                        !smsNotifications ? 'text-gray-400' : 'text-gray-700'
+                        !smsNotifications ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'
                       }`}>
                         Phone Number
                         {!smsNotifications && <span className="text-red-500 ml-1">(Disabled)</span>}
@@ -5636,16 +6108,16 @@ const JobDetails = () => {
                         value={notificationPhone}
                         onChange={(e) => setNotificationPhone(e.target.value)}
                         disabled={!smsNotifications}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-[var(--sf-blue-500)] ${
                           !smsNotifications 
-                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' 
-                            : 'border-gray-300 focus:ring-blue-500'
+                            ? 'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed' 
+                            : 'border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]'
                         }`}
                         placeholder={!smsNotifications ? "SMS notifications are disabled" : "Enter phone number (e.g., +1234567890)"}
                         required
                       />
                       <p className={`text-xs mt-1 ${
-                        !smsNotifications ? 'text-gray-400' : 'text-gray-500'
+                        !smsNotifications ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-muted)]'
                       }`}>
                         {!smsNotifications ? "SMS notifications are disabled for this customer" : "Include country code (e.g., +1 for US)"}
                       </p>
@@ -5654,70 +6126,62 @@ const JobDetails = () => {
 
                   {/* Message Preview */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Message Preview
                     </label>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-60 overflow-y-auto">
+                    <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg p-4 max-h-60 overflow-y-auto">
                       {selectedNotificationMethod === 'email' ? (
                         // Email preview
                         notificationType === 'confirmation' ? (
                           <div className="space-y-3">
-                            <div className="font-semibold text-gray-900">
+                            <div className="font-semibold text-[var(--sf-text-primary)]">
                               Hi {job?.customer_first_name || 'Customer'},
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               Your appointment has been confirmed for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                                 weekday: 'long', 
                                 month: 'long', 
                                 day: 'numeric', 
                                 year: 'numeric' 
-                              })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                                hour: 'numeric', 
-                                minute: '2-digit',
-                                hour12: true 
-                              })}</strong>.
+                              })} at {formatTimeShared(job?.scheduled_date)}</strong>.
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               <strong>Service:</strong> {job?.service_name || 'Service'}
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               We look forward to serving you!
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               Best regards,<br />
                               Your Service Team
                             </div>
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            <div className="font-semibold text-gray-900">
+                            <div className="font-semibold text-[var(--sf-text-primary)]">
                               Hi {job?.customer_first_name || 'Customer'},
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               This is a friendly reminder that you have an appointment scheduled for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                                 weekday: 'long', 
                                 month: 'long', 
                                 day: 'numeric', 
                                 year: 'numeric' 
-                              })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                                hour: 'numeric', 
-                                minute: '2-digit',
-                                hour12: true 
-                              })}</strong>.
+                              })} at {formatTimeShared(job?.scheduled_date)}</strong>.
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               <strong>Service:</strong> {job?.service_name || 'Service'}
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               Please arrive on time. If you need to reschedule, please contact us as soon as possible.
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               Best regards,<br />
                               Your Service Team
                             </div>
@@ -5726,28 +6190,20 @@ const JobDetails = () => {
                       ) : (
                         // SMS preview
                         notificationType === 'confirmation' ? (
-                          <div className="text-gray-700">
+                          <div className="text-[var(--sf-text-primary)]">
                             Hi {job?.customer_first_name || 'Customer'}! Your appointment is confirmed for {job?.service_name || 'Service'} on {new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                               weekday: 'long', 
                               month: 'long', 
                               day: 'numeric' 
-                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                              hour: 'numeric', 
-                              minute: '2-digit',
-                              hour12: true 
-                            })}. We'll see you soon! - Your Service Team
+                            })} at {formatTimeShared(job?.scheduled_date)}. We'll see you soon! - Your Service Team
                           </div>
                         ) : (
-                          <div className="text-gray-700">
+                          <div className="text-[var(--sf-text-primary)]">
                             Hi {job?.customer_first_name || 'Customer'}! Reminder: You have an appointment for {job?.service_name || 'Service'} on {new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                               weekday: 'long', 
                               month: 'long', 
                               day: 'numeric' 
-                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                              hour: 'numeric', 
-                              minute: '2-digit',
-                              hour12: true 
-                            })}. Please arrive on time! - Your Service Team
+                            })} at {formatTimeShared(job?.scheduled_date)}. Please arrive on time! - Your Service Team
                           </div>
                         )
                       )}
@@ -5764,7 +6220,7 @@ const JobDetails = () => {
                         setNotificationPhone('');
                         setSelectedNotificationMethod('email');
                       }}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+                      className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] order-2 sm:order-1"
                     >
                       Cancel
                     </button>
@@ -5855,20 +6311,12 @@ const JobDetails = () => {
                                     weekday: 'long', 
                                     month: 'long', 
                                     day: 'numeric' 
-                                  })} at ${new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                                    hour: 'numeric', 
-                                    minute: '2-digit',
-                                    hour12: true 
-                                  })}. We'll see you soon! - Your Service Team`
+                                  })} at ${formatTimeShared(job?.scheduled_date)}. We'll see you soon! - Your Service Team`
                                 : `Hi ${job?.customer_first_name || 'Customer'}! Reminder: You have an appointment for ${job?.service_name || 'Service'} on ${new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                                     weekday: 'long', 
                                     month: 'long', 
                                     day: 'numeric' 
-                                  })} at ${new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                                    hour: 'numeric', 
-                                    minute: '2-digit',
-                                    hour12: true 
-                                  })}. Please arrive on time! - Your Service Team`;
+                                  })} at ${formatTimeShared(job?.scheduled_date)}. Please arrive on time! - Your Service Team`;
 
                               const response = await twilioAPI.sendSMS(notificationPhone, smsMessage);
 
@@ -5941,7 +6389,7 @@ const JobDetails = () => {
                         (selectedNotificationMethod === 'email' && !emailNotifications) ||
                         (selectedNotificationMethod === 'sms' && !smsNotifications)
                           ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)]'
                       }`}
                       disabled={
                         loading || 
@@ -5968,8 +6416,8 @@ const JobDetails = () => {
         {showMessageViewer && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">
+              <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                   {viewingMessageType === 'confirmation' ? 'Appointment Confirmation' : 'Appointment Reminder'}
                 </h3>
                 <button
@@ -5977,72 +6425,64 @@ const JobDetails = () => {
                     setShowMessageViewer(false)
                     setViewingMessageType(null)
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
               
               <div className="p-6 overflow-y-auto flex-1">
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4">
+                <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg p-6 space-y-4">
                   {viewingMessageType === 'confirmation' ? (
                     <div className="space-y-3">
-                      <div className="font-semibold text-gray-900">
+                      <div className="font-semibold text-[var(--sf-text-primary)]">
                         Hi {job?.customer_first_name || 'Customer'},
                       </div>
-                      <div className="text-gray-700">
+                      <div className="text-[var(--sf-text-primary)]">
                         Your appointment has been confirmed for <strong>{job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString('en-US', { 
                           weekday: 'long', 
                           month: 'long', 
                           day: 'numeric', 
                           year: 'numeric' 
-                        }) : 'Date TBD'} at {job?.scheduled_date ? new Date(job.scheduled_date).toLocaleTimeString('en-US', { 
-                          hour: 'numeric', 
-                          minute: '2-digit',
-                          hour12: true 
-                        }) : 'Time TBD'}</strong>.
+                        }) : 'Date TBD'} at {job?.scheduled_date ? formatTimeShared(job.scheduled_date) : 'Time TBD'}</strong>.
                       </div>
-                      <div className="text-gray-700">
+                      <div className="text-[var(--sf-text-primary)]">
                         <strong>Service:</strong> {job?.service_name || 'Service'}
                       </div>
-                      <div className="text-gray-700">
+                      <div className="text-[var(--sf-text-primary)]">
                         <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
                       </div>
-                      <div className="text-gray-700">
+                      <div className="text-[var(--sf-text-primary)]">
                         We look forward to serving you!
                       </div>
-                      <div className="text-gray-700 pt-2">
+                      <div className="text-[var(--sf-text-primary)] pt-2">
                         Best regards,<br />
                         Your Service Team
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <div className="font-semibold text-gray-900">
+                      <div className="font-semibold text-[var(--sf-text-primary)]">
                         Hi {job?.customer_first_name || 'Customer'},
                       </div>
-                      <div className="text-gray-700">
+                      <div className="text-[var(--sf-text-primary)]">
                         This is a friendly reminder that you have an appointment scheduled for <strong>{job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString('en-US', { 
                           weekday: 'long', 
                           month: 'long', 
                           day: 'numeric', 
                           year: 'numeric' 
-                        }) : 'Date TBD'} at {job?.scheduled_date ? new Date(job.scheduled_date).toLocaleTimeString('en-US', { 
-                          hour: 'numeric', 
-                          minute: '2-digit',
-                          hour12: true 
-                        }) : 'Time TBD'}</strong>.
+                        }) : 'Date TBD'} at {job?.scheduled_date ? formatTimeShared(job.scheduled_date) : 'Time TBD'}</strong>.
                       </div>
-                      <div className="text-gray-700">
+                      <div className="text-[var(--sf-text-primary)]">
                         <strong>Service:</strong> {job?.service_name || 'Service'}
                       </div>
-                      <div className="text-gray-700">
+                      <div className="text-[var(--sf-text-primary)]">
                         <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
                       </div>
-                      <div className="text-gray-700">
+                      <div className="text-[var(--sf-text-primary)]">
                         Please arrive on time. If you need to reschedule, please contact us as soon as possible.
                       </div>
-                      <div className="text-gray-700 pt-2">
+                      <div className="text-[var(--sf-text-primary)] pt-2">
                         Best regards,<br />
                         Your Service Team
                       </div>
@@ -6051,7 +6491,7 @@ const JobDetails = () => {
                 </div>
                 
                 {viewingMessageType && (job.confirmation_sent_at || job.reminder_sent_at) && (
-                  <div className="mt-4 text-sm text-gray-500">
+                  <div className="mt-4 text-sm text-[var(--sf-text-muted)]">
                     <p>
                       <strong>Sent:</strong> {viewingMessageType === 'confirmation' 
                         ? (job.confirmation_sent_at ? new Date(job.confirmation_sent_at).toLocaleString() : 'N/A')
@@ -6064,13 +6504,13 @@ const JobDetails = () => {
                 )}
               </div>
               
-              <div className="flex justify-end p-6 border-t border-gray-200">
+              <div className="flex justify-end p-6 border-t border-[var(--sf-border-light)]">
                 <button
                   onClick={() => {
                     setShowMessageViewer(false)
                     setViewingMessageType(null)
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                 >
                   Close
                 </button>
@@ -6085,14 +6525,14 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">Send Custom Message</h3>
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)]">Send Custom Message</h3>
                   <button
                     onClick={() => {
                       setShowCustomMessageModal(false);
                       setCustomMessage('');
                       setCustomMessageEmail('');
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -6101,7 +6541,7 @@ const JobDetails = () => {
                 <div className="space-y-6">
                   {/* Email Address */}
                   <div>
-                    <label htmlFor="custom-message-email" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="custom-message-email" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Send to
                     </label>
                     <input
@@ -6109,7 +6549,7 @@ const JobDetails = () => {
                       id="custom-message-email"
                       value={customMessageEmail}
                       onChange={(e) => setCustomMessageEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="Enter email address"
                       required
                     />
@@ -6117,14 +6557,14 @@ const JobDetails = () => {
 
                   {/* Custom Message */}
                   <div>
-                    <label htmlFor="custom-message-text" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="custom-message-text" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Message
                     </label>
                     <textarea
                       id="custom-message-text"
                       value={customMessage}
                       onChange={(e) => setCustomMessage(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       rows={6}
                       placeholder="Enter your custom message here..."
                       required
@@ -6134,18 +6574,18 @@ const JobDetails = () => {
                   {/* Message Preview */}
                   {customMessage && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                         Message Preview
                       </label>
-                      <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-40 overflow-y-auto">
+                      <div className="border border-[var(--sf-border-light)] rounded-lg p-4 bg-[var(--sf-bg-page)] max-h-40 overflow-y-auto">
                         <div className="space-y-2">
-                          <div className="font-semibold text-gray-900">
+                          <div className="font-semibold text-[var(--sf-text-primary)]">
                             Hi {job?.customer_first_name || 'Customer'},
                           </div>
-                          <div className="text-gray-700 whitespace-pre-wrap">
+                          <div className="text-[var(--sf-text-primary)] whitespace-pre-wrap">
                             {customMessage}
                           </div>
-                          <div className="text-gray-700">
+                          <div className="text-[var(--sf-text-primary)]">
                             Best regards,<br />
                             Your Service Team
                           </div>
@@ -6162,7 +6602,7 @@ const JobDetails = () => {
                         setCustomMessage('');
                         setCustomMessageEmail('');
                       }}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+                      className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] order-2 sm:order-1"
                     >
                       Cancel
                     </button>
@@ -6195,7 +6635,7 @@ const JobDetails = () => {
                           setError('Please enter both email address and message');
                         }
                       }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                      className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2"
                       disabled={loading}
                     >
                       {loading ? 'Sending...' : 'Send Message'}
@@ -6213,56 +6653,106 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Add Payment</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Add Payment</h3>
                   <button
                     onClick={() => setShowAddPaymentModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Payment Method</label>
                     <select 
                       value={paymentFormData.paymentMethod}
                       onChange={(e) => setPaymentFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     >
                       <option value="cash">Cash</option>
                       <option value="check">Check</option>
                       <option value="credit_card">Credit Card</option>
                       <option value="bank_transfer">Bank Transfer</option>
+                      {customPaymentMethods.map(pm => (
+                        <option key={pm.id} value={pm.name}>{pm.name}</option>
+                      ))}
                       <option value="other">Other</option>
                     </select>
+                    {paymentFormData.paymentMethod === 'other' && (
+                      <input
+                        type="text"
+                        value={paymentFormData.customPaymentMethod || ''}
+                        onChange={(e) => setPaymentFormData(prev => ({ ...prev, customPaymentMethod: e.target.value }))}
+                        className="w-full mt-2 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                        placeholder="Enter payment method name"
+                        autoFocus
+                      />
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Amount</label>
                     <input
                       type="number"
                       step="0.01"
-                      value={paymentFormData.amount || (job ? (parseFloat(job.total) || parseFloat(job.service_price) || 0) : '')}
+                      value={paymentFormData.amount}
                       onChange={(e) => setPaymentFormData(prev => ({ ...prev, amount: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="Enter amount"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Date</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
+                      Tip
+                      <span className="text-xs text-[var(--sf-text-muted)] font-normal ml-1">
+                        ({tipSettings.tipCalculationMode === 'automatic' ? 'auto-calculated' : 'manual'} — goes to payroll, not revenue)
+                      </span>
+                    </label>
+                    {tipSettings.tipCalculationMode === 'automatic' ? (
+                      (() => {
+                        const paidAmount = parseFloat(paymentFormData.amount) || 0
+                        const totalDue = parseFloat(job?.total ?? job?.total_amount ?? job?.price) || 0
+                        const alreadyPaid = parseFloat(job?.total_paid_amount || 0)
+                        const remaining = Math.max(0, totalDue - alreadyPaid)
+                        const methodKey = paymentFormData.paymentMethod === 'other' && paymentFormData.customPaymentMethod?.trim()
+                          ? paymentFormData.customPaymentMethod.trim() : paymentFormData.paymentMethod
+                        const feePercent = tipSettings.paymentTypeFees?.[methodKey] || 0
+                        const fee = paidAmount * (feePercent / 100)
+                        const autoTip = Math.max(0, paidAmount - remaining - fee)
+                        return (
+                          <div className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg bg-[var(--sf-bg-page)] text-[var(--sf-text-secondary)] text-sm">
+                            ${autoTip.toFixed(2)}
+                            {feePercent > 0 && <span className="text-xs text-[var(--sf-text-muted)] ml-2">(fee: {feePercent}% = ${fee.toFixed(2)})</span>}
+                          </div>
+                        )
+                      })()
+                    ) : (
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={paymentFormData.tipAmount}
+                        onChange={(e) => setPaymentFormData(prev => ({ ...prev, tipAmount: e.target.value }))}
+                        className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                        placeholder="0.00"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Payment Date</label>
                     <input
                       type="date"
                       value={paymentFormData.paymentDate}
                       onChange={(e) => setPaymentFormData(prev => ({ ...prev, paymentDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Notes</label>
                     <textarea
                       rows={3}
                       value={paymentFormData.notes}
                       onChange={(e) => setPaymentFormData(prev => ({ ...prev, notes: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="Optional payment notes"
                     />
                   </div>
@@ -6274,19 +6764,20 @@ const JobDetails = () => {
                       setShowAddPaymentModal(false)
                       setPaymentFormData({
                         amount: '',
+                        tipAmount: '',
                         paymentMethod: 'cash',
                         paymentDate: new Date().toISOString().split('T')[0],
                         notes: ''
                       })
                     }}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleRecordPayment}
                     disabled={loading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2 disabled:opacity-50"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2 disabled:opacity-50"
                   >
                     {loading ? 'Recording...' : 'Record Payment'}
                   </button>
@@ -6298,58 +6789,115 @@ const JobDetails = () => {
 
         {/* Discount Modal */}
         {showDiscountModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Add Discount</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Add Discount</h3>
                   <button
                     onClick={() => setShowDiscountModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                
+
                 <div className="space-y-4">
+                  {/* Discount Type Toggle */}
+                  <div className="inline-flex rounded-lg border-2 border-blue-500 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, discountMode: 'fixed' }))}
+                      className={`px-6 py-2 text-base font-semibold transition-colors ${
+                        (formData.discountMode || 'fixed') === 'fixed'
+                          ? 'bg-[var(--sf-blue-500)] text-white'
+                          : 'bg-white text-blue-500 hover:bg-[var(--sf-blue-50)]'
+                      }`}
+                    >
+                      $
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, discountMode: 'percentage' }))}
+                      className={`px-6 py-2 text-base font-semibold transition-colors ${
+                        (formData.discountMode || 'fixed') === 'percentage'
+                          ? 'bg-[var(--sf-blue-500)] text-white'
+                          : 'bg-white text-blue-500 hover:bg-[var(--sf-blue-50)]'
+                      }`}
+                    >
+                      %
+                    </button>
+                  </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Discount Amount</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
+                      {(formData.discountMode || 'fixed') === 'percentage' ? 'Discount Percentage' : 'Discount Amount'}
+                    </label>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">$</span>
+                      <span className="text-sm text-[var(--sf-text-muted)]">{(formData.discountMode || 'fixed') === 'percentage' ? '%' : '$'}</span>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.discount !== undefined ? formData.discount : ""}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.discountInput || ''}
                         onChange={e => {
-                          const newDiscount = parseFloat(e.target.value) || 0;
-                          setFormData(prev => ({
-                            ...prev,
-                            discount: newDiscount
-                          }));
+                          const val = e.target.value
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            if ((formData.discountMode || 'fixed') === 'percentage' && parseFloat(val) > 100) return
+                            setFormData(prev => ({ ...prev, discountInput: val }))
+                          }
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0.00"
+                        className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                        placeholder={`${(formData.discountMode || 'fixed') === 'percentage' ? '0' : '0.00'}`}
+                        autoFocus
                       />
                     </div>
+                    {(formData.discountMode || 'fixed') === 'percentage' && formData.discountInput && (
+                      <p className="text-sm text-[var(--sf-text-muted)] mt-1">
+                        = ${resolveDiscount(formData.discountInput, 'percentage', (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))).toFixed(2)} discount
+                      </p>
+                    )}
                   </div>
-                  
+
                   <div className="flex space-x-3 pt-4">
                     <button
-                      onClick={() => setShowDiscountModal(false)}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, discountInput: '', discountMode: 'fixed' }))
+                        setShowDiscountModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        setSuccessMessage('Discount added successfully!')
-                        setTimeout(() => setSuccessMessage(""), 3000)
-                        setShowDiscountModal(false)
+                      onClick={async () => {
+                        const inputVal = parseFloat(formData.discountInput)
+                        if (isNaN(inputVal) || inputVal <= 0) {
+                          setError('Please enter a valid discount amount')
+                          setTimeout(() => setError(''), 3000)
+                          return
+                        }
+                        const discountSubtotal = (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))
+                        const discountDollars = resolveDiscount(inputVal, formData.discountMode || 'fixed', discountSubtotal)
+                        try {
+                          setLoading(true)
+                          await jobsAPI.update(job.id, { discount: discountDollars })
+                          setJob(prev => ({ ...prev, discount: discountDollars }))
+                          setFormData(prev => ({ ...prev, discount: discountDollars, discountInput: '', discountMode: 'fixed' }))
+                          setSuccessMessage(discountDollars > 0 ? 'Discount updated!' : 'Discount removed!')
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                          setShowDiscountModal(false)
+                        } catch (err) {
+                          console.error('Error saving discount:', err)
+                          setError('Failed to save discount')
+                          setTimeout(() => setError(''), 3000)
+                        } finally {
+                          setLoading(false)
+                        }
                       }}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
                     >
-                      Add Discount
+                      {loading ? 'Saving...' : 'Add Discount'}
                     </button>
                   </div>
                 </div>
@@ -6360,58 +6908,85 @@ const JobDetails = () => {
 
         {/* Tip Modal */}
         {showTipModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Add Tip</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">{parseFloat(job?.tip_amount) > 0 ? 'Edit' : 'Add'} Tip</h3>
                   <button
                     onClick={() => setShowTipModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                
+
                 <div className="space-y-4">
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tip Amount</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Tip Amount</label>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">$</span>
+                      <span className="text-sm text-[var(--sf-text-muted)]">$</span>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.tip || 0}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.tipInput ?? ''}
                         onChange={e => {
-                          const newTip = parseFloat(e.target.value) || 0;
-                          setFormData(prev => ({
-                            ...prev,
-                            tip: newTip
-                          }));
+                          const val = e.target.value
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setFormData(prev => ({ ...prev, tipInput: val }))
+                          }
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         placeholder="0.00"
+                        autoFocus
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex space-x-3 pt-4">
                     <button
-                      onClick={() => setShowTipModal(false)}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, tipInput: '' }))
+                        setShowTipModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        setSuccessMessage('Tip added successfully!')
-                        setTimeout(() => setSuccessMessage(""), 3000)
-                        setShowTipModal(false)
+                      onClick={async () => {
+                        const newTip = parseFloat(formData.tipInput) || 0
+                        if (newTip < 0) {
+                          setError('Please enter a valid tip amount')
+                          setTimeout(() => setError(''), 3000)
+                          return
+                        }
+                        try {
+                          setError('')
+                          setLoading(true)
+                          await jobsAPI.update(job.id, { tip_amount: newTip })
+                          setJob(prev => ({ ...prev, tip_amount: newTip }))
+                          setFormData(prev => ({ ...prev, tip: newTip, tipInput: '' }))
+                          setSuccessMessage(newTip > 0 ? 'Tip updated successfully!' : 'Tip removed!')
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                          setShowTipModal(false)
+                        } catch (err) {
+                          console.error('Error saving tip:', err)
+                          setError('Failed to save tip')
+                          setTimeout(() => setError(''), 3000)
+                        } finally {
+                          setLoading(false)
+                        }
                       }}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
                     >
-                      Add Tip
+                      {loading ? 'Saving...' : 'Save Tip'}
                     </button>
                   </div>
                 </div>
@@ -6420,91 +6995,119 @@ const JobDetails = () => {
           </div>
         )}
 
-        {/* Team Assignment Modal - Desktop View */}
-        {showAssignModal && canEditJobDetails(user) && (
-          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
-              <button
-                onClick={() => {
-                  setShowAssignModal(false)
-                  setSelectedTeamMember(null)
-                }}
-                  className="text-gray-400 hover:text-gray-600"
-              >
-                  <X className="w-5 h-5" />
-              </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Team Member
-                  </label>
-                  <select
-                    value={selectedTeamMember || ''}
-                    onChange={(e) => {
-                      console.log('Team member selected:', e.target.value)
-                      setSelectedTeamMember(e.target.value)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Choose a team member...</option>
-                    {teamMembers.length > 0 ? teamMembers.map((member) => {
-                      console.log('Rendering team member:', member)
-                      return (
-                        <option key={member.id} value={member.id}>
-                          {member.first_name} {member.last_name} - {member.email}
-                        </option>
-                      )
-                    }) : (
-                      <option value="" disabled>No team members available</option>
-                    )}
-                  </select>
-                </div>
-                
-                <div className="flex space-x-3 pt-4">
-              <button
-                onClick={() => {
-                      setShowAssignModal(false)
-                      setSelectedTeamMember(null)
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
+        {/* Job-Level Incentive Modal */}
+        {showIncentiveModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">{parseFloat(job?.incentive_amount) > 0 ? 'Edit' : 'Add'} Incentive</h3>
                   <button
-                    onClick={() => {
-                      console.log('Assign button clicked!')
-                      console.log('selectedTeamMember:', selectedTeamMember)
-                      console.log('assigning:', assigning)
-                    handleTeamAssignment()
-                }}
-                disabled={!selectedTeamMember || assigning}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                    {assigning ? 'Assigning...' : 'Assign'}
-              </button>
+                    onClick={() => setShowIncentiveModal(false)}
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Incentive Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-[var(--sf-text-muted)]">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.incentiveInput ?? ''}
+                        onChange={e => {
+                          const val = e.target.value
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setFormData(prev => ({ ...prev, incentiveInput: val }))
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        placeholder="0.00"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, incentiveInput: '' }))
+                        setShowIncentiveModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const newIncentive = parseFloat(formData.incentiveInput) || 0
+                        if (newIncentive < 0) {
+                          setError('Please enter a valid incentive amount')
+                          setTimeout(() => setError(''), 3000)
+                          return
+                        }
+                        try {
+                          setError('')
+                          setLoading(true)
+                          await jobsAPI.update(job.id, { incentive_amount: newIncentive })
+                          setJob(prev => ({ ...prev, incentive_amount: newIncentive }))
+                          setFormData(prev => ({ ...prev, incentiveInput: '' }))
+                          setSuccessMessage(newIncentive > 0 ? 'Incentive updated successfully!' : 'Incentive removed!')
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                          setShowIncentiveModal(false)
+                        } catch (err) {
+                          console.error('Error saving incentive:', err)
+                          setError('Failed to save incentive')
+                          setTimeout(() => setError(''), 3000)
+                        } finally {
+                          setLoading(false)
+                        }
+                      }}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Saving...' : 'Save Incentive'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
+
+
+
+        {/* Team Assignment Modal (AssignJobModal handles both desktop and mobile) */}
+        <AssignJobModal
+          job={job}
+          isOpen={showAssignModal && canEditJobDetails(user)}
+          onClose={() => setShowAssignModal(false)}
+          onAssign={handleAssignTeamMember}
+          companyDrivingTimeMinutes={companyDrivingTimeMinutes}
+        />
 
       {/* Modals - Rendered outside main container for proper z-index stacking */}
       {/* Edit Customer Modal - Mobile View */}
       {showEditCustomerModal && (
         <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
           {/* Mobile Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--sf-border-light)]">
             <button
               onClick={() => setShowEditCustomerModal(false)}
               className="p-2 -ml-2"
             >
-              <X className="w-5 h-5 text-gray-900" />
+              <X className="w-5 h-5 text-[var(--sf-text-primary)]" />
             </button>
-            <h2 className="text-base font-semibold text-gray-900">Edit Customer</h2>
+            <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">Edit Customer</h2>
             <div className="w-10"></div> {/* Spacer for centering */}
             </div>
 
@@ -6512,7 +7115,7 @@ const JobDetails = () => {
           <div className="flex-1 overflow-y-auto px-4 py-4">
             <div className="space-y-4">
               <div>
-                <label htmlFor="edit-first-name-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="edit-first-name-mobile" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   First Name
                 </label>
                 <input
@@ -6520,12 +7123,12 @@ const JobDetails = () => {
                   id="edit-first-name-mobile"
                   value={editCustomerData.firstName}
                   onChange={(e) => setEditCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
                   </div>
               
               <div>
-                <label htmlFor="edit-last-name-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="edit-last-name-mobile" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Last Name
                 </label>
                 <input
@@ -6533,12 +7136,12 @@ const JobDetails = () => {
                   id="edit-last-name-mobile"
                   value={editCustomerData.lastName}
                   onChange={(e) => setEditCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
                           </div>
               
               <div>
-                <label htmlFor="edit-email-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="edit-email-mobile" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Email Address
                 </label>
                 <input
@@ -6546,13 +7149,13 @@ const JobDetails = () => {
                   id="edit-email-mobile"
                   value={editCustomerData.email}
                   onChange={(e) => setEditCustomerData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   placeholder="Enter email address"
                 />
                 </div>
                 
               <div>
-                <label htmlFor="edit-phone-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="edit-phone-mobile" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Phone Number
                 </label>
                 <input
@@ -6560,15 +7163,29 @@ const JobDetails = () => {
                   id="edit-phone-mobile"
                   value={editCustomerData.phone}
                   onChange={(e) => setEditCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   placeholder="Enter phone number"
                 />
                   </div>
+
+              <div>
+                <label htmlFor="edit-source-mobile" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
+                  Source
+                </label>
+                <input
+                  type="text"
+                  id="edit-source-mobile"
+                  value={editCustomerData.source ?? ''}
+                  onChange={(e) => setEditCustomerData(prev => ({ ...prev, source: e.target.value }))}
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                  placeholder="e.g. Website, Referral"
+                />
+              </div>
                   </div>
                   </div>
 
           {/* Footer with buttons */}
-          <div className="border-t border-gray-200 px-4 py-3 space-y-2">
+          <div className="border-t border-[var(--sf-border-light)] px-4 py-3 space-y-2">
             <button
               onClick={async () => {
                 // Frontend validation
@@ -6595,7 +7212,8 @@ const JobDetails = () => {
                     firstName: editCustomerData.firstName,
                     lastName: editCustomerData.lastName,
                     email: editCustomerData.email,
-                    phone: editCustomerData.phone
+                    phone: editCustomerData.phone,
+                    source: editCustomerData.source ?? ''
                   });
 
                   console.log('✅ Customer updated successfully:', response.data);
@@ -6606,7 +7224,8 @@ const JobDetails = () => {
                     customer_first_name: editCustomerData.firstName,
                     customer_last_name: editCustomerData.lastName,
                     customer_email: editCustomerData.email,
-                    customer_phone: editCustomerData.phone
+                    customer_phone: editCustomerData.phone,
+                    customer_source: editCustomerData.source ?? ''
                   }));
 
                   setSuccessMessage('Customer updated successfully!');
@@ -6619,14 +7238,14 @@ const JobDetails = () => {
                   setLoading(false);
                 }
               }}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 bg-[var(--sf-blue-500)] text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading}
             >
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
             <button
               onClick={() => setShowEditCustomerModal(false)}
-              className="w-full px-4 py-3 text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
+              className="w-full px-4 py-3 text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg font-medium hover:bg-[var(--sf-bg-page)]"
             >
               Cancel
             </button>
@@ -6640,25 +7259,25 @@ const JobDetails = () => {
           <div className="bg-white rounded-t-2xl w-full max-h-[60vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Customer Notifications</h3>
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Customer Notifications</h3>
                 <button
                   onClick={() => {
                     setShowNotificationModal(false);
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
                 Select how {getCustomerName()} should receive updates for their appointment.
               </p>
               
               <div className="space-y-4">
                 {/* Email Toggle */}
-                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                <div className="flex items-center justify-between py-3 border-b border-[var(--sf-border-light)]">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Emails</p>
+                    <p className="text-sm font-medium text-[var(--sf-text-primary)]">Emails</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -6667,7 +7286,7 @@ const JobDetails = () => {
                       onChange={(e) => handleNotificationToggle('email', e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                    <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
                       emailNotifications 
                         ? 'bg-green-500 peer-checked:after:translate-x-full' 
                         : 'bg-gray-200'
@@ -6676,9 +7295,9 @@ const JobDetails = () => {
               </div>
 
                 {/* SMS Toggle */}
-                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                <div className="flex items-center justify-between py-3 border-b border-[var(--sf-border-light)]">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Text messages</p>
+                    <p className="text-sm font-medium text-[var(--sf-text-primary)]">Text messages</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -6687,7 +7306,7 @@ const JobDetails = () => {
                       onChange={(e) => handleNotificationToggle('sms', e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                    <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
                       smsNotifications 
                         ? 'bg-green-500 peer-checked:after:translate-x-full' 
                         : 'bg-gray-200'
@@ -6700,108 +7319,19 @@ const JobDetails = () => {
         </div>
       )}
 
-      {/* Team Assignment Modal - Mobile View */}
-      {showAssignModal && canEditJobDetails(user) && (
-        <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
-          {/* Mobile Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <button
-              onClick={() => {
-                setShowAssignModal(false)
-                setSelectedTeamMember(null)
-              }}
-              className="p-2 -ml-2"
-            >
-              <X className="w-5 h-5 text-gray-900" />
-            </button>
-            <h2 className="text-base font-semibold text-gray-900">Assign Job</h2>
-            <button
-              onClick={() => {
-                if (selectedTeamMember) {
-                  handleTeamAssignment()
-                }
-              }}
-              disabled={!selectedTeamMember || assigning}
-              className="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Assign
-            </button>
-          </div>
-
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Job Information Card */}
-            <div className="bg-white border-b border-gray-200 px-4 py-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
-                    {job.service_names && job.service_names.length > 1 
-                      ? `${job.service_names.length} Services` 
-                      : decodeHtmlEntities(job.service_name || 'Service')
-                    }
-                  </h3>
-                  <p className="text-xs text-gray-600">Job #{job.id || job.job_id}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Team Member Selection */}
-            <div className="px-4 py-4">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Select Team Member
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                value={selectedTeamMember || ''}
-                onChange={(e) => setSelectedTeamMember(e.target.value)}
-              >
-                <option value="">Choose a team member...</option>
-                {teamMembers.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.first_name} {member.last_name} ({member.email})
-                  </option>
-                ))}
-              </select>
-              
-              {teamMembers.length === 0 && (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No team members available</p>
-                  <p className="text-gray-400 text-xs mt-1">Add team members in the Team section first</p>
-                </div>
-                              )}
-                            </div>
-                          </div>
-
-          {/* Footer */}
-          <div className="border-t border-gray-200 px-4 py-3 space-y-2">
-            <button
-              onClick={() => {
-                if (selectedTeamMember) {
-                  handleTeamAssignment()
-                }
-              }}
-              disabled={!selectedTeamMember || assigning}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {assigning ? 'Assigning...' : 'Assign'}
-                            </button>
-                          </div>
-                            </div>
-                          )}
 
       {/* Edit Job Requirements Modal - Mobile View */}
       {showEditJobRequirementsModal && canEditJobDetails(user) && (
         <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
           {/* Mobile Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--sf-border-light)]">
             <button
               onClick={() => setShowEditJobRequirementsModal(false)}
               className="p-2 -ml-2"
             >
-              <X className="w-5 h-5 text-gray-900" />
+              <X className="w-5 h-5 text-[var(--sf-text-primary)]" />
             </button>
-            <h2 className="text-base font-semibold text-gray-900">Edit Job Requirements</h2>
+            <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">Edit Job Requirements</h2>
             <div className="w-10"></div> {/* Spacer for centering */}
                         </div>
 
@@ -6810,7 +7340,7 @@ const JobDetails = () => {
             <div className="space-y-6">
               {/* Workers Needed Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-3">
                   How many service providers are required?
                 </label>
                 <div className="flex items-center space-x-3">
@@ -6824,7 +7354,7 @@ const JobDetails = () => {
                       }
                     }}
                     disabled={editJobRequirementsData.workers_needed <= 1}
-                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-10 h-10 flex items-center justify-center border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="text-xl">−</span>
                   </button>
@@ -6839,7 +7369,7 @@ const JobDetails = () => {
                         workers_needed: Math.max(1, value)
                       }))
                     }}
-                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-20 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-center text-lg font-medium focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                   <button
                     onClick={() => {
@@ -6848,7 +7378,7 @@ const JobDetails = () => {
                         workers_needed: prev.workers_needed + 1
                       }))
                     }}
-                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                    className="w-10 h-10 flex items-center justify-center border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-page)]"
                   >
                     <span className="text-xl">+</span>
                   </button>
@@ -6857,7 +7387,7 @@ const JobDetails = () => {
 
               {/* Required Skills Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-3">
                   Required skills
                 </label>
                 <input
@@ -6871,15 +7401,15 @@ const JobDetails = () => {
                       required_skills: skills
                     }))
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-sm text-[var(--sf-text-secondary)] mt-2">
                   {editJobRequirementsData.required_skills.length === 0 
                     ? 'No skill tags required. Any service provider can be assigned to this job.'
                     : `${editJobRequirementsData.required_skills.length} skill tag${editJobRequirementsData.required_skills.length !== 1 ? 's' : ''} required.`
                   }
                 </p>
-                <button className="text-sm text-blue-600 mt-1">
+                <button className="text-sm text-[var(--sf-blue-500)] mt-1">
                   Learn more about skill tags
                 </button>
               </div>
@@ -6887,7 +7417,7 @@ const JobDetails = () => {
           </div>
 
           {/* Footer with buttons */}
-          <div className="border-t border-gray-200 px-4 py-3 space-y-2">
+          <div className="border-t border-[var(--sf-border-light)] px-4 py-3 space-y-2">
             <button
               onClick={async () => {
                 try {
@@ -6918,14 +7448,14 @@ const JobDetails = () => {
                   setLoading(false)
                 }
               }}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 bg-[var(--sf-blue-500)] text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading}
             >
               {loading ? 'Saving...' : 'Save'}
             </button>
             <button
               onClick={() => setShowEditJobRequirementsModal(false)}
-              className="w-full px-4 py-3 text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
+              className="w-full px-4 py-3 text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg font-medium hover:bg-[var(--sf-bg-page)]"
             >
               Cancel
             </button>
@@ -6938,10 +7468,10 @@ const JobDetails = () => {
           <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Edit Job Requirements</h3>
+              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Job Requirements</h3>
                 <button
                 onClick={() => setShowEditJobRequirementsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -6950,7 +7480,7 @@ const JobDetails = () => {
             <div className="space-y-6">
               {/* Workers Needed Section */}
                 <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-3">
                   How many service providers are required?
                   </label>
                 <div className="flex items-center space-x-3">
@@ -6964,7 +7494,7 @@ const JobDetails = () => {
                       }
                     }}
                     disabled={editJobRequirementsData.workers_needed <= 1}
-                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-10 h-10 flex items-center justify-center border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="text-xl">−</span>
                   </button>
@@ -6979,7 +7509,7 @@ const JobDetails = () => {
                         workers_needed: Math.max(1, value)
                       }))
                     }}
-                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-20 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-center text-lg font-medium focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                   <button
                     onClick={() => {
@@ -6988,7 +7518,7 @@ const JobDetails = () => {
                         workers_needed: prev.workers_needed + 1
                       }))
                     }}
-                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                    className="w-10 h-10 flex items-center justify-center border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-page)]"
                   >
                     <span className="text-xl">+</span>
                   </button>
@@ -6997,7 +7527,7 @@ const JobDetails = () => {
                 
               {/* Required Skills Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-3">
                   Required skills
                 </label>
                 <input
@@ -7011,15 +7541,15 @@ const JobDetails = () => {
                       required_skills: skills
                     }))
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-sm text-[var(--sf-text-secondary)] mt-2">
                   {editJobRequirementsData.required_skills.length === 0 
                     ? 'No skill tags required. Any service provider can be assigned to this job.'
                     : `${editJobRequirementsData.required_skills.length} skill tag${editJobRequirementsData.required_skills.length !== 1 ? 's' : ''} required.`
                   }
                 </p>
-                <button className="text-sm text-blue-600 mt-1">
+                <button className="text-sm text-[var(--sf-blue-500)] mt-1">
                   Learn more about skill tags
                 </button>
               </div>
@@ -7029,7 +7559,7 @@ const JobDetails = () => {
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowEditJobRequirementsModal(false)}
-                className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
+                className="flex-1 px-4 py-2 text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg font-medium hover:bg-[var(--sf-bg-page)]"
                   >
                     Cancel
                   </button>
@@ -7063,7 +7593,7 @@ const JobDetails = () => {
                     setLoading(false)
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={loading}
                   >
                 {loading ? 'Saving...' : 'Save'}
@@ -7079,27 +7609,32 @@ const JobDetails = () => {
           onClose={() => setShowConvertToRecurringModal(false)}
           job={job}
           onConvert={async (data) => {
-            try {
-              setLoading(true);
-              setError(""); // Clear any previous errors
-              console.log('🔄 Converting job to recurring with data:', data);
-              const result = await jobsAPI.convertToRecurring(jobId, data);
-              console.log('✅ Convert to recurring result:', result);
-              setSuccessMessage('Job converted to recurring successfully!');
-              setTimeout(() => setSuccessMessage(""), 3000);
-              // Reload job data
-              const updatedJob = await jobsAPI.getById(jobId);
-              setJob(updatedJob.job || updatedJob);
-              setShowConvertToRecurringModal(false);
-            } catch (error) {
-              console.error('❌ Error converting job to recurring:', error);
-              console.error('❌ Error response:', error.response?.data);
-              const errorMessage = error.response?.data?.error || error.response?.data?.details || error.message || 'Failed to convert job to recurring';
-              setError(`Failed to convert job: ${errorMessage}`);
-              setTimeout(() => setError(""), 5000);
-            } finally {
-              setLoading(false);
-            }
+            console.log('🔄 Converting job to recurring with data:', data);
+            const result = await jobsAPI.convertToRecurring(jobId, data);
+            console.log('✅ Convert to recurring result:', result);
+            setSuccessMessage('Job converted to recurring successfully!');
+            setTimeout(() => setSuccessMessage(""), 3000);
+            // Reload job data
+            const updatedJob = await jobsAPI.getById(jobId);
+            setJob(updatedJob.job || updatedJob);
+          }}
+        />
+
+        {/* Edit Recurring Frequency Modal */}
+        <ConvertToRecurringModal
+          isOpen={showEditRecurringModal}
+          onClose={() => setShowEditRecurringModal(false)}
+          job={job}
+          mode="edit"
+          onConvert={async (data) => {
+            console.log('🔄 Updating recurring frequency with data:', data);
+            const result = await jobsAPI.updateRecurringFrequency(jobId, data);
+            console.log('✅ Update recurring frequency result:', result);
+            setSuccessMessage('Recurring frequency updated successfully!');
+            setTimeout(() => setSuccessMessage(""), 3000);
+            // Reload job data
+            const updatedJob = await jobsAPI.getById(jobId);
+            setJob(updatedJob.job || updatedJob);
           }}
         />
 

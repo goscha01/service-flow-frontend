@@ -32,7 +32,10 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
-    const config = error.config;
+    const config = error?.config;
+    if (!config) {
+      return Promise.reject(error);
+    }
     
     // Handle 429 (Too Many Requests) with exponential backoff
     if (error.response?.status === 429) {
@@ -111,9 +114,12 @@ api.interceptors.response.use(
     }
     
     // Only retry on network errors (ERR_NETWORK, ERR_FAILED, timeout, Railway cold start)
-    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED' || 
-        error.message?.includes('Failed to fetch') || error.message?.includes('CORS') || 
-        error.message?.includes('preflight')) {
+    // Skip retries for non-critical endpoints that already handle errors gracefully
+    const nonCriticalPaths = ['/notification-settings', '/twilio/phone-numbers'];
+    const isNonCritical = nonCriticalPaths.some(p => config.url?.includes(p));
+    if (!isNonCritical && (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED' ||
+        error.message?.includes('Failed to fetch') || error.message?.includes('CORS') ||
+        error.message?.includes('preflight'))) {
       config.__retryCount = (config.__retryCount || 0) + 1;
       
       console.log(`🔄 Retrying request (attempt ${config.__retryCount}/3):`, config.url);
@@ -445,6 +451,29 @@ export const customersAPI = {
       throw error;
     }
   }
+};
+
+// Customer Properties API — multi-address support per customer
+export const customerPropertiesAPI = {
+  list: async (customerId) => {
+    const response = await api.get(`/customers/${customerId}/properties`);
+    return response.data.properties || [];
+  },
+
+  create: async (customerId, payload) => {
+    const response = await api.post(`/customers/${customerId}/properties`, payload);
+    return response.data.property;
+  },
+
+  update: async (customerId, propertyId, payload) => {
+    const response = await api.patch(`/customers/${customerId}/properties/${propertyId}`, payload);
+    return response.data.property;
+  },
+
+  remove: async (customerId, propertyId) => {
+    const response = await api.delete(`/customers/${customerId}/properties/${propertyId}`);
+    return response.data;
+  },
 };
 
 
@@ -893,6 +922,15 @@ export const jobsAPI = {
     }
   },
 
+  updateRecurringFrequency: async (id, data) => {
+    try {
+      const response = await api.put(`/jobs/${id}/recurring-frequency`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   duplicate: async (id, data) => {
     try {
       const response = await api.post(`/jobs/${id}/duplicate`, data);
@@ -977,6 +1015,17 @@ export const jobsAPI = {
     }
   },
 
+  // Cancel a job with optional financial adjustments (fee, reimbursement).
+  // payload: { cancellation_fee, cleaner_reimbursement, reimbursement_team_member_id, reason, notes }
+  cancel: async (id, payload = {}) => {
+    try {
+      const response = await api.post(`/jobs/${id}/cancel`, payload);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   assignToTeamMember: async (jobId, teamMemberId) => {
     try {
       const response = await api.post(`/jobs/${jobId}/assign`, { teamMemberId });
@@ -995,11 +1044,12 @@ export const jobsAPI = {
     }
   },
 
-  assignMultipleTeamMembers: async (jobId, teamMemberIds, primaryMemberId) => {
+  assignMultipleTeamMembers: async (jobId, teamMemberIds, primaryMemberId, forceBook = false) => {
     try {
-      const response = await api.post(`/jobs/${jobId}/assign-multiple`, { 
-        teamMemberIds, 
-        primaryMemberId 
+      const response = await api.post(`/jobs/${jobId}/assign-multiple`, {
+        teamMemberIds,
+        primaryMemberId,
+        forceBook
       });
       return response.data;
     } catch (error) {
@@ -1044,20 +1094,22 @@ export const jobsAPI = {
     }
   },
 
-  getAvailableSlots: async ({ date, duration, workerId, serviceId }) => {
+  getAvailableSlots: async ({ date, duration, workerId, serviceId, customerAddress }) => {
     try {
       const params = new URLSearchParams();
       if (date) params.append('date', date);
       if (duration) params.append('duration', duration);
       if (workerId) params.append('workerId', workerId);
       if (serviceId) params.append('serviceId', serviceId);
-      
+      if (customerAddress) params.append('customerAddress', customerAddress);
+
       const response = await api.get(`/jobs/available-slots?${params.toString()}`);
       return response.data;
     } catch (error) {
       throw error;
     }
-  }
+  },
+
 };
 
 // Team Management API functions
@@ -1169,6 +1221,27 @@ export const teamAPI = {
     }
   },
 
+  // Pay rate history
+  getPayRates: async (teamMemberId) => {
+    const response = await api.get(`/team-members/${teamMemberId}/pay-rates`);
+    return response.data;
+  },
+
+  addPayRate: async (teamMemberId, rateData) => {
+    const response = await api.post(`/team-members/${teamMemberId}/pay-rates`, rateData);
+    return response.data;
+  },
+
+  updatePayRate: async (teamMemberId, rateId, rateData) => {
+    const response = await api.put(`/team-members/${teamMemberId}/pay-rates/${rateId}`, rateData);
+    return response.data;
+  },
+
+  deletePayRate: async (teamMemberId, rateId) => {
+    const response = await api.delete(`/team-members/${teamMemberId}/pay-rates/${rateId}`);
+    return response.data;
+  },
+
   getAnalytics: async (userId, startDate, endDate) => {
     try {
       const params = new URLSearchParams({ userId });
@@ -1221,11 +1294,12 @@ export const teamAPI = {
 
 // Payroll API functions
 export const payrollAPI = {
-  getPayroll: async (startDate, endDate) => {
+  getPayroll: async (startDate, endDate, jobFilter = 'completed') => {
     try {
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
+      if (jobFilter && jobFilter !== 'completed') params.append('jobFilter', jobFilter);
       const response = await api.get(`/payroll?${params}`);
       return response.data;
     } catch (error) {
@@ -1243,6 +1317,10 @@ export const payrollAPI = {
     } catch (error) {
       throw error;
     }
+  },
+  updateJobPayroll: async (jobId, data) => {
+    const response = await api.patch(`/jobs/${jobId}/payroll`, data);
+    return response.data;
   }
 };
 
@@ -2526,4 +2604,364 @@ export const leadsAPI = {
   }
 };
 
-export default api; 
+// Cleaner Ledger API
+export const ledgerAPI = {
+  // Get all cleaners' balance summary
+  getBalances: async (params = {}) => {
+    const response = await api.get('/ledger/balances', { params });
+    return response.data;
+  },
+
+  // Get single cleaner balance
+  getBalance: async (teamMemberId) => {
+    const response = await api.get(`/ledger/balance/${teamMemberId}`);
+    return response.data;
+  },
+
+  // Get ledger entries with filters
+  getEntries: async (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.teamMemberId) query.append('teamMemberId', params.teamMemberId);
+    if (params.startDate) query.append('startDate', params.startDate);
+    if (params.endDate) query.append('endDate', params.endDate);
+    if (params.type) query.append('type', params.type);
+    if (params.payoutStatus) query.append('payoutStatus', params.payoutStatus);
+    if (params.jobId) query.append('jobId', params.jobId);
+    if (params.page) query.append('page', params.page);
+    if (params.limit) query.append('limit', params.limit);
+    const response = await api.get(`/ledger/entries?${query}`);
+    return response.data;
+  },
+
+  // Create manual adjustment
+  createAdjustment: async (data) => {
+    const response = await api.post('/ledger/adjustment', data);
+    return response.data;
+  },
+
+  // Record cash collected
+  recordCashCollected: async (data) => {
+    const response = await api.post('/ledger/cash-collected', data);
+    return response.data;
+  },
+
+  updateCashCollected: async (jobId, teamMemberId, amount) => {
+    const response = await api.patch(`/ledger/cash-collected/${jobId}/${teamMemberId}`, { amount });
+    return response.data;
+  },
+
+  // Record cash delivered to company (no salary impact)
+  recordCashToCompany: async (data) => {
+    const response = await api.post('/ledger/cash-to-company', data);
+    return response.data;
+  },
+
+  // Create adjustment + rebuild payout batch in one call
+  adjustAndRebuildBatch: async (data) => {
+    const response = await api.post('/ledger/adjust-and-rebuild-batch', data);
+    return response.data;
+  },
+
+  // Create payout batch
+  createPayoutBatch: async (data) => {
+    const response = await api.post('/ledger/payout-batch', data);
+    return response.data;
+  },
+
+  // Create payout batches for ALL team members at once (server-side loop)
+  createPayoutBatchAll: async (data) => {
+    const response = await api.post('/ledger/payout-batch/all', data);
+    return response.data;
+  },
+
+  // Mark payout batch as paid
+  markBatchPaid: async (batchId, note) => {
+    const response = await api.patch(`/ledger/payout-batch/${batchId}/pay`, { note });
+    return response.data;
+  },
+
+  // Cancel payout batch
+  cancelBatch: async (batchId) => {
+    const response = await api.patch(`/ledger/payout-batch/${batchId}/cancel`);
+    return response.data;
+  },
+
+  // Delete a pending payout batch entirely
+  deleteBatch: async (batchId) => {
+    const response = await api.delete(`/ledger/payout-batch/${batchId}`);
+    return response.data;
+  },
+
+  // Bulk mark all unpaid entries as paid up to a cutoff date
+  bulkMarkPaid: async (cutoffDate, note) => {
+    const response = await api.post('/ledger/bulk-mark-paid', { cutoffDate, note });
+    return response.data;
+  },
+
+  // Get payout batches list
+  getPayoutBatches: async (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.teamMemberId) query.append('teamMemberId', params.teamMemberId);
+    if (params.status) query.append('status', params.status);
+    if (params.page) query.append('page', params.page);
+    if (params.limit) query.append('limit', params.limit);
+    const response = await api.get(`/ledger/payout-batches?${query}`);
+    return response.data;
+  },
+
+  // Get payout batch detail
+  getPayoutBatch: async (batchId) => {
+    const response = await api.get(`/ledger/payout-batch/${batchId}`);
+    return response.data;
+  },
+
+  // Backfill ledger for existing completed jobs
+  backfill: async (data) => {
+    const response = await api.post('/ledger/backfill', data, { timeout: 600000 });
+    return response.data;
+  },
+
+  // Poll backfill progress
+  getBackfillProgress: async () => {
+    const response = await api.get('/ledger/backfill/progress');
+    return response.data;
+  },
+
+  // Cancel running backfill
+  cancelBackfill: async () => {
+    const response = await api.post('/ledger/backfill/cancel');
+    return response.data;
+  },
+
+  // Update payout preferences
+  updatePayoutPreferences: async (teamMemberId, data) => {
+    const response = await api.patch(`/team-members/${teamMemberId}/payout-preferences`, data);
+    return response.data;
+  }
+};
+
+// ═══ Communications API (Sigcore-backed) ═══
+
+export const openPhoneAPI = {
+  connect: async (apiKey) => { const r = await api.post('/communications/connect-openphone', { apiKey }); return r.data; },
+  getStatus: async () => { const r = await api.get('/communications/status'); return r.data; },
+  getNumbers: async () => { const r = await api.get('/communications/phone-numbers'); return r.data; },
+  disconnect: async () => { const r = await api.delete('/communications/disconnect-openphone'); return r.data; },
+  sync: async (limit) => { const r = await api.post('/communications/sync', limit ? { limit } : {}); return r.data; },
+  getSyncProgress: async () => { const r = await api.get('/communications/sync/progress'); return r.data; },
+  cancelSync: async () => { const r = await api.post('/communications/sync/cancel'); return r.data; },
+  relink: async () => { const r = await api.post('/communications/relink'); return r.data; },
+};
+
+export const whatsappAPI = {
+  getStatus: async () => { const r = await api.get('/integrations/whatsapp/status'); return r.data; },
+  connect: async () => { const r = await api.post('/integrations/whatsapp/connect'); return r.data; },
+  getQR: async () => { const r = await api.get('/integrations/whatsapp/qr'); return r.data; },
+  disconnect: async () => { const r = await api.post('/integrations/whatsapp/disconnect'); return r.data; },
+  sync: async (messageLimit) => { const r = await api.post('/integrations/whatsapp/sync', messageLimit ? { messageLimit } : {}); return r.data; },
+  getSyncProgress: async () => { const r = await api.get('/integrations/whatsapp/sync/progress'); return r.data; },
+};
+
+export const notificationEmailAPI = {
+  getSettings: async () => { const r = await api.get('/notification-email/settings'); return r.data; },
+  saveSettings: async (data) => { const r = await api.put('/notification-email/settings', data); return r.data; },
+  sendTest: async (testEmail) => { const r = await api.post('/notification-email/test', { testEmail }); return r.data; },
+  getLogs: async (params) => { const r = await api.get('/notification-email/logs', { params }); return r.data; },
+};
+
+export const paystubsAPI = {
+  list: async (params = {}) => { const r = await api.get('/paystubs', { params }); return r.data; },
+  get: async (id) => { const r = await api.get(`/paystubs/${id}`); return r.data; },
+  create: async (data) => { const r = await api.post('/paystubs', data); return r.data; },
+  bulkCreate: async (data) => { const r = await api.post('/paystubs/bulk', data); return r.data; },
+  send: async (id) => { const r = await api.post(`/paystubs/${id}/send`); return r.data; },
+  resend: async (id) => { const r = await api.post(`/paystubs/${id}/resend`); return r.data; },
+  bulkSend: async (data = {}) => { const r = await api.post('/paystubs/bulk/send', data); return r.data; },
+  delete: async (id) => { const r = await api.delete(`/paystubs/${id}`); return r.data; },
+  htmlUrl: (id) => `/paystubs/${id}/html`,
+};
+
+export const jobExpensesAPI = {
+  list: async (jobId) => { const r = await api.get(`/jobs/${jobId}/expenses`); return r.data; },
+  create: async (jobId, data) => { const r = await api.post(`/jobs/${jobId}/expenses`, data); return r.data; },
+  update: async (id, data) => { const r = await api.patch(`/job-expenses/${id}`, data); return r.data; },
+  approve: async (id) => { const r = await api.post(`/job-expenses/${id}/approve`); return r.data; },
+  reject: async (id) => { const r = await api.post(`/job-expenses/${id}/reject`); return r.data; },
+  delete: async (id) => { const r = await api.delete(`/job-expenses/${id}`); return r.data; },
+};
+
+// Set Company tag for an OpenPhone contact directly in SF (without going
+// through OpenPhone). After save, source-fill propagates to customer/lead.
+export const opContactsAPI = {
+  setCompany: async (phone, company) => {
+    const r = await api.patch('/op-contacts/set-company', { phone, company });
+    return r.data;
+  },
+  bulkSetCompany: async (items) => {
+    const r = await api.post('/op-contacts/bulk-set-company', { items });
+    return r.data;
+  },
+};
+
+export const zenbookerAPI = {
+  sync: async (opts = {}) => {
+    const r = await api.post('/zenbooker/sync', opts);
+    return r.data;
+  },
+  syncProgress: async () => {
+    const r = await api.get('/zenbooker/sync/progress');
+    return r.data;
+  },
+};
+
+export const leadbridgeAPI = {
+  connect: async (email, password) => { const r = await api.post('/integrations/leadbridge/connect', { email, password }); return r.data; },
+  getStatus: async () => { const r = await api.get('/integrations/leadbridge/status'); return r.data; },
+  getAccounts: async () => { const r = await api.get('/integrations/leadbridge/accounts'); return r.data; },
+  disconnect: async () => { const r = await api.delete('/integrations/leadbridge/disconnect'); return r.data; },
+  sync: async (accountId, limit) => { const r = await api.post('/integrations/leadbridge/sync', { accountId, limit }); return r.data; },
+  getSyncProgress: async () => { const r = await api.get('/integrations/leadbridge/sync/progress'); return r.data; },
+};
+
+export const leadAutomationAPI = {
+  getRules: async () => { const r = await api.get('/lead-automation/rules'); return r.data; },
+  saveRule: async (data) => { const r = await api.post('/lead-automation/rules', data); return r.data; },
+  seedDefaults: async () => { const r = await api.post('/lead-automation/seed-defaults'); return r.data; },
+  backfill: async () => { const r = await api.post('/lead-automation/backfill'); return r.data; },
+};
+
+export const leadSourcesAPI = {
+  list: async () => { const r = await api.get('/lead-sources'); return r.data; },
+  create: async (name) => { const r = await api.post('/lead-sources', { name }); return r.data; },
+  update: async (id, data) => { const r = await api.put(`/lead-sources/${id}`, data); return r.data; },
+  remove: async (id) => { const r = await api.delete(`/lead-sources/${id}`); return r.data; },
+  seed: async () => { const r = await api.post('/lead-sources/seed'); return r.data; },
+  reorder: async (order) => { const r = await api.put('/lead-sources/reorder', { order }); return r.data; },
+  importFromOpenPhone: async () => { const r = await api.post('/lead-sources/import-from-openphone'); return r.data; },
+};
+
+export const leadSourceMappingsAPI = {
+  list: async () => { const r = await api.get('/lead-source-mappings'); return r.data; },
+  save: async (data) => { const r = await api.post('/lead-source-mappings', data); return r.data; },
+  saveBulk: async (mappings) => { const r = await api.post('/lead-source-mappings/bulk', { mappings }); return r.data; },
+  remove: async (id) => { const r = await api.delete(`/lead-source-mappings/${id}`); return r.data; },
+  autoSuggest: async () => { const r = await api.post('/lead-source-mappings/auto-suggest'); return r.data; },
+};
+
+export const sourceIssuesAPI = {
+  list: async () => { const r = await api.get('/source-issues'); return r.data; },
+  mergeCustomers: async (sourceId, targetId) => { const r = await api.post(`/customers/${sourceId}/merge-into/${targetId}`); return r.data; },
+};
+
+export const participantsAPI = {
+  backfillDryRun: async () => { const r = await api.post('/participants/backfill'); return r.data; },
+  backfillApply: async () => { const r = await api.post('/participants/backfill?apply=1'); return r.data; },
+  backfillProgress: async () => { const r = await api.get('/participants/backfill/progress'); return r.data; },
+  reconcile: async () => { const r = await api.post('/participants/reconcile'); return r.data; },
+  reclassifyDryRun: async () => { const r = await api.post('/participants/reclassify'); return r.data; },
+  reclassifyApply: async () => { const r = await api.post('/participants/reclassify?apply=1'); return r.data; },
+  reclassifyProgress: async () => { const r = await api.get('/participants/reclassify/progress'); return r.data; },
+  upgradeLbSourcesDryRun: async () => { const r = await api.post('/participants/upgrade-lb-sources'); return r.data; },
+  upgradeLbSourcesApply: async () => { const r = await api.post('/participants/upgrade-lb-sources?apply=1'); return r.data; },
+};
+
+// Phase F — unified identity reporting + backfill.
+export const identitiesAPI = {
+  status: async () => { const r = await api.get('/identities/status'); return r.data; },
+  bySource: async () => { const r = await api.get('/identities/by-source'); return r.data; },
+  unresolved: async ({ limit = 50, offset = 0 } = {}) => {
+    const r = await api.get(`/identities/unresolved?limit=${limit}&offset=${offset}`);
+    return r.data;
+  },
+  reconciliationFailures: async ({ status = 'open', limit = 50, offset = 0 } = {}) => {
+    const r = await api.get(`/identities/reconciliation-failures?status=${status}&limit=${limit}&offset=${offset}`);
+    return r.data;
+  },
+  reconciliationFailuresCsv: async ({ status = 'open' } = {}) => {
+    const r = await api.get(`/identities/reconciliation-failures/export.csv?status=${status}`, { responseType: 'blob' });
+    return r.data;
+  },
+  ambiguityCandidates: async (id) => {
+    const r = await api.get(`/identities/ambiguities/${id}/candidates`);
+    return r.data;
+  },
+  resolveAmbiguity: async (id, body) => {
+    const r = await api.post(`/identities/ambiguities/${id}/resolve`, body);
+    return r.data;
+  },
+  backfillDryRun: async () => { const r = await api.post('/identities/backfill'); return r.data; },
+  backfillApply: async () => { const r = await api.post('/identities/backfill?apply=1'); return r.data; },
+  backfillProgress: async () => { const r = await api.get('/identities/backfill/progress'); return r.data; },
+  opLeadOutcomes: async () => { const r = await api.get('/identities/op-lead-outcomes'); return r.data; },
+  classify: async (id) => { const r = await api.post(`/identities/${id}/classify`); return r.data; },
+  classifyBatch: async (ids, max = 200) => { const r = await api.post('/identities/classify-batch', { ids, max }); return r.data; },
+  classifyBatchProgress: async () => { const r = await api.get('/identities/classify-batch/progress'); return r.data; },
+};
+
+// Phase J — unified integrations. One Connect & Sync per source.
+export const integrationsAPI = {
+  status: async () => { const r = await api.get('/integrations/status'); return r.data; },
+  sync: async (source) => { const r = await api.post(`/integrations/${source}/sync`); return r.data; },
+  syncProgress: async (source) => { const r = await api.get(`/integrations/${source}/sync/progress`); return r.data; },
+};
+
+export const locationsAPI = {
+  list: async () => { const r = await api.get('/locations'); return r.data; },
+  create: async (data) => { const r = await api.post('/locations', data); return r.data; },
+  update: async (id, data) => { const r = await api.patch(`/locations/${id}`, data); return r.data; },
+  getMappings: async () => { const r = await api.get('/communications/location-mappings'); return r.data; },
+  createMapping: async (data) => { const r = await api.post('/communications/location-mappings', data); return r.data; },
+};
+
+export const communicationsAPI = {
+  getProviderAccounts: async () => { const r = await api.get('/communications/provider-accounts'); return r.data; },
+  getConversations: async (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.filter) query.append('filter', params.filter);
+    if (params.search) query.append('search', params.search);
+    if (params.archived) query.append('archived', params.archived);
+    if (params.accountId) query.append('accountId', params.accountId);
+    if (params.channel) query.append('channel', params.channel);
+    if (params.locationId) query.append('locationId', params.locationId);
+    const r = await api.get(`/communications/conversations?${query}`);
+    return r.data;
+  },
+  getConversation: async (id, params) => { const r = await api.get(`/communications/conversations/${id}`, { params }); return r.data; },
+  sendMessage: async (id, data) => { const r = await api.post(`/communications/conversations/${id}/send`, data); return r.data; },
+  updateConversation: async (id, data) => { const r = await api.patch(`/communications/conversations/${id}`, data); return r.data; },
+  savePreferences: async (prefs) => { const r = await api.put('/communications/settings/preferences', prefs); return r.data; },
+};
+
+// Connected Email (Gmail/Outlook OAuth) — System 2 mailbox integration for Communications Hub.
+// Separate from notificationEmailAPI (System 1 / SendGrid).
+export const connectedEmailAPI = {
+  listAccounts: async () => { const r = await api.get('/connected-email/accounts'); return r.data; },
+  startOAuth: async (provider) => { const r = await api.post(`/connected-email/oauth/${provider}/start`); return r.data; },
+  disconnect: async (accountId, reason) => { const r = await api.post(`/connected-email/accounts/${accountId}/disconnect`, { reason }); return r.data; },
+  deleteAccount: async (accountId) => { const r = await api.delete(`/connected-email/accounts/${accountId}`); return r.data; },
+  validateMailbox: async (accountId, mailboxEmail) => {
+    const r = await api.post(`/connected-email/accounts/${accountId}/validate-mailbox`, { mailboxEmail });
+    return r.data;
+  },
+  selectMailbox: async (accountId, mailboxEmail) => {
+    const r = await api.post(`/connected-email/accounts/${accountId}/select-mailbox`, { mailboxEmail });
+    return r.data;
+  },
+  resync: async (accountId) => { const r = await api.post(`/connected-email/accounts/${accountId}/resync`); return r.data; },
+  getSyncProgress: async (accountId) => { const r = await api.get(`/connected-email/accounts/${accountId}/sync-progress`); return r.data; },
+  testSync: async (accountId, { days = 7, maxMessages = 50 } = {}) => {
+    const r = await api.post(`/connected-email/accounts/${accountId}/test-sync`, { days, maxMessages });
+    return r.data;
+  },
+  validateMailbox: async (accountId, mailboxEmail) => {
+    const r = await api.post(`/connected-email/accounts/${accountId}/validate-mailbox`, { mailboxEmail });
+    return r.data;
+  },
+  selectMailbox: async (accountId, mailboxEmail) => {
+    const r = await api.post(`/connected-email/accounts/${accountId}/select-mailbox`, { mailboxEmail });
+    return r.data;
+  },
+  deleteAccount: async (accountId) => { const r = await api.delete(`/connected-email/accounts/${accountId}`); return r.data; },
+};
+
+export default api;

@@ -30,7 +30,7 @@ const ServiceFlowRequests = () => {
       console.log('❌ No authenticated user, redirecting to signin')
       navigate('/signin')
     }
-  }, [currentUser, activeFilter, navigate])
+  }, [currentUser, activeFilter, navigate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRequests = async () => {
     if (!currentUser?.id) return
@@ -96,7 +96,7 @@ const ServiceFlowRequests = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       {/* Main Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -105,12 +105,12 @@ const ServiceFlowRequests = () => {
         {/* Mobile Header */}
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-5 items-center justify-between shadow-sm">
+        <div className="hidden lg:flex bg-white border-b border-[var(--sf-border-light)] px-6 py-5 items-center justify-between shadow-sm">
           <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
             <div className="flex items-center space-x-8">
-              <h1 className="text-2xl font-display font-semibold text-gray-900">Requests</h1>
+              <h1 className="text-2xl font-display font-semibold text-[var(--sf-text-primary)]">Requests</h1>
               <div className="flex items-center space-x-1">
-                <button className="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-b-2 border-primary-600 hover:text-primary-700 transition-colors">
+                <button className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border-b-2 border-primary-600 hover:text-primary-700 transition-colors">
                   All
                 </button>
               </div>
@@ -119,26 +119,26 @@ const ServiceFlowRequests = () => {
               <button 
                 onClick={loadRequests}
                 disabled={loading}
-                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200 disabled:opacity-50"
+                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-[var(--sf-bg-hover)] transition-all duration-200 disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span>{loading ? 'Loading...' : 'Refresh'}</span>
               </button>
-              <button className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+              <button className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-[var(--sf-bg-hover)] transition-all duration-200">
                 <span>Open</span>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
+                <ChevronDown className="w-4 h-4 text-[var(--sf-text-muted)]" />
               </button>
             </div>
           </div>
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
+        <div className="lg:hidden bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-display font-semibold text-gray-900">Requests</h1>
+            <h1 className="text-xl font-display font-semibold text-[var(--sf-text-primary)]">Requests</h1>
             <button
               onClick={() => setRequestsSidebarOpen(!requestsSidebarOpen)}
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-[var(--sf-bg-hover)] transition-all duration-200"
             >
               <Filter className="w-4 h-4" />
               <span>Filter</span>
@@ -146,7 +146,7 @@ const ServiceFlowRequests = () => {
             </button>
           </div>
           <div className="flex items-center space-x-1 mt-3">
-            <button className="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-b-2 border-primary-600 hover:text-primary-700 transition-colors">
+            <button className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border-b-2 border-primary-600 hover:text-primary-700 transition-colors">
               All
             </button>
           </div>
@@ -155,7 +155,7 @@ const ServiceFlowRequests = () => {
         {/* Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Requests Sidebar - Desktop */}
-          <div className="hidden lg:block w-64 border-r border-gray-200 bg-white">
+          <div className="hidden lg:block w-64 border-r border-[var(--sf-border-light)] bg-white">
             <RequestsSidebar activeFilter={activeFilter} onFilterChange={setActiveFilter} />
           </div>
 
@@ -178,8 +178,8 @@ const ServiceFlowRequests = () => {
           <div className="flex-1 flex flex-col bg-white">
             {/* Mobile Filter Dropdown */}
             {requestsSidebarOpen && (
-              <div className="lg:hidden bg-gray-50 border-b border-gray-200 p-4">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">REQUEST TYPE</h3>
+              <div className="lg:hidden bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)] p-4">
+                <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-3">REQUEST TYPE</h3>
                 <div className="space-y-1">
                   {["all", "booking", "quote"].map((type) => (
                     <button
@@ -191,7 +191,7 @@ const ServiceFlowRequests = () => {
                       className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         activeFilter === type 
                           ? "bg-primary-50 text-primary-700" 
-                          : "text-gray-700 hover:bg-gray-100"
+                          : "text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]"
                       }`}
                     >
                       {type === "all" && "All"}
@@ -252,24 +252,24 @@ const ServiceFlowRequests = () => {
                   <div className="flex items-center justify-center py-12">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                      <p className="mt-4 text-gray-600">Checking authentication...</p>
+                      <p className="mt-4 text-[var(--sf-text-secondary)]">Checking authentication...</p>
                     </div>
                   </div>
                 ) : loading ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                      <p className="mt-4 text-gray-600">Loading requests...</p>
+                      <p className="mt-4 text-[var(--sf-text-secondary)]">Loading requests...</p>
                     </div>
                   </div>
                 ) : requests.length > 0 ? (
                   <div className="space-y-4">
                     {requests.map((request) => (
-                      <div key={request.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                      <div key={request.id} className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
-                              <h3 className="text-lg font-semibold text-gray-900">
+                              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                                 {request.type === 'booking' ? 'Booking Request' : 'Quote Request'}
                               </h3>
                               <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -281,7 +281,7 @@ const ServiceFlowRequests = () => {
                               </span>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[var(--sf-text-secondary)]">
                               <div className="flex items-center space-x-2">
                                 <User className="w-4 h-4" />
                                 <span>{request.customer_name || `${request.customer_first_name} ${request.customer_last_name}`}</span>
@@ -311,8 +311,8 @@ const ServiceFlowRequests = () => {
                             </div>
                             
                             {request.notes && (
-                              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                <p className="text-sm text-gray-700">{request.notes}</p>
+                              <div className="mt-3 p-3 bg-[var(--sf-bg-page)] rounded-lg">
+                                <p className="text-sm text-[var(--sf-text-primary)]">{request.notes}</p>
                               </div>
                             )}
                           </div>

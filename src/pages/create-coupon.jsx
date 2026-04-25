@@ -9,7 +9,7 @@ const CreateCouponPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       {/* Main Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="coupons" />
 
@@ -18,11 +18,11 @@ const CreateCouponPage = () => {
         {/* Mobile Header */}
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate("/coupons")}
-              className="flex items-center text-gray-600 hover:text-gray-900"
+              className="flex items-center text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="ml-1">Back to Coupons</span>

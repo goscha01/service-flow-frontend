@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
 import { jobsAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
@@ -108,11 +109,7 @@ const AvailableJobs = () => {
     if (!dateString) return "N/A"
     try {
       const date = new Date(dateString)
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      })
+      return formatTimeShared(date)
     } catch (e) {
       return "N/A"
     }
@@ -122,7 +119,7 @@ const AvailableJobs = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600">You must be a worker to view available jobs.</p>
+          <p className="text-[var(--sf-text-secondary)]">You must be a worker to view available jobs.</p>
         </div>
       </div>
     )
@@ -131,10 +128,10 @@ const AvailableJobs = () => {
   return (
     <div className="min-h-screen bg-white pb-20 lg:pb-0">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4">
+      <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
         <div className="flex items-center justify-between mb-3">
           {/* Avatar */}
-          <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-[var(--sf-blue-500)] flex items-center justify-center flex-shrink-0">
             <span className="text-white font-semibold text-sm">
               {getUserInitials()}
             </span>
@@ -142,11 +139,11 @@ const AvailableJobs = () => {
           
           {/* Title - Centered */}
           <div className="flex-1 text-center">
-            <h1 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+            <h1 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
               Job Offers
             </h1>
             {lastSynced && (
-              <p className="text-xs text-gray-500 mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <p className="text-xs text-[var(--sf-text-muted)] mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 Synced {getTimeAgo(lastSynced)}
               </p>
             )}
@@ -156,7 +153,7 @@ const AvailableJobs = () => {
           <button
             onClick={() => fetchAvailableJobs(true)}
             disabled={refreshing || loading}
-            className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 flex-shrink-0"
+            className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] disabled:opacity-50 flex-shrink-0"
             title="Refresh"
           >
             <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
@@ -183,15 +180,15 @@ const AvailableJobs = () => {
       <div className="p-4 lg:px-6 lg:py-6">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            <Loader2 className="w-8 h-8 text-[var(--sf-blue-500)] animate-spin" />
           </div>
         ) : jobs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4">
             <ClipboardList className="w-20 h-20 text-gray-300 mb-6" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+            <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
               No jobs available
             </h3>
-            <p className="text-sm text-gray-500 text-center max-w-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+            <p className="text-sm text-[var(--sf-text-muted)] text-center max-w-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
               Check back later to see if there are new jobs you can claim.
             </p>
           </div>
@@ -200,22 +197,22 @@ const AvailableJobs = () => {
             {jobs.map((job) => (
               <div
                 key={job.id}
-                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4 lg:p-6"
+                className="bg-white rounded-lg border border-[var(--sf-border-light)] shadow-sm hover:shadow-md transition-shadow p-4 lg:p-6"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                    <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                       {job.service_name || job.services?.name || "Service"}
                     </h3>
                     {job.customers && (
-                      <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      <p className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         {job.customers.first_name} {job.customers.last_name}
                       </p>
                     )}
                   </div>
                   {job.total && (
                     <div className="text-right">
-                      <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <p className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         ${parseFloat(job.total || job.price || 0).toFixed(2)}
                       </p>
                     </div>
@@ -223,7 +220,7 @@ const AvailableJobs = () => {
                 </div>
 
                 <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
+                  <div className="flex items-center text-sm text-[var(--sf-text-secondary)]">
                     <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
                     <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       {formatDate(job.scheduled_date)} at {formatTimeFromDate(job.scheduled_date)}
@@ -231,7 +228,7 @@ const AvailableJobs = () => {
                   </div>
 
                   {job.service_address_street && (
-                    <div className="flex items-start text-sm text-gray-600">
+                    <div className="flex items-start text-sm text-[var(--sf-text-secondary)]">
                       <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                       <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         {job.service_address_street}
@@ -242,7 +239,7 @@ const AvailableJobs = () => {
                   )}
 
                   {job.duration && (
-                    <div className="flex items-center text-sm text-gray-600">
+                    <div className="flex items-center text-sm text-[var(--sf-text-secondary)]">
                       <Clock className="w-4 h-4 mr-2 flex-shrink-0" />
                       <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         {Math.floor(job.duration / 60)}h {job.duration % 60}m
@@ -251,18 +248,18 @@ const AvailableJobs = () => {
                   )}
 
                   {job.notes && (
-                    <div className="mt-2 pt-2 border-t border-gray-100">
-                      <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                    <div className="mt-2 pt-2 border-t border-[var(--sf-border-light)]">
+                      <p className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         {job.notes}
                       </p>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center space-x-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center space-x-3 pt-3 border-t border-[var(--sf-border-light)]">
                   <button
                     onClick={() => navigate(`/job/${job.id}`)}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors"
                     style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     View Details
@@ -270,7 +267,7 @@ const AvailableJobs = () => {
                   <button
                     onClick={() => handleClaimJob(job.id)}
                     disabled={claimingJobId === job.id}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                     style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     {claimingJobId === job.id ? (

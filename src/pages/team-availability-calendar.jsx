@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
-import { ChevronLeft, ChevronRight, Calendar, Clock, Users, Filter, Edit, X, Check, AlertCircle } from "lucide-react"
-import { teamAPI, jobsAPI } from "../services/api"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Calendar, Clock, Users, Filter, Edit, X, Check, AlertCircle } from "lucide-react"
+import { teamAPI, jobsAPI, availabilityAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl } from "../utils/imageUtils"
 
@@ -22,6 +23,7 @@ const TeamAvailabilityCalendar = () => {
   const [filterStatus, setFilterStatus] = useState("all") // all, active, inactive
   const [message, setMessage] = useState({ type: '', text: '' })
   const [calendarView, setCalendarView] = useState("remaining") // "base" or "remaining"
+  const [companyDrivingTime, setCompanyDrivingTime] = useState(60) // Default 60 minutes (1 hour)
 
   const currentMonth = currentDate.getMonth()
   const currentYear = currentDate.getFullYear()
@@ -52,6 +54,19 @@ const TeamAvailabilityCalendar = () => {
     
     return days
   }, [currentMonth, currentYear])
+
+  // Fetch company driving time from settings
+  useEffect(() => {
+    if (!user?.id) return
+    availabilityAPI.getAvailability(user.id).then((data) => {
+      const hours = data?.businessHours || data?.business_hours
+      const parsed = typeof hours === 'string' ? (() => { try { return JSON.parse(hours) } catch (e) { return null } })() : hours
+      if (parsed && parsed.drivingTime !== undefined && parsed.drivingTime !== null) {
+        const v = parseInt(parsed.drivingTime, 10)
+        if (Number.isFinite(v)) setCompanyDrivingTime(v)
+      }
+    }).catch(() => {})
+  }, [user?.id])
 
   // Fetch team members
   const fetchTeamMembers = useCallback(async () => {
@@ -92,8 +107,23 @@ const TeamAvailabilityCalendar = () => {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
   }
 
-  // Calculate remaining availability by subtracting assigned jobs from base availability
-  const calculateRemainingAvailability = (baseHours, assignedJobs) => {
+  // Get per-member driving time, falling back to company default
+  const getMemberDrivingTime = (member) => {
+    if (!member) return companyDrivingTime
+    try {
+      const avail = member.availability
+        ? (typeof member.availability === 'string' ? JSON.parse(member.availability) : member.availability)
+        : null
+      if (avail && avail.drivingTime !== undefined && avail.drivingTime !== null) {
+        const v = parseInt(avail.drivingTime, 10)
+        if (Number.isFinite(v)) return v
+      }
+    } catch (e) { /* ignore */ }
+    return companyDrivingTime
+  }
+
+  // Calculate remaining availability by subtracting assigned jobs + driving lag from base availability
+  const calculateRemainingAvailability = (baseHours, assignedJobs, drivingTimeMinutes = 0) => {
     if (!baseHours || baseHours.length === 0) return []
     if (!assignedJobs || assignedJobs.length === 0) return baseHours
 
@@ -107,7 +137,7 @@ const TeamAvailabilityCalendar = () => {
     const jobRanges = assignedJobs.map(job => {
       // Extract time from scheduled_time or scheduled_date
       let jobTime = '09:00' // Default
-      
+
       // First try scheduled_time field
       if (job.scheduled_time) {
         // scheduled_time might be "09:00" or "09:00:00" or a full datetime
@@ -139,7 +169,7 @@ const TeamAvailabilityCalendar = () => {
           }
         }
       }
-      
+
       const jobStartMinutes = timeToMinutes(jobTime)
       const duration = job.duration || 60 // Default 60 minutes
       return {
@@ -148,30 +178,53 @@ const TeamAvailabilityCalendar = () => {
       }
     })
 
-    // Calculate remaining slots
+    // Build driving time ranges (buffer before and after each job)
+    const driving = typeof drivingTimeMinutes === 'number' && drivingTimeMinutes > 0 ? drivingTimeMinutes : 0
+    let drivingTimeRanges = []
+    if (driving > 0 && jobRanges.length > 0) {
+      const overallStart = Math.min(...baseRanges.map(r => r.start))
+      const overallEnd = Math.max(...baseRanges.map(r => r.end))
+      jobRanges.forEach(jr => {
+        drivingTimeRanges.push({ start: Math.max(jr.start - driving, overallStart), end: jr.start })
+        drivingTimeRanges.push({ start: jr.end, end: Math.min(jr.end + driving, overallEnd) })
+      })
+    }
+
+    // Merge all blocked ranges (jobs + driving buffers)
+    const allBlocked = [...jobRanges, ...drivingTimeRanges]
+      .sort((a, b) => a.start - b.start)
+    const mergedBlocked = []
+    allBlocked.forEach(range => {
+      if (mergedBlocked.length === 0) {
+        mergedBlocked.push({ ...range })
+      } else {
+        const prev = mergedBlocked[mergedBlocked.length - 1]
+        if (range.start <= prev.end) {
+          prev.end = Math.max(prev.end, range.end)
+        } else {
+          mergedBlocked.push({ ...range })
+        }
+      }
+    })
+
+    // Subtract blocked ranges from base availability
     const remainingRanges = []
-    
     baseRanges.forEach(baseRange => {
       let currentStart = baseRange.start
-      
-      // Sort job ranges by start time for this day
-      const dayJobs = jobRanges
-        .filter(job => job.start >= baseRange.start && job.end <= baseRange.end)
+      const relevant = mergedBlocked
+        .filter(b => b.start < baseRange.end && b.end > baseRange.start)
         .sort((a, b) => a.start - b.start)
-      
-      dayJobs.forEach(jobRange => {
-        // If there's a gap before this job, add it as available
-        if (currentStart < jobRange.start) {
+
+      relevant.forEach(blocked => {
+        if (currentStart < blocked.start) {
           remainingRanges.push({
             start: currentStart,
-            end: jobRange.start
+            end: blocked.start
           })
         }
-        // Move current start to after this job
-        currentStart = Math.max(currentStart, jobRange.end)
+        currentStart = Math.max(currentStart, blocked.end)
       })
-      
-      // If there's remaining time after all jobs, add it
+
       if (currentStart < baseRange.end) {
         remainingRanges.push({
           start: currentStart,
@@ -260,21 +313,28 @@ const TeamAvailabilityCalendar = () => {
           
           // Use backend-calculated base and remaining availability if available
           if (availability?.baseAvailability && Object.keys(availability.baseAvailability).length > 0) {
-            // Backend has already calculated everything
-            console.log(`[Calendar] Using backend-calculated availability for member ${memberId}`)
+            // Backend provides base availability; recalculate remaining with driving lag on frontend
+            console.log(`[Calendar] Using backend base availability for member ${memberId}`)
+            const member = members.find(m => m.id === memberId || Number(m.id) === memberId)
+            const drivingTime = getMemberDrivingTime(member)
             Object.keys(availability.baseAvailability).forEach(dateStr => {
               const baseData = availability.baseAvailability[dateStr]
-              const remainingHours = availability.remainingAvailability?.[dateStr] || []
-              
+              const baseHours = baseData.hours || []
+
               // Get jobs assigned for this day
               const dayJobs = assignedJobs.filter(job => {
                 const jobDate = new Date(job.scheduled_date || job.scheduledDate)
                 return jobDate.toISOString().split('T')[0] === dateStr
               })
-              
+
+              // Recalculate remaining availability with driving lag
+              const remainingHours = baseData.available && baseHours.length > 0
+                ? calculateRemainingAvailability(baseHours, dayJobs, drivingTime)
+                : []
+
               processedData[memberId][dateStr] = {
                 available: baseData.available,
-                hours: baseData.hours || [],
+                hours: baseHours,
                 remainingHours: remainingHours,
                 assignedJobs: dayJobs
               }
@@ -377,9 +437,11 @@ const TeamAvailabilityCalendar = () => {
               
               dayData.assignedJobs = dayJobs
               
-              // Calculate remaining availability
+              // Calculate remaining availability (including driving lag)
               if (dayData.available && baseHours.length > 0) {
-                dayData.remainingHours = calculateRemainingAvailability(baseHours, dayJobs)
+                const member = members.find(m => m.id === memberId || Number(m.id) === memberId)
+                const drivingTime = getMemberDrivingTime(member)
+                dayData.remainingHours = calculateRemainingAvailability(baseHours, dayJobs, drivingTime)
               }
               
               processedData[memberId][dateStr] = dayData
@@ -512,14 +574,7 @@ const TeamAvailabilityCalendar = () => {
     return 'TM'
   }
 
-  const formatTime = (time) => {
-    if (!time) return ''
-    const [hours, minutes] = time.split(':')
-    const hour = parseInt(hours, 10)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    return `${displayHour}:${minutes} ${ampm}`
-  }
+  const formatTime = (time) => formatTimeShared(time)
 
   const getAvailabilityDisplay = (memberId, dateStr) => {
     const memberData = availabilityData[memberId]?.[dateStr]
@@ -576,31 +631,31 @@ const TeamAvailabilityCalendar = () => {
 
   if (loading && teamMembers.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading remaining availability...</p>
+          <p className="mt-4 text-[var(--sf-text-secondary)]">Loading remaining availability...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
+    <div className="min-h-screen bg-[var(--sf-bg-page)] pb-24 lg:pb-0">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10">
         <div className="px-4 py-4 lg:px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate('/team')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
               >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
+                <ChevronLeft className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
               <div>
-                <h1 className="text-xl lg:text-2xl font-semibold text-gray-900">Worker Availability Calendar</h1>
-                <p className="text-sm text-gray-500 mt-1">
+                <h1 className="text-xl lg:text-2xl font-semibold text-[var(--sf-text-primary)]">Worker Availability Calendar</h1>
+                <p className="text-sm text-[var(--sf-text-muted)] mt-1">
                   {calendarView === "base" 
                     ? "When workers are generally available to work"
                     : "Time slots still open after existing jobs are scheduled"}
@@ -611,13 +666,13 @@ const TeamAvailabilityCalendar = () => {
             {/* View Toggle and Filter */}
             <div className="flex items-center space-x-4">
               {/* Calendar View Toggle */}
-              <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+              <div className="flex items-center space-x-2 bg-[var(--sf-bg-page)] rounded-lg p-1">
                 <button
                   onClick={() => setCalendarView("base")}
                   className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
                     calendarView === "base"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white text-[var(--sf-blue-500)] shadow-sm"
+                      : "text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                   }`}
                 >
                   Base Availability
@@ -626,8 +681,8 @@ const TeamAvailabilityCalendar = () => {
                   onClick={() => setCalendarView("remaining")}
                   className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
                     calendarView === "remaining"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white text-[var(--sf-blue-500)] shadow-sm"
+                      : "text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                   }`}
                 >
                   Remaining Availability
@@ -636,11 +691,11 @@ const TeamAvailabilityCalendar = () => {
               
               {/* Filter */}
               <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4 text-gray-400" />
+                <Filter className="w-4 h-4 text-[var(--sf-text-muted)]" />
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                 >
                   <option value="all">All Members</option>
                   <option value="active">Active Only</option>
@@ -662,39 +717,59 @@ const TeamAvailabilityCalendar = () => {
       )}
 
       {/* Month Navigation */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4 lg:px-6">
+      <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 lg:px-6">
         <div className="flex items-center justify-between">
-          <button
-            onClick={handlePreviousMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          
-          <h2 className="text-lg lg:text-xl font-semibold text-gray-900">
+          <div className="flex items-center">
+            <button
+              onClick={() => setCurrentDate(new Date(currentYear - 1, currentMonth, 1))}
+              className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
+              title="Previous year"
+            >
+              <ChevronsLeft className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+            </button>
+            <button
+              onClick={handlePreviousMonth}
+              className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
+              title="Previous month"
+            >
+              <ChevronLeft className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+            </button>
+          </div>
+
+          <h2 className="text-lg lg:text-xl font-semibold text-[var(--sf-text-primary)]">
             {monthNames[currentMonth]} {currentYear}
           </h2>
-          
-          <button
-            onClick={handleNextMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ChevronRight className="w-5 h-5 text-gray-600" />
-          </button>
+
+          <div className="flex items-center">
+            <button
+              onClick={handleNextMonth}
+              className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
+              title="Next month"
+            >
+              <ChevronRight className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+            </button>
+            <button
+              onClick={() => setCurrentDate(new Date(currentYear + 1, currentMonth, 1))}
+              className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
+              title="Next year"
+            >
+              <ChevronsRight className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Team Members Legend */}
       {teamMembers.length > 0 && (
-        <div className="bg-white border-b border-gray-200 px-4 py-3 lg:px-6 overflow-x-auto">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-3 lg:px-6 overflow-x-auto">
           <div className="flex items-center space-x-4 min-w-max">
             {teamMembers.map((member) => (
               <div key={member.id} className="flex items-center space-x-2 flex-shrink-0">
                 <div
-                  className="w-4 h-4 rounded-full border border-gray-300"
+                  className="w-4 h-4 rounded-full border border-[var(--sf-border-light)]"
                   style={{ backgroundColor: getMemberColor(member.id) }}
                 />
-                <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                <span className="text-sm font-medium text-[var(--sf-text-primary)] whitespace-nowrap">
                   {member.first_name} {member.last_name}
                 </span>
               </div>
@@ -709,7 +784,7 @@ const TeamAvailabilityCalendar = () => {
           {/* Day Headers */}
           <div className="grid grid-cols-7 gap-2 mb-2">
             {dayNames.map(day => (
-              <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 w-32">
+              <div key={day} className="p-2 text-center text-sm font-medium text-[var(--sf-text-muted)] w-32">
                 {day}
               </div>
             ))}
@@ -723,13 +798,13 @@ const TeamAvailabilityCalendar = () => {
               return (
                 <div
                   key={index}
-                  className={`w-32 border border-gray-200 rounded-lg p-2 min-h-[120px] ${
-                    day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+                  className={`w-32 border border-[var(--sf-border-light)] rounded-lg p-2 min-h-[120px] ${
+                    day.isCurrentMonth ? 'bg-white' : 'bg-[var(--sf-bg-page)]'
                   } ${day.isToday ? 'ring-2 ring-blue-500' : ''}`}
                 >
                   <div className={`text-sm font-semibold mb-2 ${
-                    day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                  } ${day.isToday ? 'text-blue-600' : ''}`}>
+                    day.isCurrentMonth ? 'text-[var(--sf-text-primary)]' : 'text-[var(--sf-text-muted)]'
+                  } ${day.isToday ? 'text-[var(--sf-blue-500)]' : ''}`}>
                     {day.date.getDate()}
                   </div>
                   
@@ -750,10 +825,10 @@ const TeamAvailabilityCalendar = () => {
                             availability.status === 'available' 
                               ? 'bg-green-100 text-green-800 border border-green-200'
                               : availability.status === 'unavailable'
-                              ? 'bg-gray-100 text-gray-600 border border-gray-200'
+                              ? 'bg-[var(--sf-bg-page)] text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)]'
                               : availability.status === 'booked'
                               ? 'bg-orange-100 text-orange-800 border border-orange-200'
-                              : 'bg-gray-50 text-gray-500 border border-gray-200'
+                              : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] border border-[var(--sf-border-light)]'
                           }`}
                           style={availability.status === 'available' ? { borderLeftColor: memberColor, borderLeftWidth: '3px' } : {}}
                           title={`${member.first_name} ${member.last_name}: ${availability.text}`}
@@ -781,7 +856,7 @@ const TeamAvailabilityCalendar = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center lg:items-center">
           <div className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-[600px] max-h-[90vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--sf-border-light)] flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
@@ -790,10 +865,10 @@ const TeamAvailabilityCalendar = () => {
                   {getMemberInitials(selectedMember)}
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                     {selectedMember.first_name} {selectedMember.last_name}
                   </h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-[var(--sf-text-muted)]">
                     {new Date(editingAvailability.date).toLocaleDateString('en-US', { 
                       weekday: 'long', 
                       year: 'numeric', 
@@ -801,7 +876,7 @@ const TeamAvailabilityCalendar = () => {
                       day: 'numeric' 
                     })}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                     {calendarView === "base" 
                       ? "Editing base availability (when worker is generally available)"
                       : "Editing base availability (affects remaining availability)"}
@@ -810,9 +885,9 @@ const TeamAvailabilityCalendar = () => {
               </div>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
             </div>
             
@@ -831,15 +906,15 @@ const TeamAvailabilityCalendar = () => {
                         ? [{ start: '09:00', end: '17:00' }]
                         : editingAvailability.hours
                     })}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                    className="w-4 h-4 text-[var(--sf-blue-500)] rounded focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)]"
                   />
-                  <label className="text-sm font-medium text-gray-900">Available on this date</label>
+                  <label className="text-sm font-medium text-[var(--sf-text-primary)]">Available on this date</label>
                 </div>
                 
                 {/* Time Slots */}
                 {editingAvailability.available && (
                   <div className="space-y-3">
-                    <label className="block text-sm font-medium text-gray-900">Working Hours</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)]">Working Hours</label>
                     {editingAvailability.hours && editingAvailability.hours.length > 0 ? (
                       editingAvailability.hours.map((slot, index) => (
                         <div key={index} className="flex items-center space-x-2">
@@ -851,9 +926,9 @@ const TeamAvailabilityCalendar = () => {
                               newHours[index] = { ...slot, start: e.target.value }
                               setEditingAvailability({ ...editingAvailability, hours: newHours })
                             }}
-                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                           />
-                          <span className="text-gray-500">to</span>
+                          <span className="text-[var(--sf-text-muted)]">to</span>
                           <input
                             type="time"
                             value={slot.end}
@@ -862,7 +937,7 @@ const TeamAvailabilityCalendar = () => {
                               newHours[index] = { ...slot, end: e.target.value }
                               setEditingAvailability({ ...editingAvailability, hours: newHours })
                             }}
-                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                           />
                           {editingAvailability.hours.length > 1 && (
                             <button
@@ -883,7 +958,7 @@ const TeamAvailabilityCalendar = () => {
                           ...editingAvailability,
                           hours: [{ start: '09:00', end: '17:00' }]
                         })}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                       >
                         + Add Hours
                       </button>
@@ -895,7 +970,7 @@ const TeamAvailabilityCalendar = () => {
                           ...editingAvailability,
                           hours: [...editingAvailability.hours, { start: '09:00', end: '17:00' }]
                         })}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                       >
                         + Add Another Time Slot
                       </button>
@@ -912,8 +987,8 @@ const TeamAvailabilityCalendar = () => {
                   
                   if (assignedJobs.length > 0 || remainingHours.length > 0) {
                     return (
-                      <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
-                        <h4 className="text-sm font-semibold text-gray-900">Remaining Availability</h4>
+                      <div className="mt-6 pt-6 border-t border-[var(--sf-border-light)] space-y-3">
+                        <h4 className="text-sm font-semibold text-[var(--sf-text-primary)]">Remaining Availability</h4>
                         
                         {assignedJobs.length > 0 && (
                           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
@@ -960,8 +1035,8 @@ const TeamAvailabilityCalendar = () => {
                             </div>
                           </div>
                         ) : assignedJobs.length > 0 && editingAvailability.available ? (
-                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                            <p className="text-xs text-gray-600">
+                          <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg p-3">
+                            <p className="text-xs text-[var(--sf-text-secondary)]">
                               All available time is booked
                             </p>
                           </div>
@@ -975,17 +1050,17 @@ const TeamAvailabilityCalendar = () => {
             </div>
             
             {/* Footer */}
-            <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-gray-200 flex-shrink-0">
+            <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-[var(--sf-border-light)] flex-shrink-0">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg font-medium hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveAvailability}
                 disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>

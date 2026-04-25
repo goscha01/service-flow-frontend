@@ -51,9 +51,9 @@ const RecurringIndicator = ({
 
   return (
     <div className={`flex items-center ${sizes.gap} ${className}`}>
-      <RotateCw className={`${sizes.icon} text-blue-600 flex-shrink-0`} />
+      <RotateCw className={`${sizes.icon} text-[var(--sf-blue-500)] flex-shrink-0`} />
       {showText && (
-        <span className={`${sizes.text} text-gray-700 font-medium`}>
+        <span className={`${sizes.text} text-[var(--sf-text-primary)] font-medium`}>
           {formattedFrequency}
         </span>
       )}

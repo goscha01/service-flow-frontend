@@ -20,9 +20,16 @@ import {
   MapPin,
   Home,
   Loader2,
-  Briefcase
+  Briefcase,
+  ChevronDown,
+  Search,
+  SlidersHorizontal,
+  Filter as FilterIcon,
+  LayoutGrid,
+  Calendar as CalendarIcon,
+  Clock
 } from 'lucide-react';
-import { leadsAPI, teamAPI, servicesAPI } from '../services/api';
+import { leadsAPI, teamAPI, servicesAPI, leadSourcesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import Notification, { useNotification } from '../components/notification';
@@ -33,6 +40,7 @@ import MobileBottomNav from '../components/mobile-bottom-nav';
 import AddressAutocompleteLeads from '../components/address-autocomplete-leads';
 import MobileHeader from '../components/mobile-header';
 import ServiceSelectionModal from '../components/service-selection-modal';
+import SfDatePicker from '../components/sf-date-picker';
 
 const LeadsPipeline = () => {
   const navigate = useNavigate();
@@ -47,7 +55,19 @@ const LeadsPipeline = () => {
   const [editingTask, setEditingTask] = useState(null);
   const [taskFilter, setTaskFilter] = useState('all'); // 'all', 'pending', 'completed', 'overdue'
   const [showConvertLeadModal, setShowConvertLeadModal] = useState(false);
-  
+  const [expandedStages, setExpandedStages] = useState({}); // For mobile accordion view
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [filters, setFilters] = useState({
+    priceMin: '',
+    priceMax: '',
+    dateFrom: '',
+    dateTo: '',
+    location: '',
+    source: '',
+    serviceId: ''
+  });
+
   // Modal states
   const [showCreateLeadModal, setShowCreateLeadModal] = useState(false);
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
@@ -63,8 +83,7 @@ const LeadsPipeline = () => {
   
   // Form states
   const [leadFormData, setLeadFormData] = useState({
-    firstName: '',
-    lastName: '',
+    fullName: '',
     email: '',
     phone: '',
     company: '',
@@ -74,6 +93,14 @@ const LeadsPipeline = () => {
     address: '',
     serviceId: ''
   });
+
+  const splitLeadName = (fullName) => {
+    const trimmed = (fullName || '').trim().replace(/\s+/g, ' ');
+    if (!trimmed) return { firstName: '', lastName: '' };
+    const parts = trimmed.split(' ');
+    if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+    return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+  };
   
   // Services and Zillow state
   const [services, setServices] = useState([]);
@@ -81,31 +108,38 @@ const LeadsPipeline = () => {
   const [zillowLoading, setZillowLoading] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
   
-  // Lead sources - customizable list (load from localStorage or use defaults)
-  const [leadSources, setLeadSources] = useState(() => {
-    const saved = localStorage.getItem('leadSources');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return ['Website', 'Referral', 'Cold Call', 'Social Media', 'Email Campaign', 'Trade Show', 'Partner', 'Other'];
-      }
-    }
-    return ['Website', 'Referral', 'Cold Call', 'Social Media', 'Email Campaign', 'Trade Show', 'Partner', 'Other'];
-  });
+  // Lead sources - loaded from API (server-persisted)
+  const [leadSources, setLeadSources] = useState([]);
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   const [showEditSourceDropdown, setShowEditSourceDropdown] = useState(false);
   const [customSource, setCustomSource] = useState('');
   const [editCustomSource, setEditCustomSource] = useState('');
-  
+
   // Name autocomplete state
   const [nameSuggestions, setNameSuggestions] = useState([]);
   const [showNameSuggestions, setShowNameSuggestions] = useState(false);
-  
-  // Save lead sources to localStorage when they change
+
+  // Load lead sources from API on mount
   useEffect(() => {
-    localStorage.setItem('leadSources', JSON.stringify(leadSources));
-  }, [leadSources]);
+    (async () => {
+      try {
+        const data = await leadSourcesAPI.list();
+        let list = (data.sources || []).map(s => s.name);
+        if (list.length === 0) {
+          const seeded = await leadSourcesAPI.seed();
+          list = (seeded.sources || []).map(s => s.name);
+        }
+        setLeadSources(list);
+      } catch (e) {
+        // Fallback to localStorage if API fails
+        try {
+          const saved = localStorage.getItem('leadSources');
+          if (saved) setLeadSources(JSON.parse(saved));
+          else setLeadSources(['Website', 'Referral', 'Cold Call', 'Social Media', 'Google', 'Thumbtack', 'Yelp', 'Facebook', 'Other']);
+        } catch { setLeadSources(['Website', 'Referral', 'Cold Call', 'Social Media', 'Google', 'Thumbtack', 'Yelp', 'Facebook', 'Other']); }
+      }
+    })();
+  }, []);
 
   // Helper function to add a custom source and set it as selected
   const addCustomSource = (newSource, isEdit = false) => {
@@ -126,10 +160,10 @@ const LeadsPipeline = () => {
       return;
     }
 
-    // Add new source to the list
+    // Add new source to the list (persist to API)
     const updatedSources = [...leadSources, trimmedSource];
     setLeadSources(updatedSources);
-    localStorage.setItem('leadSources', JSON.stringify(updatedSources));
+    leadSourcesAPI.create(trimmedSource).catch(() => {});
     
     // Use setTimeout to ensure the select has re-rendered with the new option
     setTimeout(() => {
@@ -418,10 +452,9 @@ const LeadsPipeline = () => {
     e.preventDefault();
     
     // Basic validation - at least name or email should be provided
-    const firstName = (leadFormData.firstName || '').trim();
-    const lastName = (leadFormData.lastName || '').trim();
+    const { firstName, lastName } = splitLeadName(leadFormData.fullName);
     const email = (leadFormData.email || '').trim();
-    
+
     if (!firstName && !lastName && !email) {
       showNotification('Please provide at least a name or email address', 'error', 5000);
       return;
@@ -460,8 +493,7 @@ const LeadsPipeline = () => {
       setShowCreateLeadModal(false);
       setSelectedServiceForLead(null);
       setLeadFormData({
-        firstName: '',
-        lastName: '',
+        fullName: '',
         email: '',
         phone: '',
         company: '',
@@ -505,9 +537,10 @@ const LeadsPipeline = () => {
         : null;
       
       // Ensure source is not '__custom__' before submitting
+      const editNameParts = splitLeadName(leadFormData.fullName);
       const submitData = {
-        firstName: (leadFormData.firstName || '').trim(),
-        lastName: (leadFormData.lastName || '').trim(),
+        firstName: editNameParts.firstName,
+        lastName: editNameParts.lastName,
         email: (leadFormData.email || '').trim(),
         phone: (leadFormData.phone || '').trim(),
         company: (leadFormData.company || '').trim(),
@@ -517,15 +550,14 @@ const LeadsPipeline = () => {
         address: (leadFormData.address || '').trim(),
         serviceId: leadFormData.serviceId || null
       };
-      
+
       console.log('📝 Updating lead with data:', submitData);
       await leadsAPI.update(editingLead.id, submitData);
       showNotification('Lead updated successfully!', 'success', 3000);
       setShowEditLeadModal(false);
       setEditingLead(null);
       setLeadFormData({
-        firstName: '',
-        lastName: '',
+        fullName: '',
         email: '',
         phone: '',
         company: '',
@@ -578,9 +610,9 @@ const LeadsPipeline = () => {
       }
     }
     
+    const joinedLeadName = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim();
     setLeadFormData({
-      firstName: lead.first_name || '',
-      lastName: lead.last_name || '',
+      fullName: joinedLeadName,
       email: lead.email || '',
       phone: lead.phone || '',
       company: lead.company || '',
@@ -844,17 +876,64 @@ const LeadsPipeline = () => {
     ).length;
   };
   
-  // Get leads for a stage
+  const hasActiveFilters = filters.priceMin || filters.priceMax || filters.dateFrom || filters.dateTo || filters.location || filters.source || filters.serviceId;
+
+  const clearFilters = () => {
+    setFilters({ priceMin: '', priceMax: '', dateFrom: '', dateTo: '', location: '', source: '', serviceId: '' });
+  };
+
+  // Get leads for a stage (with search + filter)
   const getLeadsForStage = (stageId) => {
-    return leads.filter(lead => lead.stage_id === stageId);
+    let stageLeads = leads.filter(lead => lead.stage_id === stageId);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      stageLeads = stageLeads.filter(lead =>
+        (lead.first_name && lead.first_name.toLowerCase().includes(q)) ||
+        (lead.last_name && lead.last_name.toLowerCase().includes(q)) ||
+        (lead.email && lead.email.toLowerCase().includes(q)) ||
+        (lead.company && lead.company.toLowerCase().includes(q)) ||
+        (lead.phone && lead.phone.includes(q))
+      );
+    }
+    // Apply filters
+    if (filters.priceMin) {
+      stageLeads = stageLeads.filter(lead => (Number.parseFloat(lead.value) || 0) >= Number.parseFloat(filters.priceMin));
+    }
+    if (filters.priceMax) {
+      stageLeads = stageLeads.filter(lead => (Number.parseFloat(lead.value) || 0) <= Number.parseFloat(filters.priceMax));
+    }
+    if (filters.dateFrom) {
+      stageLeads = stageLeads.filter(lead => lead.created_at && new Date(lead.created_at) >= new Date(filters.dateFrom));
+    }
+    if (filters.dateTo) {
+      const toDate = new Date(filters.dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      stageLeads = stageLeads.filter(lead => lead.created_at && new Date(lead.created_at) <= toDate);
+    }
+    if (filters.location) {
+      const loc = filters.location.toLowerCase();
+      stageLeads = stageLeads.filter(lead => lead.address && lead.address.toLowerCase().includes(loc));
+    }
+    if (filters.source) {
+      stageLeads = stageLeads.filter(lead => lead.source === filters.source);
+    }
+    if (filters.serviceId) {
+      stageLeads = stageLeads.filter(lead => String(lead.service_id) === String(filters.serviceId));
+    }
+    return stageLeads;
+  };
+
+  // Calculate total value for a stage
+  const getStageTotalValue = (stageLeads) => {
+    return stageLeads.reduce((sum, lead) => sum + (parseFloat(lead.value) || 0), 0);
   };
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--sf-bg-page)]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading pipeline...</p>
+          <p className="text-[var(--sf-text-secondary)]">Loading pipeline...</p>
         </div>
       </div>
     );
@@ -862,17 +941,17 @@ const LeadsPipeline = () => {
   
   if (!pipeline) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--sf-bg-page)]">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <p className="text-gray-600">Failed to load pipeline</p>
+          <p className="text-[var(--sf-text-secondary)]">Failed to load pipeline</p>
         </div>
       </div>
     );
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[var(--sf-bg-page)] flex flex-col">
       {/* Mobile Header */}
       <MobileHeader pageTitle="Leads" />
       
@@ -886,68 +965,235 @@ const LeadsPipeline = () => {
       />
       
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 flex-shrink-0">
-        <div className="w-full px-2 sm:px-3 lg:px-4 py-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">Leads Pipeline</h1>
-              <p className="text-xs text-gray-600 mt-0.5">Manage your sales pipeline</p>
+      <div className="hidden md:block bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10 flex-shrink-0">
+        <div className="w-full px-4 lg:px-6 py-4">
+          {/* Title row */}
+          <div className="mb-5">
+            <p className="text-xs text-[var(--sf-text-muted)] mb-1">
+              <span>Leads</span>
+              <span className="mx-1.5">/</span>
+              <span className="text-[var(--sf-text-primary)] font-medium">Pipeline</span>
+            </p>
+            <h1 className="text-xl font-bold text-[var(--sf-text-primary)]">Lead Stage</h1>
+          </div>
+          {/* Search + Buttons row — all on one line */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)]" />
+              <input
+                type="text"
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="sf-search-input w-full pl-9 pr-4 py-2 bg-white border border-[var(--sf-border-light)] rounded-lg text-sm text-[var(--sf-text-primary)] placeholder:text-[var(--sf-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] transition-colors"
+              />
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2 flex-shrink-0">
+            <div className="flex-1" />
+            <button
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-[var(--sf-border-light)] rounded-lg text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] hover:border-[var(--sf-border)] transition-colors"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>Kanban View</span>
+              <ChevronDown className="w-3.5 h-3.5 ml-0.5" />
+            </button>
+            <div className="relative">
               <button
-                onClick={() => setShowEditStageModal(true)}
-                className="flex items-center justify-center space-x-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 border rounded-lg text-sm font-medium transition-colors shadow-sm ${
+                  hasActiveFilters
+                    ? 'bg-[var(--sf-blue-50)] border-[var(--sf-blue-500)] text-[var(--sf-blue-500)]'
+                    : 'bg-white border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] hover:border-[var(--sf-border)]'
+                }`}
               >
-                <Settings className="w-3.5 h-3.5" />
-                <span>Manage Stages</span>
+                <span>Filter</span>
+                <FilterIcon className="w-4 h-4" />
+                {hasActiveFilters && (
+                  <span className="w-2 h-2 bg-[var(--sf-blue-500)] rounded-full" />
+                )}
               </button>
-              <button
-                onClick={() => setShowCreateLeadModal(true)}
-                className="flex items-center justify-center space-x-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Lead</span>
-              </button>
+
+              {/* Filter Dropdown */}
+              {showFilterDropdown && (
+                <>
+                  <div className="fixed inset-0 z-[50]" onClick={() => setShowFilterDropdown(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-xl z-[51] flex flex-col max-h-[calc(100vh-200px)]" style={{ overflow: 'visible' }}>
+                    {/* Header — sticky */}
+                    <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0">
+                      <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Filters</h3>
+                      {hasActiveFilters && (
+                        <button onClick={clearFilters} className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] font-medium">
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Scrollable filter fields */}
+                    <div className="flex-1 overflow-y-auto px-4 space-y-3 scrollbar-hide">
+                      {/* Price Range */}
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--sf-text-muted)] mb-1 uppercase tracking-wide">Price Range</label>
+                        <div className="flex items-center gap-2 w-full overflow-hidden">
+                          <input
+                            type="number"
+                            placeholder="Min"
+                            value={filters.priceMin}
+                            onChange={(e) => setFilters({ ...filters, priceMin: e.target.value })}
+                            className="sf-filter-input-narrow flex-1 w-0 border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                          />
+                          <span className="text-xs text-[var(--sf-text-muted)] flex-shrink-0">—</span>
+                          <input
+                            type="number"
+                            placeholder="Max"
+                            value={filters.priceMax}
+                            onChange={(e) => setFilters({ ...filters, priceMax: e.target.value })}
+                            className="sf-filter-input-narrow flex-1 w-0 border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Date Range */}
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--sf-text-muted)] mb-1 uppercase tracking-wide">Date Created</label>
+                        <div className="flex items-center gap-2">
+                          <SfDatePicker
+                            value={filters.dateFrom}
+                            onChange={(val) => setFilters({ ...filters, dateFrom: val })}
+                            placeholder="mm/dd/yyyy"
+                            className="flex-1 w-full px-2.5 py-1.5 border border-[var(--sf-border-light)] rounded-lg text-xs focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] bg-white"
+                          />
+                          <span className="text-xs text-[var(--sf-text-muted)]">—</span>
+                          <SfDatePicker
+                            value={filters.dateTo}
+                            onChange={(val) => setFilters({ ...filters, dateTo: val })}
+                            placeholder="mm/dd/yyyy"
+                            className="flex-1 w-full px-2.5 py-1.5 border border-[var(--sf-border-light)] rounded-lg text-xs focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Location / Territory */}
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--sf-text-muted)] mb-1 uppercase tracking-wide">Location / Territory</label>
+                        <div className="relative">
+                          <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--sf-text-muted)] pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="City, state, or zip..."
+                            value={filters.location}
+                            onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+                            className="sf-search-input w-full pl-7 pr-2.5 py-1.5 border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Source */}
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--sf-text-muted)] mb-1 uppercase tracking-wide">Source</label>
+                        <select
+                          value={filters.source}
+                          onChange={(e) => setFilters({ ...filters, source: e.target.value })}
+                          className="w-full px-2.5 py-1.5 border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                        >
+                          <option value="">All sources</option>
+                          {leadSources.map((source) => (
+                            <option key={source} value={source}>{source}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Service */}
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--sf-text-muted)] mb-1 uppercase tracking-wide">Service</label>
+                        <select
+                          value={filters.serviceId}
+                          onChange={(e) => setFilters({ ...filters, serviceId: e.target.value })}
+                          className="w-full px-2.5 py-1.5 border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                        >
+                          <option value="">All services</option>
+                          {services.map((service) => (
+                            <option key={service.id} value={service.id}>{service.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Footer — sticky */}
+                    <div className="px-4 py-3 flex-shrink-0 border-t border-[var(--sf-border-light)]">
+                      <button
+                        onClick={() => setShowFilterDropdown(false)}
+                        className="w-full py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--sf-blue-600)] transition-colors"
+                      >
+                        Apply Filters
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
+            <button
+              onClick={() => setShowCreateLeadModal(true)}
+              className="inline-flex items-center gap-1.5 px-5 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--sf-blue-600)] transition-colors shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Lead</span>
+            </button>
           </div>
         </div>
       </div>
       
-      {/* Pipeline Board */}
-      <div className="w-full px-2 sm:px-3 lg:px-4 py-4 sm:py-6 pb-20 lg:pb-6 overflow-x-hidden flex-1">
-        <div className="flex space-x-1.5 sm:space-x-2 pb-4" style={{ minHeight: '400px' }}>
+      {/* Pipeline Board - Desktop & Tablet: horizontal layout */}
+      <div className="hidden sm:block w-full px-3 lg:px-6 py-5 pb-20 lg:pb-6 overflow-x-auto flex-1">
+        <div className="flex gap-4 pb-4" style={{ minHeight: '400px' }}>
           {pipeline.stages && pipeline.stages.map((stage) => {
             const stageLeads = getLeadsForStage(stage.id);
-            
+            const totalValue = getStageTotalValue(stageLeads);
+
             return (
               <div
                 key={stage.id}
-                className="flex-shrink-0 w-[160px] sm:w-[170px] lg:w-[180px] bg-gray-100 rounded-lg p-2"
+                className="flex-shrink-0 flex flex-col bg-[var(--sf-bg-page)] rounded-xl"
+                style={{ width: `max(240px, calc((100% - ${(pipeline.stages.length - 1) * 16}px) / ${pipeline.stages.length}))` }}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(stage.id)}
               >
-                {/* Stage Header */}
-                <div 
-                  className="flex items-center justify-between mb-2 p-2 rounded-lg text-white font-semibold text-sm"
-                  style={{ backgroundColor: stage.color }}
+                {/* Stage Header — colored top border accent */}
+                <div
+                  className="rounded-t-xl overflow-hidden"
+                  style={{ borderTop: `3px solid ${stage.color}` }}
                 >
-                  <div className="flex items-center space-x-1.5 min-w-0 flex-1">
-                    <span className="truncate">{stage.name}</span>
-                    <span className="bg-white bg-opacity-30 px-1.5 py-0.5 rounded text-xs flex-shrink-0 font-semibold">
-                      {stageLeads.length}
-                    </span>
+                  <div className="bg-white px-4 pt-3 pb-4 border-b border-x border-[var(--sf-border-light)] rounded-t-xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <h3 className="font-semibold text-sm text-[var(--sf-text-primary)] truncate">{stage.name}</h3>
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: stage.color }}>
+                          {stageLeads.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowCreateLeadModal(true); }}
+                          className="w-6 h-6 flex items-center justify-center rounded text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] transition-colors"
+                          title="Add lead"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowEditStageModal(true); }}
+                          className="w-6 h-6 flex items-center justify-center rounded text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] transition-colors"
+                          title="Stage options"
+                        >
+                          <MoreVertical className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xl font-bold text-[var(--sf-text-primary)] mt-2">
+                      $ {totalValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </p>
                   </div>
-                  <button
-                    onClick={() => handleDeleteStage(stage.id)}
-                    className="text-white hover:text-gray-200 flex-shrink-0 ml-1"
-                    title="Delete stage"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
                 </div>
-                
+
                 {/* Leads in Stage */}
-                <div className="space-y-2">
+                <div className="flex-1 p-2 space-y-2.5 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
                   {stageLeads.map((lead) => (
                     <div
                       key={lead.id}
@@ -957,57 +1203,84 @@ const LeadsPipeline = () => {
                         setSelectedLead(lead);
                         setShowLeadDetailsModal(true);
                       }}
-                      className="bg-white rounded-lg p-2 shadow-sm hover:shadow-md cursor-move transition-shadow"
+                      className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm hover:shadow-md transition-all cursor-move group"
                     >
-                      <div className="flex items-start justify-between mb-1">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-xs text-gray-900 truncate">
-                            {lead.first_name} {lead.last_name}
-                          </h3>
-                          {lead.company && (
-                            <p className="text-xs text-gray-600 flex items-center mt-0.5 truncate">
-                              <Building className="w-3 h-3 mr-1 flex-shrink-0" />
-                              <span className="truncate">{lead.company}</span>
-                            </p>
+                      {/* Card top accent line */}
+                      <div className="h-[2px] rounded-t-xl" style={{ backgroundColor: stage.color, opacity: 0.4 }} />
+
+                      <div className="p-3.5">
+                        {/* Name + drag handle */}
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm text-[var(--sf-text-primary)] truncate leading-tight">
+                              {lead.first_name} {lead.last_name}
+                            </h4>
+                            {lead.company && (
+                              <p className="text-xs text-[var(--sf-text-muted)] flex items-center mt-0.5 truncate">
+                                <Building className="w-3 h-3 mr-1 flex-shrink-0 text-[var(--sf-text-muted)]" />
+                                <span className="truncate">{lead.company}</span>
+                              </p>
+                            )}
+                          </div>
+                          <GripVertical className="w-3.5 h-3.5 text-[var(--sf-border)] group-hover:text-[var(--sf-text-muted)] flex-shrink-0 ml-2 transition-colors" />
+                        </div>
+
+                        {/* Value */}
+                        {lead.value && (
+                          <div className="flex items-center mb-2.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold">
+                              <DollarSign className="w-3 h-3" />
+                              {parseFloat(lead.value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Divider */}
+                        <div className="border-t border-[var(--sf-border-light)] my-2" />
+
+                        {/* Contact info */}
+                        <div className="space-y-1.5 text-xs text-[var(--sf-text-secondary)]">
+                          {lead.email && (
+                            <div className="flex items-center gap-1.5 truncate">
+                              <Mail className="w-3 h-3 flex-shrink-0 text-[var(--sf-text-muted)]" />
+                              <span className="truncate">{lead.email}</span>
+                            </div>
+                          )}
+                          {lead.phone && (
+                            <div className="flex items-center gap-1.5 truncate">
+                              <Phone className="w-3 h-3 flex-shrink-0 text-[var(--sf-text-muted)]" />
+                              <span className="truncate">{formatPhoneNumber(lead.phone)}</span>
+                            </div>
                           )}
                         </div>
-                        <GripVertical className="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" />
-                      </div>
-                      
-                      <div className="space-y-0.5 text-xs text-gray-600">
-                        {lead.email && (
-                          <div className="flex items-center truncate">
-                            <Mail className="w-3 h-3 mr-1 flex-shrink-0" />
-                            <span className="truncate">{lead.email}</span>
+
+                        {/* Timestamps + Source */}
+                        <div className="mt-2.5 pt-2 border-t border-[var(--sf-border-light)]">
+                          <div className="flex items-center gap-1.5 text-[10px] text-[var(--sf-text-muted)]">
+                            <Clock className="w-3 h-3 flex-shrink-0" />
+                            <span>Created {lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</span>
                           </div>
-                        )}
-                        {lead.phone && (
-                          <div className="flex items-center truncate">
-                            <Phone className="w-3 h-3 mr-1 flex-shrink-0" />
-                            <span className="truncate">{formatPhoneNumber(lead.phone)}</span>
-                          </div>
-                        )}
-                        {lead.value && (
-                          <div className="flex items-center font-semibold text-green-600">
-                            <DollarSign className="w-3 h-3 mr-1 flex-shrink-0" />
-                            ${parseFloat(lead.value).toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {lead.source && (
-                        <div className="mt-1.5">
-                          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded truncate inline-block max-w-full">
-                            {lead.source}
-                          </span>
+                          {lead.source && (
+                            <div className="mt-1.5">
+                              <span className="inline-flex items-center text-[10px] font-medium bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] px-2 py-0.5 rounded-full border border-[var(--sf-border-light)]">
+                                {lead.source}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))}
-                  
+
                   {stageLeads.length === 0 && (
-                    <div className="text-center py-8 text-gray-400 text-sm">
-                      No leads in this stage
+                    <div className="text-center py-10 text-[var(--sf-text-muted)]">
+                      <button
+                        onClick={() => setShowCreateLeadModal(true)}
+                        className="w-12 h-12 rounded-xl bg-white border-2 border-dashed border-[var(--sf-border)] flex items-center justify-center mx-auto mb-3 hover:border-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] transition-colors"
+                      >
+                        <Plus className="w-5 h-5" strokeWidth={2} />
+                      </button>
+                      <p className="text-xs">No leads in this stage</p>
                     </div>
                   )}
                 </div>
@@ -1016,56 +1289,195 @@ const LeadsPipeline = () => {
           })}
         </div>
       </div>
+
+      {/* Mobile: header + search + accordion layout */}
+      <div className="sm:hidden flex-shrink-0 bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10 px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-lg font-bold text-[var(--sf-text-primary)]">Leads Pipeline</h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowEditStageModal(true)}
+              className="p-2 rounded-lg border border-[var(--sf-border-light)] text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)]"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowCreateLeadModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--sf-blue-600)]"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add</span>
+            </button>
+          </div>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)]" />
+          <input
+            type="text"
+            placeholder="Search leads..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="sf-search-input w-full pl-9 pr-4 py-2 bg-[var(--sf-bg-input)] border border-[var(--sf-border-light)] rounded-lg text-sm placeholder:text-[var(--sf-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
+          />
+        </div>
+      </div>
+      <div className="sm:hidden w-full px-3 py-3 pb-20 flex-1 space-y-3">
+        {pipeline.stages && pipeline.stages.map((stage) => {
+          const stageLeads = getLeadsForStage(stage.id);
+          const totalValue = getStageTotalValue(stageLeads);
+          const isExpanded = expandedStages[stage.id];
+
+          return (
+            <div
+              key={stage.id}
+              className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden shadow-sm"
+              style={{ borderTop: `3px solid ${stage.color}` }}
+              onDragOver={handleDragOver}
+              onDrop={() => handleDrop(stage.id)}
+            >
+              {/* Stage Header - tap to expand/collapse */}
+              <button
+                onClick={() => setExpandedStages(prev => ({ ...prev, [stage.id]: !prev[stage.id] }))}
+                className="w-full flex items-center justify-between px-4 py-3 bg-white"
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span className="font-semibold text-sm text-[var(--sf-text-primary)] truncate">{stage.name}</span>
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: stage.color }}>
+                    {stageLeads.length}
+                  </span>
+                  {totalValue > 0 && (
+                    <span className="text-xs text-[var(--sf-text-muted)] font-medium">
+                      ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </span>
+                  )}
+                </div>
+                <ChevronDown className={`w-4 h-4 text-[var(--sf-text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Leads - shown when expanded */}
+              {isExpanded && (
+                <div className="px-3 pb-3 space-y-2.5 border-t border-[var(--sf-border-light)]">
+                  {stageLeads.map((lead) => (
+                    <div
+                      key={lead.id}
+                      draggable
+                      onDragStart={() => handleDragStart(lead, stage)}
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        setShowLeadDetailsModal(true);
+                      }}
+                      className="bg-[var(--sf-bg-page)] rounded-xl border border-[var(--sf-border-light)] p-3.5 cursor-pointer mt-2.5 first:mt-2.5"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm text-[var(--sf-text-primary)] truncate">
+                            {lead.first_name} {lead.last_name}
+                          </h4>
+                          {lead.company && (
+                            <p className="text-xs text-[var(--sf-text-muted)] flex items-center mt-0.5 truncate">
+                              <Building className="w-3 h-3 mr-1 flex-shrink-0" />
+                              <span className="truncate">{lead.company}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {lead.value && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold mb-2">
+                          <DollarSign className="w-3 h-3" />
+                          {parseFloat(lead.value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+
+                      <div className="space-y-1 text-xs text-[var(--sf-text-secondary)]">
+                        {lead.email && (
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Mail className="w-3 h-3 flex-shrink-0 text-[var(--sf-text-muted)]" />
+                            <span className="truncate">{lead.email}</span>
+                          </div>
+                        )}
+                        {lead.phone && (
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Phone className="w-3 h-3 flex-shrink-0 text-[var(--sf-text-muted)]" />
+                            <span className="truncate">{formatPhoneNumber(lead.phone)}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {lead.source && (
+                        <div className="mt-2">
+                          <span className="inline-flex items-center text-[10px] font-medium bg-white text-[var(--sf-text-muted)] px-2 py-0.5 rounded-full border border-[var(--sf-border-light)]">
+                            {lead.source}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {stageLeads.length === 0 && (
+                    <div className="text-center py-6 text-[var(--sf-text-muted)] text-xs mt-2">
+                      No leads in this stage
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
       
-      {/* Create Lead Modal */}
+      {/* Create Lead — Right-side Drawer */}
       {showCreateLeadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Add New Lead</h2>
+        <div className="fixed inset-0 z-[9999] flex justify-end">
+          {/* Click-away area (transparent) */}
+          <div
+            className="flex-1"
+            onClick={() => {
+              setShowCreateLeadModal(false);
+              setSelectedServiceForLead(null);
+            }}
+          />
+          {/* Drawer panel */}
+          <div className="w-full max-w-lg bg-white shadow-2xl flex flex-col h-full animate-slide-in-right">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--sf-border-light)] flex-shrink-0">
+              <h2 className="text-lg font-bold text-[var(--sf-text-primary)]">New Lead</h2>
+              <div className="flex items-center gap-3">
+                <span className="text-xl font-bold text-[var(--sf-blue-500)]">
+                  ${selectedServiceForLead ? calculateServiceEstimatedPrice(selectedServiceForLead).toFixed(2) : '0.00'}
+                </span>
               <button
                 onClick={() => {
                   setShowCreateLeadModal(false);
                   setSelectedServiceForLead(null);
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
+              </div>
             </div>
-            
-            <div className="overflow-y-auto flex-1 p-4 sm:p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left Column - Form */}
-                <form onSubmit={handleCreateLead} className="space-y-4" autoComplete="off">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={leadFormData.firstName}
-                      onChange={(e) => setLeadFormData({ ...leadFormData, firstName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={leadFormData.lastName}
-                      onChange={(e) => setLeadFormData({ ...leadFormData, lastName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
+
+            <div className="overflow-y-auto flex-1 px-6 py-5">
+              <div>
+                {/* Form */}
+                <form id="create-lead-form" onSubmit={handleCreateLead} className="space-y-4" autoComplete="off">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Full name"
+                    value={leadFormData.fullName}
+                    onChange={(e) => setLeadFormData({ ...leadFormData, fullName: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                  />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Email
                   </label>
                   <div className="relative">
@@ -1136,29 +1548,29 @@ const LeadsPipeline = () => {
                         // Delay hiding suggestions to allow click
                         setTimeout(() => setShowNameSuggestions(false), 200);
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                     {showNameSuggestions && nameSuggestions.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg max-h-40 overflow-y-auto">
                         {nameSuggestions.map((suggestion, idx) => (
                           <div
                             key={idx}
                             onClick={() => {
+                              const suggestedFullName = [suggestion.firstName, suggestion.lastName].filter(Boolean).join(' ').trim();
                               setLeadFormData({
                                 ...leadFormData,
-                                firstName: suggestion.firstName,
-                                lastName: suggestion.lastName,
+                                fullName: suggestedFullName,
                                 email: suggestion.email
                               });
                               setNameSuggestions([]);
                               setShowNameSuggestions(false);
                             }}
-                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            className="px-4 py-2 hover:bg-[var(--sf-blue-50)] cursor-pointer border-b border-[var(--sf-border-light)] last:border-b-0"
                           >
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-[var(--sf-text-primary)]">
                               {suggestion.firstName} {suggestion.lastName}
                             </div>
-                            <div className="text-xs text-gray-500">{suggestion.email}</div>
+                            <div className="text-xs text-[var(--sf-text-muted)]">{suggestion.email}</div>
                           </div>
                         ))}
                       </div>
@@ -1167,42 +1579,19 @@ const LeadsPipeline = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Phone
                   </label>
                   <input
                     type="tel"
                     value={leadFormData.phone}
                     onChange={(e) => setLeadFormData({ ...leadFormData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Location
-                  </label>
-                  <AddressAutocompleteLeads
-                    value={leadFormData.address}
-                    onChange={(value) => {
-                      setLeadFormData({ ...leadFormData, address: value });
-                    }}
-                    onAddressSelect={(addressData) => {
-                      setSelectedAddress(addressData);
-                      setLeadFormData(prev => ({
-                        ...prev,
-                        address: addressData.formattedAddress
-                      }));
-                      // Check property data when address is selected
-                      checkZillowProperty(addressData);
-                    }}
-                    placeholder="Search location"
-                    className="w-full"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Source
                   </label>
                   <div className="relative">
@@ -1222,7 +1611,7 @@ const LeadsPipeline = () => {
                             setCustomSource(''); // Clear custom source when selecting a regular source
                           }
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       >
                         <option value="">Select a source...</option>
                         {leadSources.map((source) => (
@@ -1235,8 +1624,8 @@ const LeadsPipeline = () => {
                     </div>
                     
                     {showSourceDropdown && leadFormData.source === '__custom__' && (
-                      <div className="mt-2 p-3 bg-gray-50 border border-gray-300 rounded-lg">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <div className="mt-2 p-3 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg">
+                        <label className="block text-xs font-medium text-[var(--sf-text-primary)] mb-1">
                           Custom Source Name
                         </label>
                         <div className="flex gap-2">
@@ -1245,7 +1634,7 @@ const LeadsPipeline = () => {
                             value={customSource}
                             onChange={(e) => setCustomSource(e.target.value)}
                             placeholder="Enter custom source name"
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-sm"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && customSource.trim()) {
@@ -1265,7 +1654,7 @@ const LeadsPipeline = () => {
                                 addCustomSource(customSource, false);
                               }
                             }}
-                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                            className="px-3 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] text-sm"
                           >
                             Add
                           </button>
@@ -1276,7 +1665,7 @@ const LeadsPipeline = () => {
                               setShowSourceDropdown(false);
                               setLeadFormData({ ...leadFormData, source: '' });
                             }}
-                            className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+                            className="px-3 py-2 bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-sm font-medium"
                           >
                             Cancel
                           </button>
@@ -1294,10 +1683,10 @@ const LeadsPipeline = () => {
                             if (newSource && !leadSources.includes(newSource)) {
                               const updatedSources = [...leadSources, newSource];
                               setLeadSources(updatedSources);
-                              localStorage.setItem('leadSources', JSON.stringify(updatedSources));
+                              leadSourcesAPI.create(newSource).catch(() => {});
                             }
                           }}
-                          className="text-xs text-blue-600 hover:text-blue-700"
+                          className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                         >
                           Save "{leadFormData.source}" as custom source
                         </button>
@@ -1307,16 +1696,16 @@ const LeadsPipeline = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Service
                   </label>
                   <div className="space-y-2">
                     <button
                       type="button"
                       onClick={() => setShowServiceSelectionModal(true)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left hover:bg-gray-50 flex items-center justify-between"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] bg-white text-left hover:bg-[var(--sf-bg-page)] flex items-center justify-between"
                     >
-                      <span className={leadFormData.serviceId ? "text-gray-900" : "text-gray-500"}>
+                      <span className={leadFormData.serviceId ? "text-[var(--sf-text-primary)]" : "text-[var(--sf-text-muted)]"}>
                         {selectedServiceForLead 
                           ? decodeHtmlEntities(selectedServiceForLead.name || '')
                           : leadFormData.serviceId 
@@ -1326,7 +1715,7 @@ const LeadsPipeline = () => {
                               })()
                             : 'Select a service...'}
                       </span>
-                      <span className="text-gray-400">▼</span>
+                      <span className="text-[var(--sf-text-muted)]">▼</span>
                     </button>
                     {selectedServiceForLead && (
                       <div className="flex items-center gap-2">
@@ -1343,97 +1732,46 @@ const LeadsPipeline = () => {
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Select a service to configure modifiers and calculate the estimated value. The estimate will update automatically based on your selections.
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-1">
+                    Select a service to set the estimated value.
                   </p>
-                  {selectedServiceForLead && (() => {
-                    const estimatedPrice = calculateServiceEstimatedPrice(selectedServiceForLead);
-                    return (
-                      <p className="text-xs text-blue-600 mt-1 font-medium">
-                        💰 Estimated value: ${estimatedPrice.toFixed(2)} (includes service and modifiers)
-                      </p>
-                    );
-                  })()}
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Estimated Value ($)
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                    Location
                   </label>
-                    <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={leadFormData.value || ''}
-                    onChange={(e) => {
-                      const inputValue = e.target.value;
-                      // Allow empty string for user to clear, but prevent negative numbers
-                      if (inputValue === '' || (!isNaN(parseFloat(inputValue)) && parseFloat(inputValue) >= 0)) {
-                        setLeadFormData({ ...leadFormData, value: inputValue });
-                      }
+                  <AddressAutocompleteLeads
+                    value={leadFormData.address}
+                    onChange={(value) => {
+                      setLeadFormData({ ...leadFormData, address: value });
                     }}
-                    onBlur={(e) => {
-                      // On blur, if empty or invalid, set to empty string
-                      const inputValue = e.target.value;
-                      if (inputValue !== '' && (isNaN(parseFloat(inputValue)) || parseFloat(inputValue) < 0)) {
-                        setLeadFormData({ ...leadFormData, value: '' });
-                      }
+                    onAddressSelect={(addressData) => {
+                      setSelectedAddress(addressData);
+                      setLeadFormData(prev => ({
+                        ...prev,
+                        address: addressData.formattedAddress
+                      }));
+                      checkZillowProperty(addressData);
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="0.00"
-                  />
-                  {leadFormData.serviceId && leadFormData.value && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Service and estimated value can both be saved
-                    </p>
-                  )}
-                </div>
-                
-                <div className="col-span-1 sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes
-                  </label>
-                  <textarea
-                    value={leadFormData.notes}
-                    onChange={(e) => setLeadFormData({ ...leadFormData, notes: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Search location"
+                    className="w-full"
                   />
                 </div>
-                
-                <div className="col-span-1 sm:col-span-2 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-200 mt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateLeadModal(false);
-                      setZillowData(null);
-                      setSelectedAddress(null);
-                      setSelectedServiceForLead(null);
-                    }}
-                    className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Create Lead
-                  </button>
-                </div>
-              </form>
-              
-              {/* Right Column - Zillow Property Info */}
-              <div className="lg:border-l lg:pl-6 lg:ml-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                  <Home className="w-5 h-5 text-blue-600" />
+
+                </form>
+
+                {/* Property Info Section */}
+                <div className="mt-6 pt-6 border-t border-[var(--sf-border-light)]">
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4 flex items-center space-x-2">
+                  <Home className="w-5 h-5 text-[var(--sf-blue-500)]" />
                   <span>Property Information</span>
                 </h3>
                 
                 {zillowLoading && (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                    <span className="ml-2 text-gray-600">Checking property data...</span>
+                    <Loader2 className="w-6 h-6 animate-spin text-[var(--sf-blue-500)]" />
+                    <span className="ml-2 text-[var(--sf-text-secondary)]">Checking property data...</span>
                   </div>
                 )}
                 
@@ -1452,25 +1790,25 @@ const LeadsPipeline = () => {
                 )}
                 
                 {!zillowLoading && !zillowData && !selectedAddress && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                    <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-sm text-gray-600">
+                  <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg p-8 text-center">
+                    <MapPin className="w-12 h-12 text-[var(--sf-text-muted)] mx-auto mb-3" />
+                    <p className="text-sm text-[var(--sf-text-secondary)]">
                       Enter an address to see property information
                     </p>
                   </div>
                 )}
                 
                 {zillowData && (
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+                  <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4 space-y-4">
                     {zillowData.zpid && (
-                      <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-200">
-                        <h4 className="font-semibold text-gray-900">Property Information</h4>
+                      <div className="flex items-center justify-between mb-3 pb-3 border-b border-[var(--sf-border-light)]">
+                        <h4 className="font-semibold text-[var(--sf-text-primary)]">Property Information</h4>
                         {zillowData.zpid && zillowData.zpid.startsWith('zpid') && (
                         <a
                             href={`https://www.zillow.com/homedetails/${zillowData.zpid.replace('zpid-', '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                          className="text-sm text-[var(--sf-blue-500)] hover:text-blue-800 flex items-center space-x-1"
                         >
                           <span>View on Zillow</span>
                           <ExternalLink className="w-4 h-4" />
@@ -1481,15 +1819,15 @@ const LeadsPipeline = () => {
                     
                     {zillowData.address && (
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase">Address</label>
-                        <p className="text-sm text-gray-900 mt-1">{zillowData.address}</p>
+                        <label className="text-xs font-medium text-[var(--sf-text-muted)] uppercase">Address</label>
+                        <p className="text-sm text-[var(--sf-text-primary)] mt-1">{zillowData.address}</p>
                       </div>
                     )}
                     
                     {zillowData.price && (
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase">Zestimate</label>
-                        <p className="text-lg font-semibold text-gray-900 mt-1">
+                        <label className="text-xs font-medium text-[var(--sf-text-muted)] uppercase">Zestimate</label>
+                        <p className="text-lg font-semibold text-[var(--sf-text-primary)] mt-1">
                           ${parseInt(zillowData.price).toLocaleString()}
                         </p>
                       </div>
@@ -1498,13 +1836,13 @@ const LeadsPipeline = () => {
                     {zillowData.bedrooms && (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="text-xs font-medium text-gray-500 uppercase">Bedrooms</label>
-                          <p className="text-sm text-gray-900 mt-1">{zillowData.bedrooms}</p>
+                          <label className="text-xs font-medium text-[var(--sf-text-muted)] uppercase">Bedrooms</label>
+                          <p className="text-sm text-[var(--sf-text-primary)] mt-1">{zillowData.bedrooms}</p>
                         </div>
                         {zillowData.bathrooms && (
                           <div>
-                            <label className="text-xs font-medium text-gray-500 uppercase">Bathrooms</label>
-                            <p className="text-sm text-gray-900 mt-1">{zillowData.bathrooms}</p>
+                            <label className="text-xs font-medium text-[var(--sf-text-muted)] uppercase">Bathrooms</label>
+                            <p className="text-sm text-[var(--sf-text-primary)] mt-1">{zillowData.bathrooms}</p>
                           </div>
                         )}
                       </div>
@@ -1512,29 +1850,29 @@ const LeadsPipeline = () => {
                     
                     {zillowData.squareFeet && (
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase">Square Feet</label>
-                        <p className="text-sm text-gray-900 mt-1">{parseInt(zillowData.squareFeet).toLocaleString()} sq ft</p>
+                        <label className="text-xs font-medium text-[var(--sf-text-muted)] uppercase">Square Feet</label>
+                        <p className="text-sm text-[var(--sf-text-primary)] mt-1">{parseInt(zillowData.squareFeet).toLocaleString()} sq ft</p>
                       </div>
                     )}
                     
                     {zillowData.yearBuilt && (
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase">Year Built</label>
-                        <p className="text-sm text-gray-900 mt-1">{zillowData.yearBuilt}</p>
+                        <label className="text-xs font-medium text-[var(--sf-text-muted)] uppercase">Year Built</label>
+                        <p className="text-sm text-[var(--sf-text-primary)] mt-1">{zillowData.yearBuilt}</p>
                       </div>
                     )}
                     
                     {zillowData.propertyType && (
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase">Property Type</label>
-                        <p className="text-sm text-gray-900 mt-1">{zillowData.propertyType}</p>
+                        <label className="text-xs font-medium text-[var(--sf-text-muted)] uppercase">Property Type</label>
+                        <p className="text-sm text-[var(--sf-text-primary)] mt-1">{zillowData.propertyType}</p>
                       </div>
                     )}
                     
                     {zillowData.lotSize && (
                       <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase">Lot Size</label>
-                        <p className="text-sm text-gray-900 mt-1">{zillowData.lotSize}</p>
+                        <label className="text-xs font-medium text-[var(--sf-text-muted)] uppercase">Lot Size</label>
+                        <p className="text-sm text-[var(--sf-text-primary)] mt-1">{zillowData.lotSize}</p>
                       </div>
                     )}
                     
@@ -1550,21 +1888,61 @@ const LeadsPipeline = () => {
                   </div>
                 )}
               </div>
+
+                {/* Notes */}
+                <div className="mt-6 pt-6 border-t border-[var(--sf-border-light)]">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    form="create-lead-form"
+                    value={leadFormData.notes}
+                    onChange={(e) => setLeadFormData({ ...leadFormData, notes: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                  />
+                </div>
               </div>
+            </div>
+            {/* Footer — fixed at bottom of drawer */}
+            <div className="flex-shrink-0 px-6 py-4 border-t border-[var(--sf-border-light)] bg-white flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  // Programmatically submit the form
+                  const form = document.querySelector('#create-lead-form');
+                  if (form) form.requestSubmit();
+                }}
+                className="flex-1 px-4 py-2.5 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--sf-blue-600)] transition-colors"
+              >
+                New Lead
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateLeadModal(false);
+                  setZillowData(null);
+                  setSelectedAddress(null);
+                  setSelectedServiceForLead(null);
+                }}
+                className="px-4 py-2.5 bg-white border border-[var(--sf-border-light)] rounded-lg text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
       )}
-      
+
       {/* Edit Stage Modal */}
       {showEditStageModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Manage Stages</h2>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[var(--sf-border-light)] flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-[var(--sf-text-primary)]">Manage Stages</h2>
               <button
                 onClick={() => setShowEditStageModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1573,10 +1951,10 @@ const LeadsPipeline = () => {
             <div className="overflow-y-auto flex-1 p-4 sm:p-6">
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Add New Stage</h3>
+                  <h3 className="font-semibold text-[var(--sf-text-primary)] mb-2">Add New Stage</h3>
                   <form onSubmit={handleAddStage} className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                         Stage Name
                       </label>
                       <input
@@ -1584,31 +1962,31 @@ const LeadsPipeline = () => {
                         required
                         value={stageFormData.name}
                         onChange={(e) => setStageFormData({ ...stageFormData, name: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                         Color
                       </label>
                       <input
                         type="color"
                         value={stageFormData.color}
                         onChange={(e) => setStageFormData({ ...stageFormData, color: e.target.value })}
-                        className="w-full h-10 border border-gray-300 rounded-lg"
+                        className="w-full h-10 border border-[var(--sf-border-light)] rounded-lg"
                       />
                     </div>
                     <button
                       type="submit"
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="w-full px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                     >
                       Add Stage
                     </button>
                   </form>
                 </div>
                 
-                <div className="border-t border-gray-200 pt-4">
-                  <h3 className="font-semibold text-gray-900 mb-2">Existing Stages</h3>
+                <div className="border-t border-[var(--sf-border-light)] pt-4">
+                  <h3 className="font-semibold text-[var(--sf-text-primary)] mb-2">Existing Stages</h3>
                   <div className="space-y-2">
                     {pipeline.stages && pipeline.stages.map((stage) => (
                       <div
@@ -1642,9 +2020,9 @@ const LeadsPipeline = () => {
       {/* Edit Lead Modal */}
       {showEditLeadModal && editingLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Edit Lead</h2>
+          <div className="bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[var(--sf-border-light)] flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-[var(--sf-text-primary)]">Edit Lead</h2>
               <button
                 onClick={() => {
                   setShowEditLeadModal(false);
@@ -1652,7 +2030,7 @@ const LeadsPipeline = () => {
                   setEditCustomSource('');
                   setShowEditSourceDropdown(false);
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1662,71 +2040,59 @@ const LeadsPipeline = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column - Form */}
                 <form onSubmit={handleEditLead} className="space-y-4" autoComplete="off">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={leadFormData.firstName}
-                      onChange={(e) => setLeadFormData({ ...leadFormData, firstName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={leadFormData.lastName}
-                      onChange={(e) => setLeadFormData({ ...leadFormData, lastName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Full name"
+                    value={leadFormData.fullName}
+                    onChange={(e) => setLeadFormData({ ...leadFormData, fullName: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                  />
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                       Email
                     </label>
                     <input
                       type="email"
                       value={leadFormData.email}
                       onChange={(e) => setLeadFormData({ ...leadFormData, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                       Phone
                     </label>
                     <input
                       type="tel"
                       value={leadFormData.phone}
                       onChange={(e) => setLeadFormData({ ...leadFormData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Company
                   </label>
                   <input
                     type="text"
                     value={leadFormData.company}
                     onChange={(e) => setLeadFormData({ ...leadFormData, company: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Location
                   </label>
                   <AddressAutocompleteLeads
@@ -1751,7 +2117,7 @@ const LeadsPipeline = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Source
                   </label>
                   <div className="relative">
@@ -1771,7 +2137,7 @@ const LeadsPipeline = () => {
                             setEditCustomSource(''); // Clear custom source when selecting a regular source
                           }
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       >
                         <option value="">Select a source...</option>
                         {leadSources.map((source) => (
@@ -1784,8 +2150,8 @@ const LeadsPipeline = () => {
                     </div>
                     
                     {showEditSourceDropdown && leadFormData.source === '__custom__' && (
-                      <div className="mt-2 p-3 bg-gray-50 border border-gray-300 rounded-lg">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <div className="mt-2 p-3 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg">
+                        <label className="block text-xs font-medium text-[var(--sf-text-primary)] mb-1">
                           Custom Source Name
                         </label>
                         <div className="flex gap-2">
@@ -1794,7 +2160,7 @@ const LeadsPipeline = () => {
                             value={editCustomSource}
                             onChange={(e) => setEditCustomSource(e.target.value)}
                             placeholder="Enter custom source name"
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-sm"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && editCustomSource.trim()) {
@@ -1814,7 +2180,7 @@ const LeadsPipeline = () => {
                                 addCustomSource(editCustomSource, true);
                               }
                             }}
-                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                            className="px-3 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] text-sm"
                           >
                             Add
                           </button>
@@ -1825,7 +2191,7 @@ const LeadsPipeline = () => {
                               setShowEditSourceDropdown(false);
                               setLeadFormData({ ...leadFormData, source: '' });
                             }}
-                            className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+                            className="px-3 py-2 bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-sm font-medium"
                           >
                             Cancel
                           </button>
@@ -1843,10 +2209,10 @@ const LeadsPipeline = () => {
                             if (newSource && !leadSources.includes(newSource)) {
                               const updatedSources = [...leadSources, newSource];
                               setLeadSources(updatedSources);
-                              localStorage.setItem('leadSources', JSON.stringify(updatedSources));
+                              leadSourcesAPI.create(newSource).catch(() => {});
                             }
                           }}
-                          className="text-xs text-blue-600 hover:text-blue-700"
+                          className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                         >
                           Save "{leadFormData.source}" as custom source
                         </button>
@@ -1856,16 +2222,16 @@ const LeadsPipeline = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Service
                   </label>
                   <div className="space-y-2">
                     <button
                       type="button"
                       onClick={() => setShowServiceSelectionModal(true)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left hover:bg-gray-50 flex items-center justify-between"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] bg-white text-left hover:bg-[var(--sf-bg-page)] flex items-center justify-between"
                     >
-                      <span className={leadFormData.serviceId ? "text-gray-900" : "text-gray-500"}>
+                      <span className={leadFormData.serviceId ? "text-[var(--sf-text-primary)]" : "text-[var(--sf-text-muted)]"}>
                         {selectedServiceForLead 
                           ? decodeHtmlEntities(selectedServiceForLead.name || '')
                           : leadFormData.serviceId 
@@ -1875,7 +2241,7 @@ const LeadsPipeline = () => {
                               })()
                             : 'Select a service...'}
                       </span>
-                      <span className="text-gray-400">▼</span>
+                      <span className="text-[var(--sf-text-muted)]">▼</span>
                     </button>
                     {selectedServiceForLead && (
                       <div className="flex items-center gap-2">
@@ -1892,13 +2258,13 @@ const LeadsPipeline = () => {
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                     Select a service to configure modifiers and calculate the estimated value. The estimate will update automatically based on your selections.
                   </p>
                   {selectedServiceForLead && (() => {
                     const estimatedPrice = calculateServiceEstimatedPrice(selectedServiceForLead);
                     return (
-                      <p className="text-xs text-blue-600 mt-1 font-medium">
+                      <p className="text-xs text-[var(--sf-blue-500)] mt-1 font-medium">
                         💰 Estimated value: ${estimatedPrice.toFixed(2)} (includes service and modifiers)
                       </p>
                     );
@@ -1906,7 +2272,7 @@ const LeadsPipeline = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Estimated Value ($)
                   </label>
                   <input
@@ -1928,25 +2294,25 @@ const LeadsPipeline = () => {
                         setLeadFormData({ ...leadFormData, value: '' });
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="0.00"
                   />
                   {leadFormData.serviceId && leadFormData.value && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                       Service and estimated value can both be saved
                     </p>
                   )}
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Notes
                   </label>
                   <textarea
                     value={leadFormData.notes}
                     onChange={(e) => setLeadFormData({ ...leadFormData, notes: e.target.value })}
                     rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
                 
@@ -1959,13 +2325,13 @@ const LeadsPipeline = () => {
                       setEditCustomSource('');
                       setShowEditSourceDropdown(false);
                     }}
-                    className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                    className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] flex items-center gap-2"
                   >
                     <Save className="w-4 h-4" />
                     Save Changes
@@ -1977,52 +2343,52 @@ const LeadsPipeline = () => {
                 <div className="space-y-4">
                   {zillowLoading && (
                     <div className="flex items-center justify-center p-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                      <span className="ml-2 text-gray-600">Loading property data...</span>
+                      <Loader2 className="w-6 h-6 animate-spin text-[var(--sf-blue-500)]" />
+                      <span className="ml-2 text-[var(--sf-text-secondary)]">Loading property data...</span>
                     </div>
                   )}
                   
                   {!zillowLoading && zillowData && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                        <Home className="w-5 h-5 mr-2 text-blue-600" />
+                    <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-[var(--sf-text-primary)] mb-3 flex items-center">
+                        <Home className="w-5 h-5 mr-2 text-[var(--sf-blue-500)]" />
                         Property Information
                       </h3>
                       <div className="space-y-2 text-sm">
                         {zillowData.propertyType && (
                           <div>
-                            <span className="font-medium text-gray-700">Type:</span>{' '}
-                            <span className="text-gray-900">{zillowData.propertyType}</span>
+                            <span className="font-medium text-[var(--sf-text-primary)]">Type:</span>{' '}
+                            <span className="text-[var(--sf-text-primary)]">{zillowData.propertyType}</span>
                           </div>
                         )}
                         {zillowData.bedrooms && (
                           <div>
-                            <span className="font-medium text-gray-700">Bedrooms:</span>{' '}
-                            <span className="text-gray-900">{zillowData.bedrooms}</span>
+                            <span className="font-medium text-[var(--sf-text-primary)]">Bedrooms:</span>{' '}
+                            <span className="text-[var(--sf-text-primary)]">{zillowData.bedrooms}</span>
                           </div>
                         )}
                         {zillowData.bathrooms && (
                           <div>
-                            <span className="font-medium text-gray-700">Bathrooms:</span>{' '}
-                            <span className="text-gray-900">{zillowData.bathrooms}</span>
+                            <span className="font-medium text-[var(--sf-text-primary)]">Bathrooms:</span>{' '}
+                            <span className="text-[var(--sf-text-primary)]">{zillowData.bathrooms}</span>
                           </div>
                         )}
                         {zillowData.squareFootage && (
                           <div>
-                            <span className="font-medium text-gray-700">Square Feet:</span>{' '}
-                            <span className="text-gray-900">{zillowData.squareFootage.toLocaleString()}</span>
+                            <span className="font-medium text-[var(--sf-text-primary)]">Square Feet:</span>{' '}
+                            <span className="text-[var(--sf-text-primary)]">{zillowData.squareFootage.toLocaleString()}</span>
                           </div>
                         )}
                         {zillowData.yearBuilt && (
                           <div>
-                            <span className="font-medium text-gray-700">Year Built:</span>{' '}
-                            <span className="text-gray-900">{zillowData.yearBuilt}</span>
+                            <span className="font-medium text-[var(--sf-text-primary)]">Year Built:</span>{' '}
+                            <span className="text-[var(--sf-text-primary)]">{zillowData.yearBuilt}</span>
                           </div>
                         )}
                         {zillowData.lotSize && (
                           <div>
-                            <span className="font-medium text-gray-700">Lot Size:</span>{' '}
-                            <span className="text-gray-900">{zillowData.lotSize} sq ft</span>
+                            <span className="font-medium text-[var(--sf-text-primary)]">Lot Size:</span>{' '}
+                            <span className="text-[var(--sf-text-primary)]">{zillowData.lotSize} sq ft</span>
                           </div>
                         )}
                       </div>
@@ -2030,13 +2396,13 @@ const LeadsPipeline = () => {
                   )}
                   
                   {!zillowLoading && !zillowData && selectedAddress && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+                    <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg p-4 text-sm text-[var(--sf-text-secondary)]">
                       No property data found for this address.
                     </div>
                   )}
                   
                   {!selectedAddress && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+                    <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg p-4 text-sm text-[var(--sf-text-secondary)]">
                       Enter an address to see property information.
                     </div>
                   )}
@@ -2050,13 +2416,13 @@ const LeadsPipeline = () => {
       {/* Lead Details Modal */}
       {showLeadDetailsModal && selectedLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Lead Details</h2>
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[var(--sf-border-light)] flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-[var(--sf-text-primary)]">Lead Details</h2>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleOpenEditLead(selectedLead)}
-                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1"
+                  className="px-3 py-1.5 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] flex items-center gap-1"
                 >
                   <Edit className="w-4 h-4" />
                   Edit
@@ -2070,7 +2436,7 @@ const LeadsPipeline = () => {
                 </button>
                 <button
                   onClick={() => setShowLeadDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2080,11 +2446,11 @@ const LeadsPipeline = () => {
             <div className="overflow-y-auto flex-1 p-4 sm:p-6">
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                     {selectedLead.first_name} {selectedLead.last_name}
                   </h3>
                   {selectedLead.company && (
-                    <p className="text-gray-600 flex items-center mt-1">
+                    <p className="text-[var(--sf-text-secondary)] flex items-center mt-1">
                       <Building className="w-4 h-4 mr-2" />
                       {selectedLead.company}
                     </p>
@@ -2094,8 +2460,8 @@ const LeadsPipeline = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {selectedLead.email && (
                     <div>
-                      <label className="text-sm font-medium text-gray-700">Email</label>
-                      <p className="text-gray-900 flex items-center mt-1 break-words">
+                      <label className="text-sm font-medium text-[var(--sf-text-primary)]">Email</label>
+                      <p className="text-[var(--sf-text-primary)] flex items-center mt-1 break-words">
                         <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
                         <span className="break-all">{selectedLead.email}</span>
                       </p>
@@ -2103,8 +2469,8 @@ const LeadsPipeline = () => {
                   )}
                   {selectedLead.phone && (
                     <div>
-                      <label className="text-sm font-medium text-gray-700">Phone</label>
-                      <p className="text-gray-900 flex items-center mt-1">
+                      <label className="text-sm font-medium text-[var(--sf-text-primary)]">Phone</label>
+                      <p className="text-[var(--sf-text-primary)] flex items-center mt-1">
                         <Phone className="w-4 h-4 mr-2 flex-shrink-0" />
                         {formatPhoneNumber(selectedLead.phone)}
                       </p>
@@ -2112,14 +2478,14 @@ const LeadsPipeline = () => {
                   )}
                   {selectedLead.source && (
                     <div>
-                      <label className="text-sm font-medium text-gray-700">Source</label>
-                      <p className="text-gray-900 mt-1">{selectedLead.source}</p>
+                      <label className="text-sm font-medium text-[var(--sf-text-primary)]">Source</label>
+                      <p className="text-[var(--sf-text-primary)] mt-1">{selectedLead.source}</p>
                     </div>
                   )}
                   {selectedLead.value && (
                     <div>
-                      <label className="text-sm font-medium text-gray-700">Estimated Value</label>
-                      <p className="text-gray-900 font-semibold text-green-600 mt-1">
+                      <label className="text-sm font-medium text-[var(--sf-text-primary)]">Estimated Value</label>
+                      <p className="text-[var(--sf-text-primary)] font-semibold text-green-600 mt-1">
                         ${parseFloat(selectedLead.value).toFixed(2)}
                       </p>
                     </div>
@@ -2128,21 +2494,21 @@ const LeadsPipeline = () => {
                 
                 {selectedLead.notes && (
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Notes</label>
-                    <p className="text-gray-900 mt-1 whitespace-pre-wrap">{selectedLead.notes}</p>
+                    <label className="text-sm font-medium text-[var(--sf-text-primary)]">Notes</label>
+                    <p className="text-[var(--sf-text-primary)] mt-1 whitespace-pre-wrap">{selectedLead.notes}</p>
                   </div>
                 )}
                 
                 {/* Tasks Section */}
-                <div className="pt-4 border-t border-gray-200 mt-4">
+                <div className="pt-4 border-t border-[var(--sf-border-light)] mt-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Tasks</h3>
+                    <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Tasks</h3>
                     <button
                       onClick={() => {
                         setEditingTask(null);
                         setShowCreateTaskModal(true);
                       }}
-                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="px-3 py-1.5 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                     >
                       + Add Task
                     </button>
@@ -2155,8 +2521,8 @@ const LeadsPipeline = () => {
                         onClick={() => setTaskFilter('all')}
                         className={`px-3 py-1 text-xs rounded-lg ${
                           taskFilter === 'all'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)] text-white'
+                            : 'bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                       >
                         All ({tasks.length})
@@ -2165,8 +2531,8 @@ const LeadsPipeline = () => {
                         onClick={() => setTaskFilter('pending')}
                         className={`px-3 py-1 text-xs rounded-lg ${
                           taskFilter === 'pending'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)] text-white'
+                            : 'bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                       >
                         Pending ({tasks.filter(t => t.status === 'pending').length})
@@ -2187,8 +2553,8 @@ const LeadsPipeline = () => {
                         onClick={() => setTaskFilter('completed')}
                         className={`px-3 py-1 text-xs rounded-lg ${
                           taskFilter === 'completed'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)] text-white'
+                            : 'bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                       >
                         Completed ({tasks.filter(t => t.status === 'completed').length})
@@ -2198,7 +2564,7 @@ const LeadsPipeline = () => {
                   
                   {/* Tasks List */}
                   {getFilteredTasks().length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-[var(--sf-text-muted)]">
                       <p className="mb-2">No tasks {taskFilter !== 'all' ? `(${taskFilter})` : ''}</p>
                       {taskFilter === 'all' && (
                         <button
@@ -2206,7 +2572,7 @@ const LeadsPipeline = () => {
                             setEditingTask(null);
                             setShowCreateTaskModal(true);
                           }}
-                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                         >
                           Create your first task
                         </button>
@@ -2238,7 +2604,7 @@ const LeadsPipeline = () => {
                         <span className="font-semibold">This lead has been converted to a customer</span>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-4 border-t border-gray-200">
+                    <div className="flex justify-end pt-4 border-t border-[var(--sf-border-light)]">
                       <button
                         onClick={() => {
                           // Get assigned team member from tasks (if any) - find the most recent assigned task
@@ -2260,7 +2626,7 @@ const LeadsPipeline = () => {
                             }
                           });
                         }}
-                        className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center"
+                        className="w-full sm:w-auto px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] flex items-center justify-center"
                       >
                         <Briefcase className="w-4 h-4 mr-2" />
                         Convert to Job
@@ -2268,7 +2634,7 @@ const LeadsPipeline = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex justify-end pt-4 border-t border-gray-200 mt-4">
+                  <div className="flex justify-end pt-4 border-t border-[var(--sf-border-light)] mt-4">
                     <button
                       onClick={() => setShowConvertLeadModal(true)}
                       className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center"

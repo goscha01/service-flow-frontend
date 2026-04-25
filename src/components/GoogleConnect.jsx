@@ -146,8 +146,8 @@ const GoogleConnect = ({ onSuccess, onError, buttonText = 'Continue with Google'
         />
         {isLoading && (
           <div className="mt-2 flex items-center justify-center">
-            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-            <span className="ml-2 text-sm text-gray-600">Connecting...</span>
+            <Loader2 className="w-4 h-4 animate-spin text-[var(--sf-blue-500)]" />
+            <span className="ml-2 text-sm text-[var(--sf-text-secondary)]">Connecting...</span>
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { X, Check, MapPin, Clock, User, Wrench, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { teamAPI, jobsAPI, availabilityAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -6,7 +7,7 @@ import { getImageUrl } from '../utils/imageUtils'
 import { normalizeAPIResponse } from '../utils/dataHandler'
 import { decodeHtmlEntities } from '../utils/htmlUtils'
 
-const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
+const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinutes }) => {
   const { user } = useAuth()
   const [teamMembers, setTeamMembers] = useState([])
   const [selectedMemberIds, setSelectedMemberIds] = useState(new Set())
@@ -16,9 +17,36 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   const [loading, setLoading] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [memberAvailability, setMemberAvailability] = useState({})
-  const [driveTimes, setDriveTimes] = useState({})
   const [expandedSchedules, setExpandedSchedules] = useState({})
   const [allSkills, setAllSkills] = useState([])
+  const [companyDrivingTime, setCompanyDrivingTime] = useState(companyDrivingTimeMinutes ?? null)
+
+  // Determine if this is a past job (scheduled before today)
+  const isPastJob = useMemo(() => {
+    if (!job?.scheduled_date) return false
+    const dateStr = String(job.scheduled_date).split('T')[0].split(' ')[0]
+    const jobDate = new Date(dateStr + 'T00:00:00')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return jobDate < today
+  }, [job?.scheduled_date])
+
+  // Fetch company driving time when modal opens (for fallback when member has no per-member driving time)
+  useEffect(() => {
+    if (!isOpen) return
+    if (companyDrivingTimeMinutes != null) {
+      setCompanyDrivingTime(companyDrivingTimeMinutes)
+      return
+    }
+    if (user?.id && companyDrivingTime == null) {
+      availabilityAPI.getAvailability(user.id).then((data) => {
+        const hours = data?.businessHours || data?.business_hours
+        const parsed = typeof hours === 'string' ? (() => { try { return JSON.parse(hours) } catch (e) { return null } })() : hours
+        if (parsed && typeof parsed.drivingTime === 'number') setCompanyDrivingTime(parsed.drivingTime)
+        else if (parsed && parsed.drivingTime != null) setCompanyDrivingTime(parseInt(parsed.drivingTime, 10) || 0)
+      }).catch(() => {})
+    }
+  }, [isOpen, user?.id, companyDrivingTimeMinutes])
 
   // Fetch team members when modal opens
   useEffect(() => {
@@ -54,33 +82,43 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
     }
   }, [isOpen, job])
 
-  // Fetch availability for all members when modal opens
+
+  // Fetch availability for all members when modal opens (skip for past jobs — all members shown)
   useEffect(() => {
-    if (isOpen && job && teamMembers.length > 0) {
+    if (isOpen && job && teamMembers.length > 0 && !isPastJob) {
       fetchMemberAvailability()
-      if (showDriveTime) {
-        calculateDriveTimes()
-      }
     }
-  }, [isOpen, job, teamMembers, showDriveTime])
+  }, [isOpen, job, teamMembers, isPastJob])
 
   const fetchTeamMembers = async () => {
     try {
       setLoading(true)
+      // Fetch without backend status filter — filter client-side so members with
+      // NULL/undefined status are still included (only explicit 'inactive' is excluded).
       const response = await teamAPI.getAll(user.id, {
-        status: 'active',
         page: 1,
         limit: 100
       })
-      
+
       // Normalize the response
       const teamMembersData = normalizeAPIResponse(response, 'teamMembers') || []
-      
-      // Filter to only service providers (workers, schedulers, managers, account owner)
-      const providers = teamMembersData.filter(member => 
-        (member.is_service_provider || member.role === 'owner' || member.role === 'account owner') && 
-        member.status === 'active'
-      )
+
+      // Only workers can be assigned to jobs.
+      // Managers and schedulers (dispatchers) are excluded.
+      // The virtual 'account owner' entry is excluded — its id doesn't exist
+      // in the team_members table so the backend rejects any job assigned to it.
+      // Inactive members are excluded.
+      const providers = teamMembersData.filter(member => {
+        if (member.status === 'inactive') return false
+        const role = (member.role || '').toLowerCase()
+        return role === 'worker'
+          || role === 'technician'
+          || role === 'field_worker'
+          || role === 'cleaner'
+          || role === 'owner'
+          || role === 'admin'
+          || !role // legacy members without a role default to worker
+      })
       
       // Log for debugging
       console.log('Fetched team members:', providers.map(m => ({
@@ -91,7 +129,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
       })))
       
       setTeamMembers(providers)
-      
+
       // Extract unique skills from all members
       const skillsSet = new Set()
       providers.forEach(member => {
@@ -220,8 +258,9 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
         
         const memberJobs = normalizeAPIResponse(jobsResponse, 'jobs') || []
         const jobStart = new Date(job.scheduled_date)
-        const jobDuration = job.service_duration || job.duration || 360 // default 6 hours in minutes
-        const jobEnd = new Date(jobStart.getTime() + jobDuration * 60000)
+        const jobDuration = job.estimated_duration ?? job.service_duration ?? job.duration ?? (job.service && (job.service.duration ?? job.service.service_duration)) ?? 60
+        const jobDurationMinutes = typeof jobDuration === 'number' ? jobDuration : parseInt(jobDuration, 10) || 60
+        const jobEnd = new Date(jobStart.getTime() + jobDurationMinutes * 60000)
         
         // Extract job time in minutes for easier comparison
         const jobStartMinutes = timeToMinutes(formatTimeFromDate(jobStart))
@@ -251,59 +290,79 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
         
         const hasConflict = conflictingJobs.length > 0
         
-        // Calculate free time slots by subtracting jobs from available hours
+        // Calculate free time slots by subtracting jobs + driving time from available hours
         const freeTimeSlots = []
-        
+        const drivingBuffer = getMemberDrivingTime(member)
+
+        // Build job time ranges and driving time ranges
+        const jobTimeRanges = []
+        const drivingTimeRanges = []
+
+        // Get ALL member jobs for the day (not just conflicting ones) to compute busy/driving
+        const allMemberJobs = memberJobs.filter(ej => {
+          if (!ej.scheduled_date || ej.id === job.id) return false
+          const isAssigned =
+            ej.team_member_id === member.id ||
+            ej.assigned_team_member_id === member.id ||
+            (ej.team_assignments && Array.isArray(ej.team_assignments) &&
+             ej.team_assignments.some(ta => ta.team_member_id === member.id))
+          return isAssigned
+        })
+
+        allMemberJobs.forEach(ej => {
+          const ejStart = new Date(ej.scheduled_date)
+          const ejDuration = ej.service_duration || ej.duration || 360
+          const ejStartMin = timeToMinutes(formatTimeFromDate(ejStart))
+          const ejEndMin = ejStartMin + ejDuration
+          jobTimeRanges.push({ start: ejStartMin, end: ejEndMin })
+        })
+
+        // Compute driving time buffers before and after each job
+        if (drivingBuffer > 0 && jobTimeRanges.length > 0 && dayAvailability.enabled && dayAvailability.timeSlots?.length > 0) {
+          const availStart = timeToMinutes(dayAvailability.timeSlots[0].start || dayAvailability.timeSlots[0].startTime || '09:00')
+          const availEnd = timeToMinutes(dayAvailability.timeSlots[dayAvailability.timeSlots.length - 1].end || dayAvailability.timeSlots[dayAvailability.timeSlots.length - 1].endTime || '18:00')
+          const sorted = [...jobTimeRanges].sort((a, b) => a.start - b.start)
+          sorted.forEach(jr => {
+            const beforeStart = Math.max(jr.start - drivingBuffer, availStart)
+            if (beforeStart < jr.start) drivingTimeRanges.push({ start: beforeStart, end: jr.start })
+            const afterEnd = Math.min(jr.end + drivingBuffer, availEnd)
+            if (afterEnd > jr.end) drivingTimeRanges.push({ start: jr.end, end: afterEnd })
+          })
+        }
+
+        // Merge all blocked ranges (jobs + driving)
+        const allBlocked = [...jobTimeRanges, ...drivingTimeRanges]
+          .sort((a, b) => a.start - b.start)
+          .reduce((merged, range) => {
+            if (merged.length === 0 || merged[merged.length - 1].end < range.start) {
+              merged.push({ ...range })
+            } else {
+              merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, range.end)
+            }
+            return merged
+          }, [])
+
         if (dayAvailability.enabled && dayAvailability.timeSlots && dayAvailability.timeSlots.length > 0) {
           dayAvailability.timeSlots.forEach(slot => {
-            let slotStart = timeToMinutes(slot.start || slot.startTime)
-            let slotEnd = timeToMinutes(slot.end || slot.endTime)
-            
-            // Get all jobs that overlap with this time slot
-            const overlappingJobs = conflictingJobs.filter(existingJob => {
-              if (!existingJob.scheduled_date) return false
-              const existingStart = new Date(existingJob.scheduled_date)
-              const existingDuration = existingJob.service_duration || existingJob.duration || 360
-              const existingEnd = new Date(existingStart.getTime() + existingDuration * 60000)
-              
-              const jobStartMinutes = timeToMinutes(formatTimeFromDate(existingStart))
-              const jobEndMinutes = timeToMinutes(formatTimeFromDate(existingEnd))
-              
-              return (jobStartMinutes < slotEnd && jobEndMinutes > slotStart)
-            })
-            
-            // Sort overlapping jobs by start time
-            overlappingJobs.sort((a, b) => {
-              const aStart = new Date(a.scheduled_date)
-              const bStart = new Date(b.scheduled_date)
-              return aStart - bStart
-            })
-            
-            // Calculate free time segments
+            const slotStart = timeToMinutes(slot.start || slot.startTime)
+            const slotEnd = timeToMinutes(slot.end || slot.endTime)
+
+            // Subtract all blocked ranges to get free time
             let currentStart = slotStart
-            
-            overlappingJobs.forEach(existingJob => {
-              const existingStart = new Date(existingJob.scheduled_date)
-              const existingDuration = existingJob.service_duration || existingJob.duration || 360
-              const existingEnd = new Date(existingStart.getTime() + existingDuration * 60000)
-              
-              const jobStartMinutes = timeToMinutes(formatTimeFromDate(existingStart))
-              const jobEndMinutes = timeToMinutes(formatTimeFromDate(existingEnd))
-              
-              // If there's free time before this job, add it
-              if (jobStartMinutes > currentStart) {
+            const relevantBlocked = allBlocked.filter(b => b.start < slotEnd && b.end > slotStart).sort((a, b) => a.start - b.start)
+
+            relevantBlocked.forEach(blocked => {
+              if (currentStart < blocked.start) {
                 freeTimeSlots.push({
                   start: minutesToTime(currentStart),
-                  end: minutesToTime(jobStartMinutes),
+                  end: minutesToTime(blocked.start),
                   startMinutes: currentStart,
-                  endMinutes: jobStartMinutes
+                  endMinutes: blocked.start
                 })
               }
-              
-              currentStart = Math.max(currentStart, jobEndMinutes)
+              currentStart = Math.max(currentStart, blocked.end)
             })
-            
-            // Add remaining free time after last job
+
             if (currentStart < slotEnd) {
               freeTimeSlots.push({
                 start: minutesToTime(currentStart),
@@ -314,6 +373,20 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
             }
           })
         }
+
+        // Compute totals
+        const totalBusy = jobTimeRanges.reduce((sum, r) => sum + (r.end - r.start), 0)
+        const totalDriving = drivingTimeRanges.reduce((sum, r) => {
+          // Only count driving that doesn't overlap with jobs
+          let dur = r.end - r.start
+          jobTimeRanges.forEach(jr => {
+            const overlapStart = Math.max(r.start, jr.start)
+            const overlapEnd = Math.min(r.end, jr.end)
+            if (overlapStart < overlapEnd) dur -= (overlapEnd - overlapStart)
+          })
+          return sum + Math.max(dur, 0)
+        }, 0)
+        const totalAvailable = freeTimeSlots.reduce((sum, s) => sum + (s.endMinutes - s.startMinutes), 0)
         
         // If the day is explicitly marked as unavailable, member is not available
         if (dayAvailability.enabled === false) {
@@ -323,7 +396,10 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
             availableTo: '',
             availableHours: [],
             hasConflict: false,
-            freeTimeSlots: []
+            freeTimeSlots: [],
+            totalBusy: 0,
+            totalDriving: 0,
+            totalAvailable: 0
           }
         }
         
@@ -383,7 +459,10 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
           availableTo,
           availableHours,
           hasConflict,
-          freeTimeSlots
+          freeTimeSlots,
+          totalBusy,
+          totalDriving,
+          totalAvailable
         }
       } catch (error) {
         console.error(`Error fetching availability for member ${member.id}:`, error)
@@ -393,7 +472,10 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
           availableTo: '6:00 PM',
           availableHours: [{ start: '09:00', end: '18:00', label: '9:00 AM - 6:00 PM' }],
           hasConflict: false,
-          freeTimeSlots: []
+          freeTimeSlots: [],
+          totalBusy: 0,
+          totalDriving: 0,
+          totalAvailable: 0
         }
       }
     })
@@ -434,26 +516,21 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
     return `${hour12}:${minutes || '00'} ${ampm}`
   }
 
-  const calculateDriveTimes = async () => {
-    if (!job?.service_address_street && !job?.customer_address) {
-      setDriveTimes({})
-      return
+  // Get a member's driving time: per-member availability.drivingTime overrides company default.
+  const getMemberDrivingTime = (member) => {
+    const companyDefault = companyDrivingTime ?? 0
+    if (!member) return companyDefault
+    try {
+      const avail = member.availability
+        ? (typeof member.availability === 'string' ? JSON.parse(member.availability) : member.availability)
+        : null
+      if (avail && avail.drivingTime !== undefined && avail.drivingTime !== null) {
+        return parseInt(avail.drivingTime) || 0
+      }
+    } catch (e) {
+      // ignore parse errors
     }
-
-    const jobAddress = job.service_address_street || job.customer_address || ''
-    const jobCity = job.service_address_city || job.customer_city || ''
-    const jobState = job.service_address_state || job.customer_state || ''
-    const fullAddress = `${jobAddress}, ${jobCity}, ${jobState}`.trim()
-
-    // For now, we'll simulate drive times based on member location
-    // In production, you'd use Google Maps Distance Matrix API
-    const driveTimeMap = {}
-    teamMembers.forEach((member, index) => {
-      // Simulate drive time (you can enhance this with actual geocoding)
-      const times = ['40+ min', '25 min', '15 min', '5 min', '20 min', '30 min']
-      driveTimeMap[member.id] = times[index % times.length]
-    })
-    setDriveTimes(driveTimeMap)
+    return companyDefault
   }
 
   // Get currently assigned member IDs to ensure they're always shown
@@ -517,17 +594,20 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
     const assignedMembers = teamMembers.filter(member => currentlyAssignedIds.has(Number(member.id)))
     const assignedMemberIds = new Set(assignedMembers.map(m => m.id))
 
-    // Filter to only available members (must be explicitly available: true)
-    // BUT always include currently assigned members
-    filtered = filtered.filter(member => {
-      const isAssigned = assignedMemberIds.has(member.id)
-      if (isAssigned) return true // Always show assigned members
-      
-      const availability = memberAvailability[member.id]
-      // Only show members who are explicitly available (available === true)
-      // Don't show if available === false, undefined, or null
-      return availability && availability.available === true
-    })
+    // Show: assigned members always; others when they have availability (free time) for this job.
+    // For past jobs, skip availability filtering — show all members so they can be retroactively assigned.
+    if (!isPastJob) {
+      const availabilityLoaded = Object.keys(memberAvailability).length > 0
+      filtered = filtered.filter(member => {
+        const isAssigned = assignedMemberIds.has(member.id)
+        if (isAssigned) return true // Always show assigned members
+
+        if (!availabilityLoaded) return true // Show all until fetch completes so list isn't only assigned
+        const availability = memberAvailability[member.id]
+        if (availability == null) return true // This member's data not ready yet
+        return availability.available === true // Only show members with free time for this job
+      })
+    }
 
     // Merge assigned members that might not be in filtered list
     const filteredIds = new Set(filtered.map(m => m.id))
@@ -538,7 +618,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
     })
 
     return filtered
-  }, [teamMembers, searchQuery, selectedSkill, memberAvailability, currentlyAssignedIds])
+  }, [teamMembers, searchQuery, selectedSkill, memberAvailability, currentlyAssignedIds, isPastJob])
 
   const handleAssign = async () => {
     try {
@@ -599,19 +679,11 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   const formatTime = (dateString) => {
     if (!dateString) return ''
     const date = new Date(dateString)
-    const startTime = date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    })
+    const startTime = formatTimeShared(date)
     
     const duration = job?.service_duration || job?.duration || 360
     const endDate = new Date(date.getTime() + duration * 60000)
-    const endTime = endDate.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    })
+    const endTime = formatTimeShared(endDate)
     return `${startTime} - ${endTime}`
   }
 
@@ -651,24 +723,24 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   if (!isOpen || !job) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-[10000] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-gray-50 rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[var(--sf-bg-page)] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 rounded-t-lg">
+        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-[var(--sf-border-light)] rounded-t-lg">
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="w-5 h-5 text-[var(--sf-text-secondary)]" />
           </button>
-          <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assign Job</h2>
+          <h2 className="text-lg font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assign Job</h2>
           <button
             onClick={handleAssign}
             disabled={assigning}
             className={`px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
               !assigning
-                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                ? 'bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)] shadow-sm'
+                : 'bg-[var(--sf-border-light)] text-[var(--sf-text-muted)] cursor-not-allowed'
             }`}
             style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
           >
@@ -679,20 +751,20 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {/* Job Details Card */}
-          <div className="bg-white rounded-lg border border-gray-200 p-5 mb-5">
+          <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-5 mb-5">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                <div className="text-sm font-medium text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   {formatDate(job.scheduled_date)}
                 </div>
-                <div className="text-base font-bold text-gray-900 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                <div className="text-base font-bold text-[var(--sf-text-primary)] mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                   {formatTime(job.scheduled_date)}
                 </div>
               </div>
               
               {/* Assignment Status Badge */}
-              <div className="flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5">
-                <span className="text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+              <div className="flex items-center gap-2 bg-[var(--sf-bg-page)] rounded-full px-3 py-1.5">
+                <span className="text-xs font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   {assignedCount}/{workersNeeded} assigned
                 </span>
                 {assignedMembers.length > 0 && (
@@ -708,7 +780,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                   </div>
                     ))}
                     {assignedMembers.length > 3 && (
-                      <span className="text-xs text-gray-600">+{assignedMembers.length - 3}</span>
+                      <span className="text-xs text-[var(--sf-text-secondary)]">+{assignedMembers.length - 3}</span>
                     )}
                   </div>
                 )}
@@ -718,12 +790,12 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
             {/* Assigned Members List */}
             {assignedMembers.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                <User className="w-4 h-4 text-gray-500" />
+                <User className="w-4 h-4 text-[var(--sf-text-muted)]" />
                 <div className="flex flex-wrap gap-2">
                   {assignedMembers.map((member) => (
                     <span 
                       key={member.id}
-                      className="text-sm font-medium text-gray-900" 
+                      className="text-sm font-medium text-[var(--sf-text-primary)]" 
                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
                       {(() => {
@@ -745,24 +817,24 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
 
             {/* Service Type */}
             <div className="flex items-center gap-2 mb-3">
-              <Wrench className="w-4 h-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+              <Wrench className="w-4 h-4 text-[var(--sf-text-muted)]" />
+              <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                 {decodeHtmlEntities(job.service_name || job.service_type || 'Service')}
               </span>
             </div>
 
             {/* Duration */}
             <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <Clock className="w-4 h-4 text-[var(--sf-text-muted)]" />
+              <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 {formatDuration(job.service_duration || job.duration)}
               </span>
             </div>
 
             {/* Location */}
             <div className="flex items-start gap-2 mb-4">
-              <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-              <span className="text-sm text-gray-700 leading-relaxed" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <MapPin className="w-4 h-4 text-[var(--sf-text-muted)] mt-0.5 flex-shrink-0" />
+              <span className="text-sm text-[var(--sf-text-primary)] leading-relaxed" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 {job.service_address_street || job.customer_address || job.address || 'Address not provided'}
                 {job.service_address_city && `, ${job.service_address_city}`}
                 {job.service_address_state && `, ${job.service_address_state}`}
@@ -770,7 +842,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
             </div>
 
             {/* Drive Time Toggle */}
-            <div className="flex items-center gap-2.5 pt-3 border-t border-gray-200">
+            <div className="flex items-center gap-2.5 pt-3 border-t border-[var(--sf-border-light)]">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
@@ -778,9 +850,9 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                   onChange={(e) => setShowDriveTime(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-[var(--sf-border-light)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--sf-blue-500)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--sf-blue-500)]"></div>
               </label>
-              <span className="text-sm text-gray-700 cursor-pointer select-none" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <span className="text-sm text-[var(--sf-text-primary)] cursor-pointer select-none" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 Show approximate drive time
               </span>
             </div>
@@ -790,13 +862,13 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
           <div className="mb-5 space-y-3">
             {/* Search Bar */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)]" />
               <input
                 type="text"
                 placeholder="Search providers..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+                className="w-full pl-10 pr-4 py-2.5 text-sm border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent transition-all bg-white"
                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               />
             </div>
@@ -806,7 +878,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
               <select
                 value={selectedSkill}
                 onChange={(e) => setSelectedSkill(e.target.value)}
-                className="w-full pl-4 pr-10 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white cursor-pointer transition-all"
+                className="w-full pl-4 pr-10 py-2.5 text-sm border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent appearance-none bg-white cursor-pointer transition-all"
                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               >
                 <option value="none">Skills None</option>
@@ -814,32 +886,32 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                   <option key={index} value={skill}>{skill}</option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)] pointer-events-none" />
             </div>
+
           </div>
 
           {/* Available Providers Section */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+              <span className="text-xs font-bold text-[var(--sf-text-primary)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                 Available
               </span>
-              <span className="px-2 py-0.5 bg-gray-200 rounded-full text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+              <span className="px-2 py-0.5 bg-[var(--sf-border-light)] rounded-full text-xs font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                 {filteredMembers.length}
               </span>
             </div>
 
             {loading ? (
-              <div className="text-center py-8 text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Loading providers...</div>
+              <div className="text-center py-8 text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Loading providers...</div>
             ) : filteredMembers.length === 0 ? (
-              <div className="text-center py-8 text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No available providers found</div>
+              <div className="text-center py-8 text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No available providers found</div>
             ) : (
               <div className="space-y-3">
                 {filteredMembers.map((member) => {
                   const memberId = Number(member.id) // Ensure consistent number type
                   const isSelected = selectedMemberIds.has(memberId)
                   const availability = memberAvailability[member.id] || {}
-                  const driveTime = driveTimes[member.id]
                   const isExpanded = expandedSchedules[member.id]
 
                   return (
@@ -848,16 +920,16 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                       onClick={() => toggleMemberSelection(memberId)}
                       className={`bg-white border rounded-lg p-4 cursor-pointer transition-all ${
                         isSelected
-                          ? 'border-blue-600 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-[var(--sf-blue-500)] bg-[var(--sf-blue-50)]'
+                          : 'border-[var(--sf-border-light)] hover:border-[var(--sf-border-light)]'
                       }`}
                     >
                       <div className="flex items-start gap-4">
                         {/* Large Selection Indicator */}
                         <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
                           isSelected
-                            ? 'bg-blue-600'
-                            : 'bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)]'
+                            : 'bg-[var(--sf-border-light)]'
                         }`}>
                           {isSelected && (
                             <Check className="w-5 h-5 text-white" strokeWidth={3} />
@@ -896,7 +968,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                         {/* Member Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1.5">
-                            <h3 className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                            <h3 className="text-sm font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                               {(() => {
                                 const firstName = (member.first_name || '').trim()
                                 const lastName = (member.last_name || '').trim()
@@ -908,23 +980,44 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                                 return businessName || 'Provider'
                               })()}
                             </h3>
-                            {showDriveTime && driveTime && (
-                              <span className="text-xs text-gray-500 ml-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                                {driveTime} away
+                            {showDriveTime && getMemberDrivingTime(member) > 0 && (
+                              <span className="text-xs text-amber-600 ml-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                +{getMemberDrivingTime(member)}min buffer
                               </span>
                             )}
                           </div>
                           
                           {availability.availableFrom && availability.availableTo && (
-                            <div className="text-xs text-gray-600 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                              Available from {availability.availableFrom} to {availability.availableTo}
+                            <div className="text-xs text-[var(--sf-text-secondary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                              Available {availability.availableFrom} - {availability.availableTo}
+                            </div>
+                          )}
+
+                          {/* Time breakdown: available / busy / driving */}
+                          {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {availability.totalAvailable > 0 && (
+                                <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {formatDuration(availability.totalAvailable)} free
+                                </span>
+                              )}
+                              {availability.totalBusy > 0 && (
+                                <span className="text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {formatDuration(availability.totalBusy)} busy
+                                </span>
+                              )}
+                              {availability.totalDriving > 0 && (
+                                <span className="text-xs font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {formatDuration(availability.totalDriving)} travel
+                                </span>
+                              )}
                             </div>
                           )}
 
                           {/* View Schedule Button */}
                           <button
                             onClick={(e) => toggleScheduleExpansion(member.id, e)}
-                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 mb-2 transition-colors"
+                            className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] flex items-center gap-1 mb-2 transition-colors"
                             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             {isExpanded ? (
@@ -942,13 +1035,13 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
 
                           {/* Expanded Schedule View */}
                           {isExpanded && availability.availableHours && availability.availableHours.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="mt-3 pt-3 border-t border-[var(--sf-border-light)]">
                               {availability.availableHours.map((hourBlock, idx) => (
                                 <div key={idx} className="mb-3 last:mb-0">
-                                  <div className="text-xs text-gray-700 mb-1.5" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  <div className="text-xs text-[var(--sf-text-primary)] mb-1.5" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                     {hourBlock.label}
                                   </div>
-                                  <div className="relative h-6 bg-gray-100 rounded overflow-hidden">
+                                  <div className="relative h-6 bg-[var(--sf-bg-page)] rounded overflow-hidden">
                                     <div 
                                       className="absolute inset-0 bg-green-500 opacity-30"
                                       style={{
@@ -956,7 +1049,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                                       }}
                                     ></div>
                                     <div className="absolute inset-0 flex items-center justify-center">
-                                      <span className="text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                      <span className="text-xs font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                         Available
                                       </span>
                                     </div>

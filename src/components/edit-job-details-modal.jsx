@@ -68,12 +68,12 @@ export default function EditJobDetailsModal({
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <Icon className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+            <Icon className="w-6 h-6 text-[var(--sf-blue-500)]" />
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">{title}</h2>
           </div>
           <button
             onClick={handleCancel}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -81,7 +81,7 @@ export default function EditJobDetailsModal({
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               {title}
             </label>
             <div className="relative">
@@ -92,11 +92,11 @@ export default function EditJobDetailsModal({
                 min={inputConfig.min}
                 max={inputConfig.max}
                 step={inputConfig.step}
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full border border-[var(--sf-border-light)] rounded-xl px-4 py-3 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                 placeholder={inputConfig.placeholder}
               />
               {inputConfig.suffix && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] text-sm">
                   {inputConfig.suffix}
                 </div>
               )}
@@ -107,13 +107,13 @@ export default function EditJobDetailsModal({
         <div className="flex space-x-3 mt-6">
           <button
             onClick={handleCancel}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] rounded-xl text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+            className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-xl hover:bg-[var(--sf-blue-600)] transition-colors"
           >
             Save
           </button>

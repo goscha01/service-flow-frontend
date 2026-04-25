@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo } from "react"
 import Sidebar from "../components/sidebar"
 import CustomerModal from "../components/customer-modal"
 import ExportCustomersModal from "../components/export-customers-modal"
-import { Search, User, Plus, AlertCircle, Loader2, X, RotateCw, Filter } from "lucide-react"
-import { customersAPI, jobsAPI } from "../services/api"
+import { Search, User, Plus, AlertCircle, Loader2, X, RotateCw, Filter, LayoutGrid, List, Mail, Phone, MapPin, Building2 } from "lucide-react"
+import { customersAPI, jobsAPI, leadSourcesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate, Link } from "react-router-dom"
 import he from 'he';
@@ -31,12 +31,18 @@ const ServiceFlowCustomers = () => {
   const [searchTerm, setSearchTerm] = useState("")
   const [deleteLoading, setDeleteLoading] = useState(null)
   const [recurringFilter, setRecurringFilter] = useState("all") // "all", "recurring", "non-recurring"
+  const [locationFilter, setLocationFilter] = useState("all") // "all" or a city name
+  const [sourceFilter, setSourceFilter] = useState("all") // "all", "__none__", or a canonical source name
+  const [availableSources, setAvailableSources] = useState([])
+  const [viewTab, setViewTab] = useState("contacts") // "contacts", "companies"
   const [customersWithRecurring, setCustomersWithRecurring] = useState(new Set()) // Set of customer IDs with recurring jobs
 
   // Fetch customers when user is available
   useEffect(() => {
     if (!authLoading && user?.id) {
       fetchCustomers()
+      // Load canonical lead sources for the source filter dropdown
+      leadSourcesAPI.list().then(d => setAvailableSources(d.sources || [])).catch(() => {})
     } else if (!authLoading && !user?.id) {
       // If auth is done loading but no user, redirect to signin
       navigate('/signin')
@@ -302,16 +308,41 @@ const ServiceFlowCustomers = () => {
   }
 
   // Memoized filtered customers for better performance
+  // Unique cities for location filter
+  const uniqueCities = useMemo(() => {
+    const cities = new Set()
+    customers.forEach(c => {
+      if (c.city) cities.add(he.decode(c.city).trim())
+    })
+    return Array.from(cities).sort()
+  }, [customers])
+
   const filteredCustomers = useMemo(() => {
     let filtered = [...customers]
-    
+
     // Apply recurring filter first
     if (recurringFilter === 'recurring') {
       filtered = filtered.filter(customer => customersWithRecurring.has(customer.id))
     } else if (recurringFilter === 'non-recurring') {
       filtered = filtered.filter(customer => !customersWithRecurring.has(customer.id))
     }
-    // If recurringFilter === 'all', no filtering by recurring status
+
+    // Apply location filter
+    if (locationFilter !== 'all') {
+      filtered = filtered.filter(customer => {
+        const city = customer.city ? he.decode(customer.city).trim() : ''
+        return city === locationFilter
+      })
+    }
+
+    // Apply source filter (uses resolved_source from backend; "__none__" = no mapped source)
+    if (sourceFilter !== 'all') {
+      if (sourceFilter === '__none__') {
+        filtered = filtered.filter(c => !c.resolved_source)
+      } else {
+        filtered = filtered.filter(c => c.resolved_source === sourceFilter)
+      }
+    }
     
     // Apply search filter
     if (searchTerm && searchTerm.trim() !== '') {
@@ -363,82 +394,135 @@ const ServiceFlowCustomers = () => {
     }
     
     return filtered
-  }, [customers, searchTerm, recurringFilter, customersWithRecurring])
+  }, [customers, searchTerm, recurringFilter, locationFilter, sourceFilter, customersWithRecurring])
 
   // Show loading spinner while auth is loading
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--sf-blue-500)]" />
       </div>
     )
   }
 
   return (
-    <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex-1 h-screen bg-gray-50">
+    <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex-1 h-screen bg-[var(--sf-bg-page)]">
       {/* Mobile Header */}
       <MobileHeader pageTitle="Customers" />
 
-        <div className="flex-1 w-full lg:px-40 xl:px-44 2xl:px-48">
+        <div className="flex-1 w-full">
           <div className="p-4 sm:p-6">
-            {/* Header - Mobile Optimized */}
+            {/* Header */}
             <div className="mb-4 sm:mb-6">
-              {/* Title and Count */}
+              {/* Row 1: Title */}
               <div className="mb-4">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Customers</h1>
-                <p className="mt-0.5 text-sm text-gray-500">
-                  {customers.length} {customers.length === 1 ? 'customer' : 'customers'}
+                <h1 className="text-xl sm:text-2xl font-bold text-[var(--sf-text-primary)]">Customers</h1>
+                <p className="mt-0.5 text-sm text-[var(--sf-text-secondary)]">
+                  {filteredCustomers.length} {filteredCustomers.length === 1 ? 'customer' : 'customers'}
                 </p>
               </div>
 
-              {/* Search Bar and Filters - Full Width on Mobile */}
-              <div className="mb-3 space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              {/* Row 2: Tabs + Search (own line) */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+                {/* View Toggle */}
+                <div className="flex items-center bg-gray-100 rounded-lg p-1 flex-shrink-0 self-start sm:self-auto w-fit">
+                  <button
+                    onClick={() => setViewTab('contacts')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      viewTab === 'contacts'
+                        ? 'bg-white text-[#2D2E2E] shadow-sm'
+                        : 'text-[#595A5B] hover:text-[#2D2E2E]'
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    Contacts
+                  </button>
+                  <button
+                    onClick={() => setViewTab('companies')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      viewTab === 'companies'
+                        ? 'bg-white text-[#2D2E2E] shadow-sm'
+                        : 'text-[#595A5B] hover:text-[#2D2E2E]'
+                    }`}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    Companies
+                  </button>
+                </div>
+
+                {/* Search */}
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-4 h-4" />
                   <input
                     type="text"
                     placeholder="Search customers..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border-0 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white"
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] focus:bg-white transition-colors"
                   />
-                </div>
-                
-                {/* Recurring Filter */}
-                <div className="flex items-center gap-2 w-full">
-                  <Filter className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <select
-                    value={recurringFilter}
-                    onChange={(e) => setRecurringFilter(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 cursor-pointer"
-                  >
-                    <option value="all">All Customers</option>
-                    <option value="recurring">Recurring Customers</option>
-                    <option value="non-recurring">Non-Recurring Customers</option>
-                  </select>
                 </div>
               </div>
 
-              {/* Action Buttons - Mobile Layout */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={handleExport}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              {/* Row 3: Filters + Actions */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
+                {/* Recurring Filter */}
+                <select
+                  value={recurringFilter}
+                  onChange={(e) => setRecurringFilter(e.target.value)}
+                  className="px-3 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg bg-white focus:ring-2 focus:ring-[var(--sf-blue-500)] cursor-pointer transition-colors"
                 >
-                  Export
-                </button>
-                <button
-                  onClick={handleImport}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  <option value="all">All Customers</option>
+                  <option value="recurring">Recurring</option>
+                  <option value="non-recurring">Non-Recurring</option>
+                </select>
+
+                {/* Location Filter */}
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="px-3 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg bg-white focus:ring-2 focus:ring-[var(--sf-blue-500)] cursor-pointer transition-colors"
                 >
-                  Import
-                </button>
-                <button
-                  onClick={handleAddCustomer}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  <option value="all">All Locations</option>
+                  {uniqueCities.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+
+                {/* Source Filter */}
+                <select
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                  className="px-3 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg bg-white focus:ring-2 focus:ring-[var(--sf-blue-500)] cursor-pointer transition-colors"
                 >
-                  Add Customer
-                </button>
+                  <option value="all">All Sources</option>
+                  <option value="__none__">No Source</option>
+                  {availableSources.map(s => (
+                    <option key={s.id} value={s.name}>{s.name}</option>
+                  ))}
+                </select>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 flex-shrink-0 sm:ml-auto">
+                  <button
+                    onClick={handleExport}
+                    className="px-3 py-2 text-sm font-medium text-[var(--sf-text-secondary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors"
+                  >
+                    Export
+                  </button>
+                  <button
+                    onClick={handleImport}
+                    className="px-3 py-2 text-sm font-medium text-[var(--sf-text-secondary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors"
+                  >
+                    Import
+                  </button>
+                  <button
+                    onClick={handleAddCustomer}
+                    className="sf-btn-primary px-4 py-2 text-sm font-medium flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Customer
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -473,16 +557,16 @@ const ServiceFlowCustomers = () => {
               </div>
             )}
 
-            {/* Customers List */}
+            {/* Customers Content */}
             {loading ? (
               <div className="flex justify-center items-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
               </div>
             ) : filteredCustomers.length === 0 ? (
-              <div className="bg-white border border-gray-200 rounded-lg p-8 sm:p-12 text-center">
-                <User className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
-                <h3 className="mt-4 text-sm sm:text-base font-medium text-gray-900">No customers found</h3>
-                <p className="mt-2 text-xs sm:text-sm text-gray-500">
+              <div className="sf-card p-8 sm:p-12 text-center">
+                <User className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-[var(--sf-text-muted)]" />
+                <h3 className="mt-4 text-sm sm:text-base font-medium text-[var(--sf-text-primary)]">No customers found</h3>
+                <p className="mt-2 text-xs sm:text-sm text-[var(--sf-text-secondary)]">
                   {searchTerm
                     ? "Try adjusting your search terms."
                     : "Get started by adding your first customer."
@@ -492,7 +576,7 @@ const ServiceFlowCustomers = () => {
                   <div className="mt-6">
                     <button
                       onClick={handleAddCustomer}
-                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      className="sf-btn-primary inline-flex items-center px-4 py-2 text-sm font-medium"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Customer
@@ -500,62 +584,115 @@ const ServiceFlowCustomers = () => {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <ul className="divide-y divide-gray-200">
-                  {filteredCustomers.map((customer) => (
-                    <li key={customer.id}>
-                      <div 
-                        onClick={() => handleViewCustomer(customer)}
-                        className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Avatar */}
-                          <div className="w-10 h-10 bg-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-white font-medium text-xs">
-                              {customer.first_name?.[0]?.toUpperCase()}{customer.last_name?.[0]?.toUpperCase()}
-                            </span>
-                          </div>
-
-                          {/* Customer Info */}
-                          <div className="flex-1 min-w-0">
-                            {/* Name and Location */}
-                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                              <span className="font-semibold text-sm text-gray-900 truncate">
-                                {he.decode(customer.first_name || '')} {he.decode(customer.last_name || '')}
-                              </span>
-                              {/* Recurring Indicator */}
-                              {customersWithRecurring.has(customer.id) && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 flex-shrink-0" title="Recurring Customer">
-                                  <RotateCw className="w-3 h-3" />
-                                  Recurring
-                                </span>
-                              )}
-                              {customer.city && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 flex-shrink-0">
-                                  {he.decode(customer.city)}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Contact Info */}
-                            <div className="text-xs text-gray-600 truncate">
-                              {customer.email && (
-                                <span className="truncate block sm:inline">{customer.email}</span>
-                              )}
-                              {customer.email && customer.phone && (
-                                <span className="hidden sm:inline mx-1">•</span>
-                              )}
-                              {customer.phone && (
-                                <span className="block sm:inline">{formatPhoneNumber(customer.phone)}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+            ) : viewTab === 'contacts' ? (
+              /* ═══ CONTACTS GRID VIEW ═══ */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredCustomers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    onClick={() => handleViewCustomer(customer)}
+                    className="bg-white border border-[#EDF1F5] rounded-xl p-5 hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    {/* Avatar + Name */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-medium text-xs">
+                          {customer.first_name?.[0]?.toUpperCase()}{customer.last_name?.[0]?.toUpperCase()}
+                        </span>
                       </div>
-                    </li>
-                  ))}
-                </ul>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm text-[#2D2E2E] truncate group-hover:text-[var(--sf-blue-500)] transition-colors">
+                          {he.decode(customer.first_name || '')} {he.decode(customer.last_name || '')}
+                        </div>
+                        {customersWithRecurring.has(customer.id) && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--sf-blue-500)]">
+                            <RotateCw className="w-2.5 h-2.5" />
+                            Recurring
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Contact Details */}
+                    <div className="space-y-1.5 text-xs text-[#595A5B]">
+                      {customer.email && (
+                        <div className="flex items-center gap-2 truncate">
+                          <Mail className="w-3.5 h-3.5 text-[#A6A9AC] flex-shrink-0" />
+                          <span className="truncate">{customer.email}</span>
+                        </div>
+                      )}
+                      {customer.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-3.5 h-3.5 text-[#A6A9AC] flex-shrink-0" />
+                          <span>{formatPhoneNumber(customer.phone)}</span>
+                        </div>
+                      )}
+                      {customer.city && (
+                        <div className="flex items-center gap-2 truncate">
+                          <MapPin className="w-3.5 h-3.5 text-[#A6A9AC] flex-shrink-0" />
+                          <span className="truncate">{he.decode(customer.city)}{customer.state ? `, ${he.decode(customer.state)}` : ''}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* ═══ COMPANIES LIST VIEW ═══ */
+              <div className="border border-[#EDF1F5] rounded-xl overflow-hidden">
+                {/* Table Header */}
+                <div className="grid grid-cols-12 schedule-grid bg-[#F9FAFB] text-left text-sm font-medium text-[#595A5B]">
+                  <div className="col-span-3 px-4 py-3">Name</div>
+                  <div className="col-span-3 px-4 py-3 border-l border-[#EDF1F5]">Email</div>
+                  <div className="col-span-2 px-4 py-3 border-l border-[#EDF1F5]">Phone</div>
+                  <div className="col-span-2 px-4 py-3 border-l border-[#EDF1F5]">Location</div>
+                  <div className="col-span-2 px-4 py-3 border-l border-[#EDF1F5]">Status</div>
+                </div>
+                {/* Table Rows */}
+                {filteredCustomers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    onClick={() => handleViewCustomer(customer)}
+                    className="grid grid-cols-12 schedule-grid border-t border-[#EDF1F5] bg-white hover:bg-gray-50 transition-colors cursor-pointer text-sm"
+                  >
+                    <div className="col-span-3 px-4 py-3 flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-medium text-[10px]">
+                          {customer.first_name?.[0]?.toUpperCase()}{customer.last_name?.[0]?.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-medium text-[#2D2E2E] truncate block">
+                          {he.decode(customer.first_name || '')} {he.decode(customer.last_name || '')}
+                        </span>
+                        {customersWithRecurring.has(customer.id) && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-[var(--sf-blue-500)]">
+                            <RotateCw className="w-2.5 h-2.5" />
+                            Recurring
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="col-span-3 px-4 py-3 flex items-center border-l border-[#EDF1F5] text-[#595A5B] truncate">
+                      {customer.email || '—'}
+                    </div>
+                    <div className="col-span-2 px-4 py-3 flex items-center border-l border-[#EDF1F5] text-[#595A5B]">
+                      {customer.phone ? formatPhoneNumber(customer.phone) : '—'}
+                    </div>
+                    <div className="col-span-2 px-4 py-3 flex items-center border-l border-[#EDF1F5] text-[#595A5B] truncate">
+                      {customer.city ? `${he.decode(customer.city)}${customer.state ? `, ${he.decode(customer.state)}` : ''}` : '—'}
+                    </div>
+                    <div className="col-span-2 px-4 py-3 flex items-center border-l border-[#EDF1F5]">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        customersWithRecurring.has(customer.id)
+                          ? 'bg-green-50 text-[#16B364]'
+                          : 'bg-gray-100 text-[#595A5B]'
+                      }`}>
+                        {customersWithRecurring.has(customer.id) ? 'Active' : 'Standard'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -579,9 +716,9 @@ const ServiceFlowCustomers = () => {
           <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4">
             <div className="flex items-center mb-4">
               <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 mr-3" />
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">Delete Customer</h3>
+              <h3 className="text-base sm:text-lg font-medium text-[var(--sf-text-primary)]">Delete Customer</h3>
             </div>
-            <p className="text-xs sm:text-sm text-gray-500 mb-6">
+            <p className="text-xs sm:text-sm text-[var(--sf-text-muted)] mb-6">
               Are you sure you want to delete <strong>{he.decode(customerToDelete.first_name || '')} {he.decode(customerToDelete.last_name || '')}</strong>?
               This action cannot be undone.
               {customerToDelete.jobs_count > 0 || customerToDelete.estimates_count > 0 ? (
@@ -596,7 +733,7 @@ const ServiceFlowCustomers = () => {
                   setShowDeleteConfirm(false)
                   setCustomerToDelete(null)
                 }}
-                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
                 Cancel
               </button>
@@ -618,16 +755,16 @@ const ServiceFlowCustomers = () => {
           <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4">
             <div className="flex items-center mb-4">
               <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 mr-3" />
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">Delete All Customers</h3>
+              <h3 className="text-base sm:text-lg font-medium text-[var(--sf-text-primary)]">Delete All Customers</h3>
             </div>
-            <p className="text-xs sm:text-sm text-gray-500 mb-6">
+            <p className="text-xs sm:text-sm text-[var(--sf-text-muted)] mb-6">
               Are you sure you want to delete <strong>all {customers.length} customers</strong>? 
               This action cannot be undone and will permanently remove all customer records.
             </p>
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => setShowDeleteAllConfirm(false)}
-                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
                 Cancel
               </button>

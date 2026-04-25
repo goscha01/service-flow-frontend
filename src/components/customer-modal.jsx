@@ -9,8 +9,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   const navigate = useNavigate()
   const modalRef = useRef(null)
   const [customerData, setCustomerData] = useState({
-    firstName: "",
-    lastName: "",
+    fullName: "",
     address: "",
     suite: "",
     phone: "",
@@ -18,7 +17,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     notes: "",
     city: "",
     state: "",
-    zipCode: ""
+    zipCode: "",
+    source: ""
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -86,8 +86,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     if (!isOpen) {
       // Clear form data when modal closes
       setCustomerData({
-        firstName: "",
-        lastName: "",
+        fullName: "",
         address: "",
         suite: "",
         phone: "",
@@ -95,7 +94,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         notes: "",
         city: "",
         state: "",
-        zipCode: ""
+        zipCode: "",
+        source: ""
       })
       setError("")
       setValidationErrors({})
@@ -104,8 +104,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     } else if (isOpen && !isEditing) {
       // Clear form data when opening for new customer (not editing)
       setCustomerData({
-        firstName: "",
-        lastName: "",
+        fullName: "",
         address: "",
         suite: "",
         phone: "",
@@ -113,7 +112,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         notes: "",
         city: "",
         state: "",
-        zipCode: ""
+        zipCode: "",
+        source: ""
       })
       setError("")
       setValidationErrors({})
@@ -122,13 +122,13 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     } else if (isEditing && customer) {
       // Populate form with existing customer data for editing
       console.log('Populating form with customer data:', customer)
-      
+
       // Parse the combined address if it exists (for backward compatibility)
       const parsedAddress = parseCombinedAddress(customer.address)
-      
+
+      const joinedName = [customer.first_name, customer.last_name].filter(Boolean).join(' ').trim()
       setCustomerData({
-        firstName: customer.first_name || "",
-        lastName: customer.last_name || "",
+        fullName: joinedName,
         address: customer.suite ? customer.address : parsedAddress.address,
         suite: customer.suite || parsedAddress.suite,
         phone: customer.phone || "",
@@ -136,7 +136,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         notes: customer.notes || "",
         city: customer.city || "",
         state: customer.state || "",
-        zipCode: customer.zip_code || ""
+        zipCode: customer.zip_code || "",
+        source: customer.source || ""
       })
     }
   }, [isOpen, isEditing, customer])
@@ -308,18 +309,11 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
           delete errors.phone
         }
         break
-      case 'firstName':
+      case 'fullName':
         if (!value.trim()) {
-          errors.firstName = 'First name is required'
+          errors.fullName = 'Name is required'
         } else {
-          delete errors.firstName
-        }
-        break
-      case 'lastName':
-        if (!value.trim()) {
-          errors.lastName = 'Last name is required'
-        } else {
-          delete errors.lastName
+          delete errors.fullName
         }
         break
       default:
@@ -380,10 +374,12 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     }
   }
 
-  const handleNameChange = (e) => {
-    const value = e.target.value
-    setCustomerData({ ...customerData, name: value })
-    validateField('name', value)
+  const splitFullName = (fullName) => {
+    const trimmed = (fullName || '').trim().replace(/\s+/g, ' ')
+    if (!trimmed) return { firstName: '', lastName: '' }
+    const parts = trimmed.split(' ')
+    if (parts.length === 1) return { firstName: parts[0], lastName: '' }
+    return { firstName: parts[0], lastName: parts.slice(1).join(' ') }
   }
 
   const handleAddressSelect = (addressData) => {
@@ -417,13 +413,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     setError("")
     
     // Validate required fields
-    if (!customerData.firstName.trim()) {
-      setError('First name is required')
-      return
-    }
-    
-    if (!customerData.lastName.trim()) {
-      setError('Last name is required')
+    if (!customerData.fullName.trim()) {
+      setError('Name is required')
       return
     }
     
@@ -444,10 +435,11 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     try {
       // Format phone number for server (remove all formatting, keep only digits and +)
       const formattedPhone = customerData.phone ? customerData.phone.replace(/[\s\-()]/g, '') : ''
-      
+
+      const { firstName, lastName } = splitFullName(customerData.fullName)
       const customerToSave = {
-        firstName: customerData.firstName.trim(),
-        lastName: customerData.lastName.trim(),
+        firstName,
+        lastName,
         address: customerData.address,
         suite: customerData.suite,
         phone: formattedPhone,
@@ -455,7 +447,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         notes: customerData.notes,
         city: customerData.city,
         state: customerData.state,
-        zipCode: customerData.zipCode
+        zipCode: customerData.zipCode,
+        source: customerData.source ? customerData.source.trim() : ""
       }
       
       console.log('Submitting customer data:', customerToSave)
@@ -486,14 +479,14 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         className="bg-white rounded-xl w-full max-w-md relative my-4 sm:my-6 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden flex flex-col"
       >
         {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">{isEditing ? 'Edit Customer' : 'New Customer'}</h2>
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">{isEditing ? 'Edit Customer' : 'New Customer'}</h2>
           <button
             onClick={(e) => {
               e.preventDefault()
               onClose()
             }}
-            className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-1 rounded-full transition-colors"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)] p-1 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -509,54 +502,31 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
 
           <form id="customer-form" onSubmit={handleSubmit} className="space-y-6" noValidate>
             {/* Customer Name */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  First Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="First name"
-                  value={customerData.firstName}
-                  onChange={(e) => {
-                    setCustomerData({ ...customerData, firstName: e.target.value })
-                    validateField('firstName', e.target.value)
-                  }}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm ${
-                    validationErrors.firstName ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
-                  }`}
-                  required
-                />
-                {validationErrors.firstName && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.firstName}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Last Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Last name"
-                  value={customerData.lastName}
-                  onChange={(e) => {
-                    setCustomerData({ ...customerData, lastName: e.target.value })
-                    validateField('lastName', e.target.value)
-                  }}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm ${
-                    validationErrors.lastName ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
-                  }`}
-                  required
-                />
-                {validationErrors.lastName && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.lastName}</p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Full name"
+                value={customerData.fullName}
+                onChange={(e) => {
+                  setCustomerData({ ...customerData, fullName: e.target.value })
+                  validateField('fullName', e.target.value)
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm ${
+                  validationErrors.fullName ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-[var(--sf-border-light)]'
+                }`}
+                required
+              />
+              {validationErrors.fullName && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.fullName}</p>
+              )}
             </div>
 
             {/* Address */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Address
               </label>
               <AddressAutocomplete
@@ -572,7 +542,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
 
             {/* Apartment/Unit */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Apartment/Unit
               </label>
               <input
@@ -580,14 +550,14 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                 placeholder="Apt, Unit, Suite, Floor, etc."
                 value={customerData.suite}
                 onChange={(e) => setCustomerData({ ...customerData, suite: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm"
               />
             </div>
 
             {/* City, State, Zip Code */}
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                   City
                 </label>
                 <input
@@ -595,11 +565,11 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   placeholder="City"
                   value={customerData.city}
                   onChange={(e) => setCustomerData({ ...customerData, city: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                   State
                 </label>
                 <input
@@ -607,11 +577,11 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   placeholder="State"
                   value={customerData.state}
                   onChange={(e) => setCustomerData({ ...customerData, state: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                   Zip Code
                 </label>
                 <input
@@ -619,14 +589,14 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   placeholder="12345"
                   value={customerData.zipCode}
                   onChange={(e) => setCustomerData({ ...customerData, zipCode: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm"
                 />
               </div>
             </div>
 
             {/* Phone Number */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Phone Number
               </label>
               <div className="relative">
@@ -639,8 +609,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   maxLength={20}
                   autoComplete="tel"
                   list="phone-suggestions"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm ${
-                    validationErrors.phone ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm ${
+                    validationErrors.phone ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-[var(--sf-border-light)]'
                   }`}
                 />
                 <datalist id="phone-suggestions">
@@ -651,7 +621,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                 </datalist>
                 {isValidatingPhone && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-500"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--sf-blue-500)]"></div>
                   </div>
                 )}
               </div>
@@ -662,7 +632,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Email
               </label>
               <div className="relative">
@@ -672,13 +642,13 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   placeholder="email@example.com"
                   value={customerData.email}
                   onChange={handleEmailChange}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm ${
-                    validationErrors.email ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm ${
+                    validationErrors.email ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-[var(--sf-border-light)]'
                   }`}
                 />
                 {isValidatingEmail && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-500"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--sf-blue-500)]"></div>
                   </div>
                 )}
               </div>
@@ -686,15 +656,15 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                 <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
               )}
               {!customerData.email && (
-                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mt-2 p-3 bg-[var(--sf-blue-50)] border border-[var(--sf-border-light)] rounded-lg">
                   <div className="flex items-start">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-[var(--sf-blue-500)]" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm text-blue-800">
+                      <p className="text-sm text-[var(--sf-blue-500)]">
                         <strong>Recommended:</strong> Add an email address to automatically send job confirmations and updates to your customer.
                       </p>
                     </div>
@@ -703,16 +673,30 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
               )}
             </div>
 
+            {/* Source (e.g. Website, Referral – preserved when converting from lead) */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                Source
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Website, Referral"
+                value={customerData.source}
+                onChange={(e) => setCustomerData({ ...customerData, source: e.target.value })}
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm"
+              />
+            </div>
+
             {/* Notes */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Notes
               </label>
               <textarea
                 placeholder="Customer notes..."
                 value={customerData.notes}
                 onChange={(e) => setCustomerData({ ...customerData, notes: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm"
                 rows="3"
               />
             </div>
@@ -721,14 +705,14 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         </div>
 
         {/* Footer - Fixed */}
-        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex justify-end space-x-3 p-6 border-t border-[var(--sf-border-light)] bg-[var(--sf-bg-page)]">
           <button
             type="button"
             onClick={(e) => {
               e.preventDefault()
               onClose()
             }}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            className="px-4 py-2 text-sm font-semibold text-[var(--sf-text-secondary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
           >
             Cancel
           </button>
@@ -736,7 +720,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
             type="submit"
             form="customer-form"
             disabled={loading || Object.keys(validationErrors).length > 0}
-            className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-semibold text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Saving..." : "Save Customer"}
           </button>

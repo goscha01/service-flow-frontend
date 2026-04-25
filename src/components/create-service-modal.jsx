@@ -361,29 +361,29 @@ const CreateServiceModal = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" style={{ fontFamily: 'Montserrat' }}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--sf-border-light)]">
           <div className="flex items-center gap-4">
             {currentStep > 1 && (
               <button
                 onClick={handleBack}
-                className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                className="p-2 hover:bg-[var(--sf-bg-page)] rounded-lg transition-colors"
                 type="button"
               >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
+                <ChevronLeft className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
             )}
             <div>
-              <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+              <h2 className="text-xl font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                 {getStepTitle()}
               </h2>
-              <p className="text-sm text-gray-500 mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <p className="text-sm text-[var(--sf-text-muted)] mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 {getStepDescription()}
               </p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+            className="p-2 hover:bg-[var(--sf-bg-page)] rounded-lg transition-colors text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
             type="button"
           >
             <X className="w-5 h-5" />
@@ -391,22 +391,22 @@ const CreateServiceModal = ({
         </div>
 
         {/* Progress Indicator */}
-        <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+        <div className="px-6 py-4 bg-[var(--sf-bg-page)]/50 border-b border-[var(--sf-border-light)]">
           <div className="flex items-center gap-2">
             {[1, 2, 3, 4, 5].map((step) => (
               <React.Fragment key={step}>
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-all ${
                   step < currentStep 
-                    ? 'bg-blue-600 text-white' 
+                    ? 'bg-[var(--sf-blue-500)] text-white' 
                     : step === currentStep
-                    ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
-                    : 'bg-gray-200 text-gray-500'
+                    ? 'bg-[var(--sf-blue-500)] text-white ring-2 ring-blue-600 ring-offset-2'
+                    : 'bg-gray-200 text-[var(--sf-text-muted)]'
                 }`}>
                   {step < currentStep ? <CheckCircle2 className="w-4 h-4" /> : step}
                 </div>
                 {step < 5 && (
                   <div className={`h-0.5 flex-1 transition-all ${
-                    step < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                    step < currentStep ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
                   }`} />
                 )}
               </React.Fragment>
@@ -428,14 +428,14 @@ const CreateServiceModal = ({
           {currentStep === 1 && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                   Service Category <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.categoryId}
                   onChange={(e) => handleInputChange('categoryId', e.target.value)}
-                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                    validationErrors.categoryId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                  className={`w-full px-4 py-3 bg-[var(--sf-bg-page)] border rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] transition-colors ${
+                    validationErrors.categoryId ? 'border-red-300 bg-red-50' : 'border-[var(--sf-border-light)]'
                   }`}
                   style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                   required
@@ -456,7 +456,7 @@ const CreateServiceModal = ({
               {categoriesLoading && (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="text-sm text-gray-600 mt-2">Loading categories...</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mt-2">Loading categories...</p>
                 </div>
               )}
             </div>
@@ -466,7 +466,7 @@ const CreateServiceModal = ({
           {currentStep === 2 && (
             <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                   Service Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -474,8 +474,8 @@ const CreateServiceModal = ({
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder="e.g., Home Cleaning, Plumbing Repair"
-                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                    validationErrors.name ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                  className={`w-full px-4 py-3 bg-[var(--sf-bg-page)] border rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] transition-colors ${
+                    validationErrors.name ? 'border-red-300 bg-red-50' : 'border-[var(--sf-border-light)]'
                   }`}
                   style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                   required
@@ -486,7 +486,7 @@ const CreateServiceModal = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                   Description
                 </label>
                 <textarea
@@ -494,14 +494,14 @@ const CreateServiceModal = ({
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   placeholder="Describe what this service includes..."
                   rows={3}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                  className="w-full px-4 py-3 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] transition-colors resize-none"
                   style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                     Price ($) <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -511,8 +511,8 @@ const CreateServiceModal = ({
                     value={formData.price}
                     onChange={(e) => handleInputChange('price', e.target.value)}
                     placeholder="0.00"
-                    className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                      validationErrors.price ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                    className={`w-full px-4 py-3 bg-[var(--sf-bg-page)] border rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] transition-colors ${
+                      validationErrors.price ? 'border-red-300 bg-red-50' : 'border-[var(--sf-border-light)]'
                     }`}
                     style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                     required
@@ -523,7 +523,7 @@ const CreateServiceModal = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                     Duration (minutes) <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -532,8 +532,8 @@ const CreateServiceModal = ({
                     value={formData.duration}
                     onChange={(e) => handleInputChange('duration', e.target.value)}
                     placeholder="60"
-                    className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                      validationErrors.duration ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                    className={`w-full px-4 py-3 bg-[var(--sf-bg-page)] border rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] transition-colors ${
+                      validationErrors.duration ? 'border-red-300 bg-red-50' : 'border-[var(--sf-border-light)]'
                     }`}
                     style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                     required
@@ -551,13 +551,13 @@ const CreateServiceModal = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Service Modifiers</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">Configure options and modifiers for your service (optional)</p>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Service Modifiers</h3>
+                  <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">Configure options and modifiers for your service (optional)</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsCreateModifierGroupModalOpen(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                  className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors flex items-center gap-2 text-sm font-medium"
                   style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 >
                   <Plus className="w-4 h-4" />
@@ -566,7 +566,7 @@ const CreateServiceModal = ({
               </div>
 
               {formData.modifiers.length > 0 ? (
-                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <div className="bg-[var(--sf-bg-page)] rounded-lg p-6 border border-[var(--sf-border-light)]">
                   <ServiceModifiersForm 
                     modifiers={formData.modifiers}
                     selectedModifiers={selectedModifiers}
@@ -576,16 +576,16 @@ const CreateServiceModal = ({
                   />
                 </div>
               ) : (
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                  <Sparkles className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <h3 className="text-base font-medium text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>No Modifiers Added</h3>
-                  <p className="text-sm text-gray-500 mb-4">
+                <div className="text-center py-12 border-2 border-dashed border-[var(--sf-border-light)] rounded-lg bg-[var(--sf-bg-page)]/50">
+                  <Sparkles className="w-12 h-12 text-[var(--sf-text-muted)] mx-auto mb-3" />
+                  <h3 className="text-base font-medium text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>No Modifiers Added</h3>
+                  <p className="text-sm text-[var(--sf-text-muted)] mb-4">
                     Add modifier groups to give customers options
                   </p>
                   <button
                     type="button"
                     onClick={() => setIsCreateModifierGroupModalOpen(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors text-sm font-medium"
                     style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     Add Your First Modifier
@@ -600,14 +600,14 @@ const CreateServiceModal = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Intake Questions</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">Set up questions to collect additional information (optional)</p>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Intake Questions</h3>
+                  <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">Set up questions to collect additional information (optional)</p>
                 </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => handleOpenIntakeModal('short_text')}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    className="px-3 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors text-sm font-medium"
                     style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     Short Text
@@ -626,12 +626,12 @@ const CreateServiceModal = ({
               {formData.intakeQuestions.length > 0 ? (
                 <div className="space-y-3">
                   {formData.intakeQuestions.map((question) => (
-                    <div key={question.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div key={question.id} className="bg-[var(--sf-bg-page)] rounded-lg p-4 border border-[var(--sf-border-light)]">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm">{question.questionType === 'short_text' && '📝'}{question.questionType === 'multiple_choice' && '☑️'}{question.questionType === 'dropdown' && '📋'}</span>
-                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                            <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                               {question.question}
                             </span>
                             {question.required && (
@@ -639,14 +639,14 @@ const CreateServiceModal = ({
                             )}
                           </div>
                           {question.description && (
-                            <p className="text-sm text-gray-600 ml-6">{question.description}</p>
+                            <p className="text-sm text-[var(--sf-text-secondary)] ml-6">{question.description}</p>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleEditIntakeQuestion(question)}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             Edit
@@ -665,16 +665,16 @@ const CreateServiceModal = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                  <Tag className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <h3 className="text-base font-medium text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>No Questions Added</h3>
-                  <p className="text-sm text-gray-500 mb-4">
+                <div className="text-center py-12 border-2 border-dashed border-[var(--sf-border-light)] rounded-lg bg-[var(--sf-bg-page)]/50">
+                  <Tag className="w-12 h-12 text-[var(--sf-text-muted)] mx-auto mb-3" />
+                  <h3 className="text-base font-medium text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>No Questions Added</h3>
+                  <p className="text-sm text-[var(--sf-text-muted)] mb-4">
                     Add questions to collect additional information from customers
                   </p>
                   <button
                     type="button"
                     onClick={() => handleOpenIntakeModal('short_text')}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors text-sm font-medium"
                     style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     Add Question
@@ -689,53 +689,53 @@ const CreateServiceModal = ({
             <div className="space-y-6">
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-blue-600 rounded-lg">
+                  <div className="p-2 bg-[var(--sf-blue-500)] rounded-lg">
                     <Sparkles className="w-5 h-5 text-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Service Summary</h3>
+                  <h3 className="text-lg font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Service Summary</h3>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex justify-between py-2 border-b border-blue-100">
-                    <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Name:</span>
-                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.name}</span>
+                    <span className="font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Name:</span>
+                    <span className="text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.name}</span>
                   </div>
                   
                   <div className="flex justify-between py-2 border-b border-blue-100">
-                    <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Category:</span>
-                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                    <span className="font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Category:</span>
+                    <span className="text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                       {selectedCategory?.name || formData.categoryId === 'uncategorized' ? 'Uncategorized' : 'Not selected'}
                     </span>
                   </div>
                   
                   <div className="flex justify-between py-2 border-b border-blue-100">
-                    <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Price:</span>
-                    <span className="text-gray-900 font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>${parseFloat(formData.price || 0).toFixed(2)}</span>
+                    <span className="font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Price:</span>
+                    <span className="text-[var(--sf-text-primary)] font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>${parseFloat(formData.price || 0).toFixed(2)}</span>
                   </div>
                   
                   <div className="flex justify-between py-2 border-b border-blue-100">
-                    <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Duration:</span>
-                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.duration} minutes</span>
+                    <span className="font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Duration:</span>
+                    <span className="text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.duration} minutes</span>
                   </div>
                   
                   {formData.description && (
                     <div className="pt-2">
-                      <span className="font-medium text-gray-700 block mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Description:</span>
-                      <p className="text-sm text-gray-600">{formData.description}</p>
+                      <span className="font-medium text-[var(--sf-text-primary)] block mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Description:</span>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">{formData.description}</p>
                     </div>
                   )}
                   
                   {formData.modifiers.length > 0 && (
                     <div className="flex justify-between py-2">
-                      <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Modifiers:</span>
-                      <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.modifiers.length} configured</span>
+                      <span className="font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Modifiers:</span>
+                      <span className="text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.modifiers.length} configured</span>
                     </div>
                   )}
                   
                   {formData.intakeQuestions.length > 0 && (
                     <div className="flex justify-between py-2">
-                      <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Intake Questions:</span>
-                      <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.intakeQuestions.length} configured</span>
+                      <span className="font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Intake Questions:</span>
+                      <span className="text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.intakeQuestions.length} configured</span>
                     </div>
                   )}
                 </div>
@@ -745,15 +745,15 @@ const CreateServiceModal = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0">
-          <div className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+        <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--sf-border-light)] bg-[var(--sf-bg-page)]/50 flex-shrink-0">
+          <div className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
             Step {currentStep} of 5
           </div>
 
           <div className="flex gap-3">
             <button
               onClick={handleClose}
-              className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
+              className="px-5 py-2.5 text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors font-medium text-sm"
               style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
               type="button"
             >
@@ -764,7 +764,7 @@ const CreateServiceModal = ({
               <button
                 onClick={handleNext}
                 disabled={!formData.categoryId || (currentStep === 2 && !formData.name)}
-                className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium text-sm"
+                className="px-5 py-2.5 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium text-sm"
                 style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 type="button"
               >

@@ -29,14 +29,14 @@ const AppLayout = () => {
   }, [user?.id])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[var(--sf-bg-page)] flex">
       {/* Sidebar - Hidden on mobile, shown on desktop */}
-      <div className="hidden lg:block">
+      <div className="hidden md:block">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
-      
+
       {/* Main Content Area */}
-      <div className="flex-1 lg:ml-52 xl:ml-52">
+      <div className="flex-1 md:ml-20 lg:ml-[260px]">
         {/* Page Content */}
         <Outlet />
       </div>

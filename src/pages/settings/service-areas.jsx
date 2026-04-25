@@ -126,13 +126,13 @@ const ServiceAreas = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading service areas settings...</p>
+              <p className="mt-4 text-[var(--sf-text-secondary)]">Loading service areas settings...</p>
             </div>
           </div>
         </div>
@@ -141,22 +141,22 @@ const ServiceAreas = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[var(--sf-bg-page)] flex">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate("/settings")}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">Settings</span>
             </button>
-            <h1 className="text-2xl font-semibold text-gray-900">Service Areas</h1>
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Service Areas</h1>
           </div>
         </div>
 
@@ -180,19 +180,19 @@ const ServiceAreas = () => {
         <div className="flex-1 overflow-auto">
           <div className="max-w-5xl mx-auto p-6">
             {/* Enforce Service Area Toggle */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-8">
+            <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 mb-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-medium text-gray-900">Enforce Service Area</h2>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <h2 className="text-base font-medium text-[var(--sf-text-primary)]">Enforce Service Area</h2>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                     Prevent customers from booking jobs online at locations that are outside of your territories' service areas.
                   </p>
                 </div>
                 <button
                   onClick={handleToggleEnforceServiceArea}
                   disabled={saving}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 ${
-                    serviceAreasData.enforceServiceArea ? 'bg-blue-600' : 'bg-gray-200'
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 disabled:opacity-50 ${
+                    serviceAreasData.enforceServiceArea ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
                   }`}
                   role="switch"
                   aria-checked={serviceAreasData.enforceServiceArea}
@@ -209,18 +209,18 @@ const ServiceAreas = () => {
             {/* Service Areas Section */}
             <div>
               <div className="mb-4">
-                <h2 className="text-lg font-medium text-gray-900">Service Areas</h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <h2 className="text-lg font-medium text-[var(--sf-text-primary)]">Service Areas</h2>
+                <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                   These are the service areas for each of your territories.
                 </p>
               </div>
 
               {serviceAreasData.territories.length === 0 ? (
-                <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                  <p className="text-gray-500 mb-4">No territories configured yet</p>
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-8 text-center">
+                  <p className="text-[var(--sf-text-muted)] mb-4">No territories configured yet</p>
                   <button 
                     onClick={() => navigate("/territories")}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
+                    className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)]"
                   >
                     Add Territory
                   </button>
@@ -228,7 +228,7 @@ const ServiceAreas = () => {
               ) : (
                 <div className="space-y-4">
                   {serviceAreasData.territories.map((territory) => (
-                    <div key={territory.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div key={territory.id} className="bg-white rounded-lg border border-[var(--sf-border-light)] overflow-hidden">
                       {/* Territory Map with Boundaries */}
                       <TerritoryMap 
                         territory={territory}
@@ -240,30 +240,30 @@ const ServiceAreas = () => {
                       {/* Territory Details */}
                       <div className="p-4">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-medium text-gray-900">{territory.name}</h3>
+                          <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">{territory.name}</h3>
                           <button 
                             onClick={() => handleEditTerritory(territory)}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                           >
                             Edit
                           </button>
                         </div>
                         {territory.description && (
-                          <p className="text-sm text-gray-600 mb-4">{territory.description}</p>
+                          <p className="text-sm text-[var(--sf-text-secondary)] mb-4">{territory.description}</p>
                         )}
                         {territory.location && (
-                          <p className="text-sm text-gray-600 mb-4">{territory.location}</p>
+                          <p className="text-sm text-[var(--sf-text-secondary)] mb-4">{territory.location}</p>
                         )}
                         <div className="flex items-center justify-between text-sm">
                           <div className="flex items-center space-x-2">
-                            <MapPin className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-600">SERVICE AREA</span>
+                            <MapPin className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                            <span className="text-[var(--sf-text-secondary)]">SERVICE AREA</span>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-gray-900">{territory.radius_miles} mile radius</span>
+                            <span className="text-[var(--sf-text-primary)]">{territory.radius_miles} mile radius</span>
                             <button 
                               onClick={() => handleEditTerritory(territory)}
-                              className="text-blue-600 hover:text-blue-700 font-medium"
+                              className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                             >
                               Edit
                             </button>
@@ -283,14 +283,14 @@ const ServiceAreas = () => {
       {showEditModal && editingTerritory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Edit Territory</h3>
+            <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Territory</h3>
               <button
                 onClick={() => {
                   setShowEditModal(false)
                   setEditingTerritory(null)
                 }}
-                className="text-gray-400 hover:text-gray-500"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -299,7 +299,7 @@ const ServiceAreas = () => {
             <div className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Territory Name
                   </label>
                   <input
@@ -309,12 +309,12 @@ const ServiceAreas = () => {
                       ...editingTerritory,
                       name: e.target.value
                     })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Location
                   </label>
                   <input
@@ -324,13 +324,13 @@ const ServiceAreas = () => {
                       ...editingTerritory,
                       location: e.target.value
                     })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Enter address or location"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Service Radius (miles)
                   </label>
                   <input
@@ -342,12 +342,12 @@ const ServiceAreas = () => {
                     })}
                     min="1"
                     max="100"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Description (Optional)
                   </label>
                   <textarea
@@ -357,27 +357,27 @@ const ServiceAreas = () => {
                       description: e.target.value
                     })}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Describe this territory..."
                   />
                 </div>
               </div>
             </div>
             
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-[var(--sf-border-light)]">
               <button
                 onClick={() => {
                   setShowEditModal(false)
                   setEditingTerritory(null)
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)]"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleSaveTerritory(editingTerritory)}
                 disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] border border-transparent rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>

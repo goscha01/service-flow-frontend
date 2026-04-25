@@ -67,23 +67,23 @@ const SendInvoiceModal = ({ isOpen, onClose, invoice, onSuccess }) => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg w-full max-w-md shadow-xl" style={{ fontFamily: 'Montserrat' }}>
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
-                <Send className="w-5 h-5 text-blue-600" />
+                <Send className="w-5 h-5 text-[var(--sf-blue-500)]" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                   Send Invoice
                 </h2>
-                <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                <p className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                   Invoice #{invoice.id}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
               disabled={sending}
             >
               <X className="w-5 h-5" />
@@ -93,14 +93,14 @@ const SendInvoiceModal = ({ isOpen, onClose, invoice, onSuccess }) => {
           {/* Content */}
           <div className="p-6 space-y-4">
             {/* Customer Info */}
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-[var(--sf-bg-page)] rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
+                <Mail className="w-5 h-5 text-[var(--sf-text-muted)] mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                  <p className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                     {customerName}
                   </p>
-                  <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                     {customerEmail}
                   </p>
                 </div>
@@ -108,29 +108,29 @@ const SendInvoiceModal = ({ isOpen, onClose, invoice, onSuccess }) => {
             </div>
 
             {/* Invoice Amount */}
-            <div className="border border-gray-200 rounded-lg p-4">
+            <div className="border border-[var(--sf-border-light)] rounded-lg p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                <span className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                   Amount
                 </span>
-                <span className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                <span className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                   ${(invoice.total_amount || invoice.amount || 0).toFixed(2)}
                 </span>
               </div>
             </div>
 
             {/* Payment Link Option */}
-            <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+            <div className="flex items-center gap-3 p-3 border border-[var(--sf-border-light)] rounded-lg">
               <input
                 type="checkbox"
                 id="includePaymentLink"
                 checked={includePaymentLink}
                 onChange={(e) => setIncludePaymentLink(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
               />
               <label
                 htmlFor="includePaymentLink"
-                className="text-sm text-gray-700 cursor-pointer"
+                className="text-sm text-[var(--sf-text-primary)] cursor-pointer"
                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               >
                 Include payment link in email
@@ -149,11 +149,11 @@ const SendInvoiceModal = ({ isOpen, onClose, invoice, onSuccess }) => {
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+          <div className="flex justify-end space-x-3 p-6 border-t border-[var(--sf-border-light)]">
             <button
               onClick={onClose}
               disabled={sending}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors disabled:opacity-50"
               style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
             >
               Cancel
@@ -161,7 +161,7 @@ const SendInvoiceModal = ({ isOpen, onClose, invoice, onSuccess }) => {
             <button
               onClick={handleSend}
               disabled={sending || (!invoice.customer_email && !invoice.customer?.email)}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors disabled:opacity-50 flex items-center gap-2"
               style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
             >
               {sending ? (
