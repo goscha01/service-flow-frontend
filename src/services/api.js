@@ -2790,6 +2790,19 @@ export const jobExpensesAPI = {
   delete: async (id) => { const r = await api.delete(`/job-expenses/${id}`); return r.data; },
 };
 
+// Set Company tag for an OpenPhone contact directly in SF (without going
+// through OpenPhone). After save, source-fill propagates to customer/lead.
+export const opContactsAPI = {
+  setCompany: async (phone, company) => {
+    const r = await api.patch('/op-contacts/set-company', { phone, company });
+    return r.data;
+  },
+  bulkSetCompany: async (items) => {
+    const r = await api.post('/op-contacts/bulk-set-company', { items });
+    return r.data;
+  },
+};
+
 export const zenbookerAPI = {
   sync: async (opts = {}) => {
     const r = await api.post('/zenbooker/sync', opts);

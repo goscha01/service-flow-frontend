@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, zenbookerAPI, sourceIssuesAPI, participantsAPI, identitiesAPI, integrationsAPI } from "../../services/api"
+import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, zenbookerAPI, sourceIssuesAPI, participantsAPI, identitiesAPI, integrationsAPI, opContactsAPI } from "../../services/api"
 import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Database, Link2 } from "lucide-react"
 
 const EVENT_DEFS = [
@@ -93,6 +93,9 @@ const LeadsSettings = () => {
   const [aiBusy, setAiBusy] = useState({}) // { <identityId>: true } during classify
   const [aiBatchBusy, setAiBatchBusy] = useState(false)
   const [aiBatchProgress, setAiBatchProgress] = useState(null) // { done, total, cost }
+  // Per-row Company picker for the OP-missing-Company list. phone → selected source name.
+  const [pendingCompany, setPendingCompany] = useState({})
+  const [companyBusy, setCompanyBusy] = useState({}) // { <phone>: true } while saving
 
   useEffect(() => {
     loadRules(); loadSources(); loadMappings(); loadIssues(); loadIdentityReport()
@@ -222,6 +225,36 @@ const LeadsSettings = () => {
     } catch (e) { alert('Classify failed: ' + (e.response?.data?.error || e.message)) }
     finally { setAiBusy(b => ({ ...b, [identityId]: false })) }
   }
+  // Set Company tag for an OP contact directly in SF. After save, the row
+  // disappears from the missing-Company list and source attribution flows
+  // through to the linked customer/lead via source-fill.
+  const handleSetCompany = async (phone) => {
+    const company = pendingCompany[phone]
+    if (!company) return
+    setCompanyBusy(b => ({ ...b, [phone]: true }))
+    try {
+      await opContactsAPI.setCompany(phone, company)
+      // Remove this phone from the local sample so the row goes away.
+      setIssues(prev => {
+        if (!prev?.namedContactsMissingCompany?.sample) return prev
+        const newSample = prev.namedContactsMissingCompany.sample.filter(c => c.participant_phone !== phone)
+        return {
+          ...prev,
+          namedContactsMissingCompany: {
+            ...prev.namedContactsMissingCompany,
+            sample: newSample,
+            count: Math.max(0, (prev.namedContactsMissingCompany.count || 0) - 1),
+          },
+        }
+      })
+      setPendingCompany(p => { const n = { ...p }; delete n[phone]; return n })
+    } catch (e) {
+      alert('Set Company failed: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setCompanyBusy(b => { const n = { ...b }; delete n[phone]; return n })
+    }
+  }
+
   // Same batch flow, but classifies the identities behind OP-contacts-missing-Company.
   const handleAiClassifyOpContacts = async () => {
     const sample = issues?.namedContactsMissingCompany?.sample || []
@@ -902,7 +935,10 @@ const LeadsSettings = () => {
                                       : cat === 'unclear' ? 'bg-yellow-100 text-yellow-800'
                                       : ''
                                     const iid = c.participant_identity_id
-                                    const busy = iid && !!aiBusy[iid]
+                                    const aiBusyRow = iid && !!aiBusy[iid]
+                                    const phoneKey = c.participant_phone
+                                    const selected = pendingCompany[phoneKey] || ''
+                                    const saving = !!companyBusy[phoneKey]
                                     return (
                                       <div key={c.id} className="text-[11px] px-2 py-1 bg-[var(--sf-bg-page)] rounded">
                                         <div className="flex gap-2 items-center font-mono">
@@ -913,9 +949,9 @@ const LeadsSettings = () => {
                                               {cat} {c.ai_confidence ? `· ${c.ai_confidence}%` : ''}
                                             </span>
                                           ) : iid ? (
-                                            <button onClick={() => handleAiClassify(iid)} disabled={busy || aiBatchBusy}
+                                            <button onClick={() => handleAiClassify(iid)} disabled={aiBusyRow || aiBatchBusy}
                                               className="text-[10px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] disabled:opacity-40 flex items-center gap-0.5">
-                                              {busy ? <Loader2 size={10} className="animate-spin" /> : '🤖'}
+                                              {aiBusyRow ? <Loader2 size={10} className="animate-spin" /> : '🤖'}
                                               Classify
                                             </button>
                                           ) : null}
@@ -923,6 +959,24 @@ const LeadsSettings = () => {
                                         {c.ai_summary && (
                                           <div className="text-[10px] text-[var(--sf-text-muted)] mt-0.5 italic truncate">“{c.ai_summary}”</div>
                                         )}
+                                        {/* Per-row Company picker */}
+                                        <div className="mt-1 flex items-center gap-1.5">
+                                          <select value={selected}
+                                            onChange={e => setPendingCompany(p => ({ ...p, [phoneKey]: e.target.value }))}
+                                            disabled={saving || cat === 'ad' || cat === 'wrong_number'}
+                                            className="text-[10px] px-1 py-0.5 border border-[var(--sf-border-light)] rounded bg-white flex-1 max-w-[180px]">
+                                            <option value="">Set Company…</option>
+                                            {(sources || []).map(s => (
+                                              <option key={s.id} value={s.name}>{s.name}</option>
+                                            ))}
+                                          </select>
+                                          <button onClick={() => handleSetCompany(phoneKey)}
+                                            disabled={!selected || saving}
+                                            className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-40 flex items-center gap-1">
+                                            {saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                                            Save
+                                          </button>
+                                        </div>
                                       </div>
                                     )
                                   })}
