@@ -11,6 +11,7 @@ import {
   Calendar,
   Globe,
   Loader2,
+  Trash2,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate } from "react-router-dom"
@@ -136,9 +137,16 @@ const ServiceFlowTerritories = () => {
 
     try {
       setLoading(true)
-      await territoriesAPI.delete(territory.id)
-      setSuccessMessage(`Territory "${territory.name}" deleted successfully`)
-      setTimeout(() => setSuccessMessage(""), 3000)
+      const result = await territoriesAPI.delete(territory.id)
+      const impact = result?.impact || {}
+      const parts = []
+      if (impact.jobs_unlinked) parts.push(`${impact.jobs_unlinked} job${impact.jobs_unlinked === 1 ? '' : 's'} unlinked`)
+      if (impact.conversations_unlinked) parts.push(`${impact.conversations_unlinked} conversation${impact.conversations_unlinked === 1 ? '' : 's'} unlinked`)
+      if (impact.endpoint_mappings_deleted) parts.push(`${impact.endpoint_mappings_deleted} endpoint mapping${impact.endpoint_mappings_deleted === 1 ? '' : 's'} removed`)
+      if (impact.pricing_rows_deleted) parts.push(`${impact.pricing_rows_deleted} pricing row${impact.pricing_rows_deleted === 1 ? '' : 's'} removed`)
+      const suffix = parts.length ? ` (${parts.join(', ')})` : ''
+      setSuccessMessage(`Territory "${territory.name}" deleted successfully${suffix}`)
+      setTimeout(() => setSuccessMessage(""), 5000)
       fetchTerritories()
     } catch (error) {
       console.error('Error deleting territory:', error)
@@ -257,6 +265,13 @@ const ServiceFlowTerritories = () => {
                               title="Edit territory"
                             >
                               <Edit className="w-4 h-4 text-[var(--sf-text-primary)]" />
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteTerritory(e, territory)}
+                              className="p-2 bg-white rounded-lg shadow-md hover:bg-red-50 transition-colors"
+                              title="Delete territory"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
                             </button>
                           </div>
                         </div>
