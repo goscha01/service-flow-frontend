@@ -752,9 +752,19 @@ const ServiceFlowSchedule = () => {
       .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start))
   }
 
-  // Visual timeline of one day. Width is proportional to actual minutes inside
-  // the intersection window so the same bar across cleaners stays comparable.
-  const TimelineBar = ({ availability, height = 24, showLabels = true, showAxis = true }) => {
+  // Visual timeline of one day. Width (or height in vertical mode) of each
+  // segment is proportional to its actual minutes inside the intersection
+  // window so the same bar across cleaners stays comparable.
+  //   orientation='horizontal' → wide bar, segments left→right (Day view)
+  //   orientation='vertical'   → tall bar, segments top→bottom (Week/Month cells)
+  const TimelineBar = ({
+    availability,
+    orientation = 'horizontal',
+    height = 24, // horizontal: bar height; vertical: total bar height
+    width,       // vertical only: bar width (default 14)
+    showLabels = true,
+    showAxis = true,
+  }) => {
     const segs = buildTimelineSegments(availability)
     if (segs.length === 0) return null
     const startMin = timeToMinutes(segs[0].start)
@@ -771,12 +781,56 @@ const ServiceFlowSchedule = () => {
     }
 
     const styleByType = {
-      busy:       { bg: 'bg-orange-300',  text: 'text-orange-900', label: 'Busy'   },
-      driving:    { bg: 'bg-amber-200',   text: 'text-amber-900',  label: 'Travel' },
-      free:       { bg: 'bg-green-200',   text: 'text-green-900',  label: 'Free'   },
-      free_short: { bg: 'bg-yellow-200',  text: 'text-yellow-900', label: 'Short'  },
+      busy:       { bg: 'bg-orange-300',  text: 'text-orange-900' },
+      driving:    { bg: 'bg-amber-200',   text: 'text-amber-900'  },
+      free:       { bg: 'bg-green-200',   text: 'text-green-900'  },
+      free_short: { bg: 'bg-yellow-200',  text: 'text-yellow-900' },
     }
 
+    const isVertical = orientation === 'vertical'
+
+    if (isVertical) {
+      const w = width ?? 14
+      return (
+        <div className="flex items-stretch gap-1">
+          <div
+            className="relative flex flex-col border border-gray-200 rounded-sm overflow-hidden flex-shrink-0"
+            style={{ width: w, height }}
+          >
+            {segs.map((seg, i) => {
+              const s = timeToMinutes(seg.start)
+              const e = timeToMinutes(seg.end)
+              const heightPct = ((e - s) / total) * 100
+              const sty = styleByType[seg.type]
+              const dur = e - s
+              const tip = seg.type === 'busy'
+                ? `Busy ${fmtT(seg.start)}–${fmtT(seg.end)} (${dur} min)`
+                : seg.type === 'driving'
+                  ? `Travel ${fmtT(seg.start)}–${fmtT(seg.end)} (${dur} min)`
+                  : seg.type === 'free_short'
+                    ? `Free ${fmtT(seg.start)}–${fmtT(seg.end)} (${dur} min) — too short for ${schedulingSettings.minimumJobDuration}-min job`
+                    : `Free ${fmtT(seg.start)}–${fmtT(seg.end)} (${dur} min)`
+              return (
+                <div
+                  key={i}
+                  className={`${sty.bg}`}
+                  style={{ height: `${heightPct}%` }}
+                  title={tip}
+                />
+              )
+            })}
+          </div>
+          {showAxis && (
+            <div className="flex flex-col justify-between text-[8px] text-gray-500 leading-none">
+              <span>{fmtT(segs[0].start)}</span>
+              <span>{fmtT(segs[segs.length - 1].end)}</span>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // horizontal (default)
     return (
       <div className="w-full">
         <div
@@ -5941,30 +5995,37 @@ const ServiceFlowSchedule = () => {
                             return (
                               <div
                                 key={member.id}
-                                className="schedule-card bg-white p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all"
+                                className="schedule-card bg-white p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all flex gap-1.5"
                                 style={{ borderRadius: '4px', border: `0.5px solid ${memberColor}` }}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setSelectedFilter(member.id.toString())
                                 }}
                               >
-                                <div className="flex items-center justify-between mb-0.5">
-                                  <div className="flex items-center gap-0.5 flex-1 min-w-0">
-                                    <Clock className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                                {/* Mini vertical timeline on the left edge of the cleaner pill */}
+                                <TimelineBar
+                                  availability={availability}
+                                  orientation="vertical"
+                                  height={32}
+                                  width={6}
+                                  showAxis={false}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-0.5">
                                     <span className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                       {availability.hours || ''}
                                     </span>
+                                    <div
+                                      className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0"
+                                      style={{ backgroundColor: memberColor }}
+                                      title={memberName}
+                                    >
+                                      {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
+                                    </div>
                                   </div>
-                                  <div
-                                    className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0"
-                                    style={{ backgroundColor: memberColor }}
-                                    title={memberName}
-                                  >
-                                    {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
+                                  <div className="truncate font-medium text-[10px] text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                    {memberName}
                                   </div>
-                                </div>
-                                <div className="truncate font-medium text-[10px] text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                  {memberName}
                                 </div>
                               </div>
                             )
@@ -6289,43 +6350,30 @@ const ServiceFlowSchedule = () => {
                             onClick={() => handleDateChange(date)}
                           >
                             {availability.isOpen ? (
-                              <div className="space-y-2">
-                                <div className="text-xs font-medium text-[#16B364]">Open</div>
-                                {availability.hours && (
-                                  <div className="text-xs text-[#595A5B]">{availability.hours}</div>
-                                )}
-                                {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
-                                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
-                                    {availability.totalAvailable > 0 && (
-                                      <span className="text-xs font-medium text-[#16B364]">{formatDuration(availability.totalAvailable)} free</span>
-                                    )}
-                                    {availability.totalBusy > 0 && (
-                                      <span className="text-xs font-medium text-[#FF9502]">{formatDuration(availability.totalBusy)} busy</span>
-                                    )}
-                                    {availability.totalDriving > 0 && (
-                                      <span className="text-xs font-medium text-[#FFB856]">{formatDuration(availability.totalDriving)} travel</span>
-                                    )}
-                                  </div>
-                                )}
-                                {/* Free spot cards */}
-                                {availability.freeSpots && availability.freeSpots.length > 0 && (
-                                  <div className="mt-2 space-y-1">
-                                    {availability.freeSpots.slice(0, 4).map((spot, si) => {
-                                      const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}:${m || '00'}${hr >= 12 ? 'p' : 'a'}` }
-                                      const tooShort = isSlotShort(spot)
-                                      const color = tooShort ? '#D97706' : '#16B364'
-                                      return (
-                                        <div key={si} className="schedule-card px-2 py-1 bg-white text-[10px] leading-tight" style={{ borderRadius: '4px', border: `0.5px solid ${color}`, color }} title={tooShort ? `Too short for ${schedulingSettings.minimumJobDuration}-min job` : undefined}>
-                                          <div className="font-medium">{fmtT(spot.start)} - {fmtT(spot.end)}</div>
-                                          <div>{spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} free</div>
-                                        </div>
-                                      )
-                                    })}
-                                    {availability.freeSpots.length > 4 && (
-                                      <div className="text-[10px] text-[#16B364] text-center">+{availability.freeSpots.length - 4} more slots</div>
-                                    )}
-                                  </div>
-                                )}
+                              <div className="flex gap-2">
+                                {/* Vertical timeline of the day */}
+                                <TimelineBar
+                                  availability={availability}
+                                  orientation="vertical"
+                                  height={170}
+                                  width={16}
+                                />
+                                <div className="flex-1 min-w-0 space-y-1">
+                                  <div className="text-xs font-medium text-[#16B364]">Open</div>
+                                  {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                                    <div className="flex flex-col gap-0.5">
+                                      {availability.totalAvailable > 0 && (
+                                        <span className="text-[10px] font-medium text-[#16B364]">{formatDuration(availability.totalAvailable)} free</span>
+                                      )}
+                                      {availability.totalBusy > 0 && (
+                                        <span className="text-[10px] font-medium text-[#FF9502]">{formatDuration(availability.totalBusy)} busy</span>
+                                      )}
+                                      {availability.totalDriving > 0 && (
+                                        <span className="text-[10px] font-medium text-[#FFB856]">{formatDuration(availability.totalDriving)} travel</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ) : (
                               <div className="text-center py-4">
@@ -6390,44 +6438,32 @@ const ServiceFlowSchedule = () => {
                             )}
                           </div>
                           {isCurrentMonth && availability.isOpen ? (
-                            <>
-                              <div className="text-xs font-medium text-green-600 mb-1">Open</div>
-                              {availability.hours && (
-                              <div className="text-xs text-gray-600 mb-1">{availability.hours}</div>
-                              )}
-                              {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
-                                <div className="flex flex-wrap gap-x-1 gap-y-0.5 mt-0.5">
-                                  {availability.totalAvailable > 0 && (
-                                    <span className="text-[10px] font-medium text-green-700">{formatDuration(availability.totalAvailable)} free</span>
-                                  )}
-                                  {availability.totalBusy > 0 && (
-                                    <span className="text-[10px] font-medium text-orange-600">{formatDuration(availability.totalBusy)} busy</span>
-                                  )}
-                                  {availability.totalDriving > 0 && (
-                                    <span className="text-[10px] font-medium text-amber-600">{formatDuration(availability.totalDriving)} travel</span>
-                                  )}
-                                </div>
-                              )}
-                              {/* Free spot cards */}
-                              {availability.freeSpots && availability.freeSpots.length > 0 && (
-                                <div className="mt-1 space-y-0.5">
-                                  {availability.freeSpots.slice(0, 3).map((spot, si) => {
-                                    const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
-                                    const tooShort = isSlotShort(spot)
-                                    const color = tooShort ? '#D97706' : '#16B364'
-                                    return (
-                                      <div key={si} className="schedule-card px-1 py-1 bg-white text-[10px] leading-tight" style={{ borderRadius: '4px', border: `0.5px solid ${color}`, color }} title={tooShort ? `Too short for ${schedulingSettings.minimumJobDuration}-min job` : undefined}>
-                                        <span className="font-medium">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
-                                        <span className="ml-1">({spot.memberCount} free)</span>
-                                      </div>
-                                    )
-                                  })}
-                                  {availability.freeSpots.length > 3 && (
-                                    <div className="text-[10px] text-green-600">+{availability.freeSpots.length - 3} more</div>
-                                  )}
-                                </div>
-                              )}
-                            </>
+                            <div className="flex gap-1.5">
+                              {/* Vertical timeline */}
+                              <TimelineBar
+                                availability={availability}
+                                orientation="vertical"
+                                height={86}
+                                width={10}
+                                showAxis={false}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[10px] font-medium text-green-600 mb-0.5">Open</div>
+                                {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                                  <div className="flex flex-col gap-0">
+                                    {availability.totalAvailable > 0 && (
+                                      <span className="text-[9px] font-medium text-green-700 leading-tight">{formatDuration(availability.totalAvailable)} free</span>
+                                    )}
+                                    {availability.totalBusy > 0 && (
+                                      <span className="text-[9px] font-medium text-orange-600 leading-tight">{formatDuration(availability.totalBusy)} busy</span>
+                                    )}
+                                    {availability.totalDriving > 0 && (
+                                      <span className="text-[9px] font-medium text-amber-600 leading-tight">{formatDuration(availability.totalDriving)} travel</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           ) : isCurrentMonth ? (
                             <div className="text-xs font-medium text-gray-500">Closed</div>
                           ) : null}
@@ -6508,22 +6544,28 @@ const ServiceFlowSchedule = () => {
                         </div>
                         {(() => {
                           const weekDayAvailability = getDayAvailability(day)
-                          return weekDayAvailability.freeSpots && weekDayAvailability.freeSpots.length > 0 ? (
-                            weekDayAvailability.freeSpots.slice(0, 2).map((spot, si) => {
-                              const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
-                              const tooShort = isSlotShort(spot)
-                              const color = tooShort ? '#D97706' : '#16B364'
-                              return (
-                                <div key={`free-${si}`} className="schedule-card bg-white m-2 p-2 mb-1 text-xs" style={{ borderRadius: '4px', border: `0.5px solid ${color}` }} title={tooShort ? `Too short for ${schedulingSettings.minimumJobDuration}-min job` : undefined}>
-                                  <div className="flex items-center gap-1">
-                                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }}></div>
-                                    <span className="font-medium text-[9px]" style={{ color }}>{fmtT(spot.start)}-{fmtT(spot.end)}</span>
-                                  </div>
-                                  <div className="text-[9px] mt-0.5" style={{ color }}>{spot.memberCount} free</div>
-                                </div>
-                              )
-                            })
-                          ) : null
+                          if (!weekDayAvailability.isOpen) return null
+                          return (
+                            <div className="m-2 flex gap-1.5">
+                              <TimelineBar
+                                availability={weekDayAvailability}
+                                orientation="vertical"
+                                height={130}
+                                width={12}
+                              />
+                              <div className="flex-1 min-w-0 flex flex-col gap-0">
+                                {weekDayAvailability.totalAvailable > 0 && (
+                                  <span className="text-[9px] font-medium text-green-700 leading-tight">{formatDuration(weekDayAvailability.totalAvailable)} free</span>
+                                )}
+                                {weekDayAvailability.totalBusy > 0 && (
+                                  <span className="text-[9px] font-medium text-orange-600 leading-tight">{formatDuration(weekDayAvailability.totalBusy)} busy</span>
+                                )}
+                                {weekDayAvailability.totalDriving > 0 && (
+                                  <span className="text-[9px] font-medium text-amber-600 leading-tight">{formatDuration(weekDayAvailability.totalDriving)} travel</span>
+                                )}
+                              </div>
+                            </div>
+                          )
                         })()}
                         {dayJobs.map((job, jobIndex) => {
                           const statusDisplay = formatStatus(job.status, job)
