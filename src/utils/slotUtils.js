@@ -356,6 +356,36 @@ export function generateBookableSlots({
     }))
 }
 
+/**
+ * Slice continuous free time blocks into discrete arrival windows for display.
+ * Each window starts every `intervalMinutes` and is `windowMinutes` long. Windows
+ * that would extend past the end of a free block are dropped (the cleaner can't
+ * commit to an arrival promise that doesn't fit).
+ *
+ * Example: free 09:00-13:00, interval=60, window=120 →
+ *   09:00-11:00, 10:00-12:00, 11:00-13:00
+ *
+ * @param {Array<{ start: string, end: string }>} freeSlots - in "HH:MM"
+ * @param {number} intervalMinutes - step between window starts
+ * @param {number} windowMinutes - length of each arrival window
+ * @returns {Array<{ start: string, end: string }>}
+ */
+export function sliceIntoArrivalWindows(freeSlots, intervalMinutes, windowMinutes) {
+  if (!Array.isArray(freeSlots) || freeSlots.length === 0) return []
+  const step = Math.max(1, parseInt(intervalMinutes, 10) || 60)
+  const len = Math.max(1, parseInt(windowMinutes, 10) || 120)
+  const out = []
+  for (const slot of freeSlots) {
+    const s = timeToMinutes(slot.start)
+    const e = timeToMinutes(slot.end)
+    if (e - s < len) continue // can't fit a single window in this block
+    for (let t = s; t + len <= e; t += step) {
+      out.push({ start: minutesToTime(t), end: minutesToTime(t + len) })
+    }
+  }
+  return out
+}
+
 function getCombinations(arr, k) {
   if (k <= 0 || k > arr.length) return []
   if (k === 1) return arr.map(a => [a])
