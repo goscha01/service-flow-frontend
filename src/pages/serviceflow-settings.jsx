@@ -467,7 +467,7 @@ const ServiceFlowSettings = () => {
 
       {/* Modals */}
       <BusinessDetailsModal isOpen={businessDetailsOpen} onClose={() => setBusinessDetailsOpen(false)} />
-      <SchedulingBookingModal isOpen={schedulingBookingOpen} onClose={() => setSchedulingBookingOpen(false)} />
+      <SchedulingBookingModal isOpen={schedulingBookingOpen} onClose={() => setSchedulingBookingOpen(false)} userId={user?.id} />
       </div>
     </div>
   )
