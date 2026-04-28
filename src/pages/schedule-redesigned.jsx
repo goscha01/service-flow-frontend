@@ -791,7 +791,9 @@ const ServiceFlowSchedule = () => {
     const isSections = orientation === 'sections'
 
     // Sections mode: full-width vertical stack of colored cards with text inside.
-    // Each card is a labeled rectangle, height proportional to its duration.
+    // Each section gets EQUAL height (flex-1) so every label has room and there's
+    // no overlap. Duration is shown inline in the label, so the proportional info
+    // is preserved without skewing the layout.
     if (isSections) {
       return (
         <div
@@ -801,7 +803,6 @@ const ServiceFlowSchedule = () => {
           {segs.map((seg, i) => {
             const s = timeToMinutes(seg.start)
             const e = timeToMinutes(seg.end)
-            const heightPct = ((e - s) / total) * 100
             const sty = styleByType[seg.type]
             const dur = e - s
             const tip = `${sty.label} ${fmtT(seg.start)}–${fmtT(seg.end)} (${dur} min)${
@@ -811,7 +812,7 @@ const ServiceFlowSchedule = () => {
               <div
                 key={i}
                 className={`${sty.bg} ${sty.text} px-1.5 flex items-center overflow-hidden border-b border-white/40 last:border-b-0`}
-                style={{ height: `${heightPct}%` }}
+                style={{ flex: '1 1 0', minHeight: 0 }}
                 title={tip}
               >
                 <div className="text-[10px] font-medium leading-tight truncate w-full">
