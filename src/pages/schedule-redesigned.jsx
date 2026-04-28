@@ -2258,8 +2258,11 @@ const ServiceFlowSchedule = () => {
       }
     }
 
-    // If in availability tab and a territory is selected, aggregate availability for all team members in that territory
-    if (activeTab === 'availability' && territoryFilter && territoryFilter !== 'all') {
+    // If in availability tab and a territory is selected, aggregate availability for all team members in that territory.
+    // Skip this branch when an individual cleaner is also selected — the single-member branch below wins so we render
+    // that cleaner's actual schedule, not a territory-wide aggregate.
+    const isIndividualCleanerSelected = selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned' && selectedFilter !== 'all-team-members'
+    if (activeTab === 'availability' && territoryFilter && territoryFilter !== 'all' && !isIndividualCleanerSelected) {
       const territoryId = Number(territoryFilter)
       const territory = territories.find(t => t.id === territoryId)
       
