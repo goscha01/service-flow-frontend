@@ -915,6 +915,16 @@ const LeadsSettings = () => {
                                       {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
                                       Classify all with AI
                                     </button>
+                                    <button onClick={async () => {
+                                      try {
+                                        const r = await opContactsAPI.refreshFromOpenPhone()
+                                        alert(r?.message || 'Refresh started in Sigcore. Wait ~2-5 minutes then click Sync All.')
+                                      } catch (e) { alert('Refresh failed: ' + (e.response?.data?.error || e.message)) }
+                                    }}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1"
+                                      title="Pull fresh contact data (incl. Company tags) from OpenPhone via Sigcore. Then run Sync All.">
+                                      ↻ Refresh from OpenPhone
+                                    </button>
                                   </div>
                                 </div>
                                 {aiBatchProgress && (() => {

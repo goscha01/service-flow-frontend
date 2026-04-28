@@ -2801,6 +2801,13 @@ export const opContactsAPI = {
     const r = await api.post('/op-contacts/bulk-set-company', { items });
     return r.data;
   },
+  // Triggers Sigcore to re-pull all OpenPhone contacts (with their Company
+  // custom field) into Sigcore's snapshot table. After it completes (~2-5min),
+  // run Sync All to pull the updated company values into SF.
+  refreshFromOpenPhone: async () => {
+    const r = await api.post('/op-contacts/refresh-from-openphone');
+    return r.data;
+  },
 };
 
 export const zenbookerAPI = {
