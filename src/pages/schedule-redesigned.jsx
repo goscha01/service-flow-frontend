@@ -1660,29 +1660,30 @@ const ServiceFlowSchedule = () => {
   // It should respect the selectedFilter for consistency
   // Matches the exact logic from unified-calendar.jsx
   const getDayJobs = (date) => {
-    // Format date as YYYY-MM-DD (same as unified-calendar)
-    const dateString = date.toISOString().split('T')[0]
-    
+    // Format date as YYYY-MM-DD using LOCAL components (toISOString shifts the
+    // day across the UTC boundary in non-UTC timezones).
+    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
     if (activeTab === 'availability') {
       console.log(`\n🔍 getDayJobs(${dateString}) - Availability tab:`)
       console.log(`  - Total jobs in state: ${jobs.length}`)
       console.log(`  - Selected filter: ${selectedFilter}`)
     }
-    
-    // Filter jobs by date - match unified-calendar logic exactly
+
+    // Filter jobs by date — pull date string straight out of scheduled_date
+    // (no Date round-trip — the earlier round-trip silently dropped jobs in
+    // UTC-offset timezones).
     let filteredJobs = jobs.filter(job => {
-      if (!job.scheduled_date && !job.scheduledDate) return false
-      
-      // Parse date exactly like unified-calendar does
-      let jobDate
-      if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
-        const [datePart] = job.scheduled_date.split(' ')
-        jobDate = new Date(datePart)
-      } else {
-        jobDate = new Date(job.scheduled_date || job.scheduledDate)
+      const sd = job.scheduled_date || job.scheduledDate
+      if (!sd) return false
+      let jobDateString = ''
+      if (typeof sd === 'string') {
+        if (sd.includes(' ')) jobDateString = sd.split(' ')[0]
+        else if (sd.includes('T')) jobDateString = sd.split('T')[0]
+        else jobDateString = sd
+      } else if (sd instanceof Date) {
+        jobDateString = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}-${String(sd.getDate()).padStart(2, '0')}`
       }
-      
-      const jobDateString = jobDate.toISOString().split('T')[0]
       return jobDateString === dateString
     })
 
@@ -1814,7 +1815,7 @@ const ServiceFlowSchedule = () => {
 
     // 1. Date-specific override (customAvailability) wins over weekly schedule
     if (date && Array.isArray(avail.customAvailability)) {
-      const dateStr = date.toISOString().split('T')[0]
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
       const override = avail.customAvailability.find(item => item.date === dateStr)
       if (override) {
         if (override.available === false) {
@@ -1855,8 +1856,11 @@ const ServiceFlowSchedule = () => {
   // - Both company working time AND personal cleaner availability are REQUIRED
   const getDayAvailabilityForMember = (date, memberId) => {
     const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
-    const dateString = date.toISOString().split('T')[0]
-    
+    // Use LOCAL date components — date.toISOString() shifts the day across the
+    // UTC boundary in non-UTC timezones, which would silently make the day
+    // match no jobs (e.g. user in UTC-5 selecting Apr 29 → ISO becomes Apr 28).
+    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
     // STEP 1: Get Company Working Time (#4)
     // This is a hard limit - defines when the company operates at all
     const companyHours = getBusinessHours()
@@ -1916,17 +1920,21 @@ const ServiceFlowSchedule = () => {
     }
     
     // STEP 4: Get Cleaner Job Schedule (#2)
-    // This is the list of all job schedules already assigned to this specific cleaner
+    // This is the list of all job schedules already assigned to this specific cleaner.
+    // Pull the date string straight out of scheduled_date (no Date round-trip) — the
+    // earlier `new Date(part).toISOString()` chain shifted the day in UTC-offset
+    // timezones, dropping every job from dayJobs and showing the cleaner as fully free.
     const dayJobs = jobs.filter(job => {
-      if (!job.scheduled_date && !job.scheduledDate) return false
-      let jobDate
-      if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
-        const [datePart] = job.scheduled_date.split(' ')
-        jobDate = new Date(datePart)
-      } else {
-        jobDate = new Date(job.scheduled_date || job.scheduledDate)
+      const sd = job.scheduled_date || job.scheduledDate
+      if (!sd) return false
+      let jobDateString = ''
+      if (typeof sd === 'string') {
+        if (sd.includes(' ')) jobDateString = sd.split(' ')[0]
+        else if (sd.includes('T')) jobDateString = sd.split('T')[0]
+        else jobDateString = sd
+      } else if (sd instanceof Date) {
+        jobDateString = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}-${String(sd.getDate()).padStart(2, '0')}`
       }
-      const jobDateString = jobDate.toISOString().split('T')[0]
       if (jobDateString !== dateString) return false
       
       // Filter by team member - only jobs assigned to this cleaner
@@ -6141,17 +6149,18 @@ const ServiceFlowSchedule = () => {
                                 </td>
                                 {getWeekDays().map((date, dateIdx) => {
                                   const availability = getDayAvailabilityForMember(date, member.id)
+                                  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
                                   const dayJobs = jobs.filter(job => {
-                                    if (!job.scheduled_date && !job.scheduledDate) return false
-                                    let jobDate
-                                    if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
-                                      const [datePart] = job.scheduled_date.split(' ')
-                                      jobDate = new Date(datePart)
-                                    } else {
-                                      jobDate = new Date(job.scheduled_date || job.scheduledDate)
+                                    const sd = job.scheduled_date || job.scheduledDate
+                                    if (!sd) return false
+                                    let jobDateString = ''
+                                    if (typeof sd === 'string') {
+                                      if (sd.includes(' ')) jobDateString = sd.split(' ')[0]
+                                      else if (sd.includes('T')) jobDateString = sd.split('T')[0]
+                                      else jobDateString = sd
+                                    } else if (sd instanceof Date) {
+                                      jobDateString = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}-${String(sd.getDate()).padStart(2, '0')}`
                                     }
-                                    const jobDateString = jobDate.toISOString().split('T')[0]
-                                    const dateStr = date.toISOString().split('T')[0]
                                     if (jobDateString !== dateStr) return false
                                     return isJobAssignedTo(job, member.id.toString())
                                   })
