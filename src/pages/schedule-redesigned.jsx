@@ -78,6 +78,18 @@ import { formatPhoneNumber } from "../utils/phoneFormatter"
 import AddressAutocomplete from "../components/address-autocomplete"
 import JobsMap from "../components/jobs-map"
 
+// Availability is a cleaner-only concept. Managers/owners/schedulers don't
+// take jobs, so they don't appear in the Availability tab. Treats absent
+// role as cleaner (matches roleUtils default for unrolled team members).
+const isCleaner = (m) => {
+  const r = (m?.role || '').toLowerCase().trim()
+  return r !== 'manager'
+    && r !== 'scheduler'
+    && r !== 'owner'
+    && r !== 'account owner'
+    && r !== 'admin'
+}
+
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -1928,7 +1940,7 @@ const ServiceFlowSchedule = () => {
       console.log(`  - Total team members: ${teamMembers.length}`)
       console.log(`  - Total jobs in state: ${jobs.length}`)
 
-      teamMembers.filter(m => m.status === 'active').forEach(member => {
+      teamMembers.filter(m => m.status === 'active' && isCleaner(m)).forEach(member => {
         const memberAvailability = getDayAvailabilityForMember(date, Number(member.id))
         console.log(`  - Member ${member.first_name} ${member.last_name} (ID: ${member.id}):`)
         console.log(`    - Job count: ${memberAvailability.jobCount || 0}`)
@@ -2049,7 +2061,7 @@ const ServiceFlowSchedule = () => {
         
         // Get all team members in this territory
         const territoryTeamMembers = teamMembers.filter(member =>
-          member.status === 'active' && normalizedTeamMemberIds.includes(Number(member.id))
+          member.status === 'active' && isCleaner(member) && normalizedTeamMemberIds.includes(Number(member.id))
         )
         
         if (territoryTeamMembers.length === 0) {
@@ -4767,13 +4779,14 @@ const ServiceFlowSchedule = () => {
                 </>
               )}
 
-              {/* Team Members - Show for both jobs and availability tabs (only active members) */}
-              {teamMembers.filter(m => m.status === 'active').length === 0 ? (
+              {/* Team Members - Show for both jobs and availability tabs (only active members).
+                  On availability tab, exclude managers/owners/schedulers — availability is cleaner-only. */}
+              {teamMembers.filter(m => m.status === 'active' && (activeTab !== 'availability' || isCleaner(m))).length === 0 ? (
                 <div className="text-xs text-gray-500 text-center py-4">
                   No team members found
                 </div>
               ) : (
-                teamMembers.filter(m => m.status === 'active').map((member) => {
+                teamMembers.filter(m => m.status === 'active' && (activeTab !== 'availability' || isCleaner(m))).map((member) => {
                 const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
                 const isEditing = editingMemberId === member.id
                 // Use editingMemberName if we're editing this member, otherwise use fullName
@@ -5592,7 +5605,7 @@ const ServiceFlowSchedule = () => {
               >
                 <option value="all">All Jobs</option>
                 <option value="unassigned">Unassigned</option>
-                {teamMembers.filter(m => m.status === 'active').map((member) => {
+                {teamMembers.filter(m => m.status === 'active' && (activeTab !== 'availability' || isCleaner(m))).map((member) => {
                   const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
                   return (
                     <option key={member.id} value={member.id} title={fullName}>
@@ -5696,7 +5709,7 @@ const ServiceFlowSchedule = () => {
                     </h3>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {teamMembers.filter(m => m.status === 'active').map((member) => {
+                    {teamMembers.filter(m => m.status === 'active' && isCleaner(m)).map((member) => {
                       const memberColor = member.color || '#2563EB'
                       const availability = getDayAvailabilityForMember(selectedDate, member.id)
                       const memberName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Cleaner'
@@ -5760,7 +5773,7 @@ const ServiceFlowSchedule = () => {
                       const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
                       const isSelected = day.toDateString() === selectedDate.toDateString()
                       const isToday = day.toDateString() === new Date().toDateString()
-                      const activeMembers = teamMembers.filter(m => m.status === 'active')
+                      const activeMembers = teamMembers.filter(m => m.status === 'active' && isCleaner(m))
                       const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`
                       const isExpanded = expandedDays.has(dayKey)
                       const showMembers = isExpanded ? activeMembers : activeMembers.slice(0, 2)
@@ -5877,7 +5890,7 @@ const ServiceFlowSchedule = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {teamMembers.filter(m => m.status === 'active').map((member) => {
+                          {teamMembers.filter(m => m.status === 'active' && isCleaner(m)).map((member) => {
                             const memberColor = member.color || '#2563EB'
                             return (
                               <tr key={member.id} className="hover:bg-gray-50">
