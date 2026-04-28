@@ -719,6 +719,23 @@ const ServiceFlowSchedule = () => {
     }
   }, [user?.id])
 
+  // Cleaners visible in the Availability tab — applies the cleaner role filter,
+  // then narrows to the selected territory's cleaners when a territory is set.
+  const visibleAvailabilityCleaners = useMemo(() => {
+    const activeCleaners = teamMembers.filter(m => m.status === 'active' && isCleaner(m))
+    if (!territoryFilter || territoryFilter === 'all') return activeCleaners
+    const territoryId = Number(territoryFilter)
+    const territory = territories.find(t => t.id === territoryId)
+    if (!territory) return activeCleaners
+    let ids = territory.team_members
+    if (typeof ids === 'string') {
+      try { ids = JSON.parse(ids) } catch { ids = [] }
+    }
+    if (!Array.isArray(ids)) return activeCleaners
+    const idSet = new Set(ids.map(Number))
+    return activeCleaners.filter(m => idSet.has(Number(m.id)))
+  }, [teamMembers, territories, territoryFilter])
+
   useEffect(() => {
     if (user?.id) {
       paymentMethodsAPI.getPaymentMethods().then(methods => {
@@ -1927,8 +1944,10 @@ const ServiceFlowSchedule = () => {
   const getDayAvailability = (date) => {
     const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
     
-    // If in availability tab and "all-team-members" is selected, aggregate availability for ALL team members
-    if (activeTab === 'availability' && selectedFilter === 'all-team-members') {
+    // If in availability tab and "all-team-members" is selected, aggregate availability for ALL team members.
+    // Territory filter takes priority — if a territory is selected, fall through to the territory branch below
+    // so we only aggregate cleaners assigned to that territory.
+    if (activeTab === 'availability' && selectedFilter === 'all-team-members' && (!territoryFilter || territoryFilter === 'all')) {
       if (teamMembers.length === 0) {
         return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], freeSpots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
       }
@@ -4712,7 +4731,61 @@ const ServiceFlowSchedule = () => {
           </div>
           {/* Scrollable Filter Content */}
           <div className="flex-1 bg-gray-100 overflow-y-auto p-2 scrollbar-hide">
-            
+
+            {/* Territory Filter — at the top of the panel for both Jobs and Availability tabs */}
+            <div className="mb-6">
+              <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TERRITORIES</h3>
+
+              {/* All Territories */}
+              <button
+                onClick={() => {
+                  setTerritoryFilter('all')
+                }}
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                  territoryFilter === 'all'
+                   ? 'bg-white text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                  territoryFilter === 'all' ? 'bg-blue-100' : 'bg-gray-100'
+                }`}>
+                  <MapPin className={`w-3 h-3 ${territoryFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
+                </div>
+                <span>All Territories</span>
+              </button>
+
+              {/* Territory Options */}
+              {territories.map((territory) => (
+                <button
+                  key={territory.id}
+                  onClick={() => {
+                    setTerritoryFilter(territory.id)
+                    // Clear team member selection when territory is selected
+                    if (activeTab === 'availability') {
+                      setSelectedFilter('all-team-members')
+                    } else {
+                      setSelectedFilter('all')
+                    }
+                  }}
+                  className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                    territoryFilter === territory.id
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    territoryFilter === territory.id ? 'bg-blue-100' : 'bg-gray-100'
+                  }`}>
+                    <MapPin className={`w-3 h-3 ${territoryFilter === territory.id ? 'text-blue-600' : 'text-gray-600'}`} />
+                  </div>
+                  <span className="truncate flex-1 min-w-0" title={territory.name}>
+                    {territory.name.length > 25 ? `${territory.name.substring(0, 25)}...` : territory.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+
             {/* Assignment Filter - Different layout for availability vs jobs */}
             {!isWorker(user) && (
             <div className="mb-6">
@@ -5061,60 +5134,6 @@ const ServiceFlowSchedule = () => {
               </button>
             </div>
             )}
-
-            {/* Territory Filter */}
-            <div className="mb-6">
-              <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TERRITORIES</h3>
-              
-              {/* All Territories */}
-              <button
-                onClick={() => {
-                  setTerritoryFilter('all')
-                }}
-                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
-                  territoryFilter === 'all' 
-                   ? 'bg-white text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                  territoryFilter === 'all' ? 'bg-blue-100' : 'bg-gray-100'
-                }`}>
-                  <MapPin className={`w-3 h-3 ${territoryFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
-                </div>
-                <span>All Territories</span>
-              </button>
-
-              {/* Territory Options */}
-              {territories.map((territory) => (
-                <button
-                  key={territory.id}
-                  onClick={() => {
-                    setTerritoryFilter(territory.id)
-                    // Clear team member selection when territory is selected
-                    if (activeTab === 'availability') {
-                      setSelectedFilter('all-team-members')
-                    } else {
-                      setSelectedFilter('all')
-                    }
-                  }}
-                  className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
-                    territoryFilter === territory.id 
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    territoryFilter === territory.id ? 'bg-blue-100' : 'bg-gray-100'
-                  }`}>
-                    <MapPin className={`w-3 h-3 ${territoryFilter === territory.id ? 'text-blue-600' : 'text-gray-600'}`} />
-                  </div>
-                  <span className="truncate flex-1 min-w-0" title={territory.name}>
-                    {territory.name.length > 25 ? `${territory.name.substring(0, 25)}...` : territory.name}
-                  </span>
-                </button>
-              ))}
-            </div>
 
             {/* Time Range Filter - Only show in jobs tab */}
             {activeTab === 'jobs' && (
@@ -5717,7 +5736,7 @@ const ServiceFlowSchedule = () => {
                     </h3>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {teamMembers.filter(m => m.status === 'active' && isCleaner(m)).map((member) => {
+                    {visibleAvailabilityCleaners.map((member) => {
                       const memberColor = member.color || '#2563EB'
                       const availability = getDayAvailabilityForMember(selectedDate, member.id)
                       const memberName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Cleaner'
@@ -5781,7 +5800,7 @@ const ServiceFlowSchedule = () => {
                       const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
                       const isSelected = day.toDateString() === selectedDate.toDateString()
                       const isToday = day.toDateString() === new Date().toDateString()
-                      const activeMembers = teamMembers.filter(m => m.status === 'active' && isCleaner(m))
+                      const activeMembers = visibleAvailabilityCleaners
                       const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`
                       const isExpanded = expandedDays.has(dayKey)
                       const showMembers = isExpanded ? activeMembers : activeMembers.slice(0, 2)
@@ -5898,7 +5917,7 @@ const ServiceFlowSchedule = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {teamMembers.filter(m => m.status === 'active' && isCleaner(m)).map((member) => {
+                          {visibleAvailabilityCleaners.map((member) => {
                             const memberColor = member.color || '#2563EB'
                             return (
                               <tr key={member.id} className="hover:bg-gray-50">
