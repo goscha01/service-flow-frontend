@@ -136,6 +136,10 @@ const ServiceFlowTeam = () => {
       setLoading(true)
       setError("")
 
+      // limit:1000 matches schedule page — listing is filtered client-side, so we
+      // need every row up front. Previous limit:50 dropped null-role rows past the
+      // first page (no stable tiebreaker on the backend's ORDER BY role ASC), making
+      // active members like "Georgiy Team Member" silently disappear from the UI.
       console.log('Calling teamAPI.getAll with params:', {
         userId: user.id,
         status: filters.status,
@@ -143,7 +147,7 @@ const ServiceFlowTeam = () => {
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
         page: 1,
-        limit: 50
+        limit: 1000
       })
 
       const response = await teamAPI.getAll(user.id, {
@@ -152,7 +156,7 @@ const ServiceFlowTeam = () => {
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
         page: 1,
-        limit: 50
+        limit: 1000
       })
 
       console.log('Team API response:', response)
