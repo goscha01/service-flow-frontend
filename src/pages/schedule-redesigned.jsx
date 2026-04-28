@@ -735,6 +735,89 @@ const ServiceFlowSchedule = () => {
     return (end - start) < min
   }
 
+  // Build a chronological list of timeline segments for one cleaner-day:
+  // busy / driving / free / free-but-too-short. busySlots, drivingSlots, and
+  // freeSpots from getDayAvailabilityForMember already tile the intersection
+  // window exactly, so we just merge + sort + tag with type.
+  const buildTimelineSegments = (availability) => {
+    if (!availability) return []
+    const segs = []
+    ;(availability.busySlots || []).forEach(s => segs.push({ start: s.start, end: s.end, type: 'busy' }))
+    ;(availability.drivingSlots || []).forEach(s => segs.push({ start: s.start, end: s.end, type: 'driving' }))
+    ;(availability.freeSpots || availability.availableSlots || []).forEach(s => {
+      segs.push({ start: s.start, end: s.end, type: isSlotShort(s) ? 'free_short' : 'free', members: s.members, memberCount: s.memberCount })
+    })
+    return segs
+      .filter(s => timeToMinutes(s.start) < timeToMinutes(s.end))
+      .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start))
+  }
+
+  // Visual timeline of one day. Width is proportional to actual minutes inside
+  // the intersection window so the same bar across cleaners stays comparable.
+  const TimelineBar = ({ availability, height = 24, showLabels = true, showAxis = true }) => {
+    const segs = buildTimelineSegments(availability)
+    if (segs.length === 0) return null
+    const startMin = timeToMinutes(segs[0].start)
+    const endMin = timeToMinutes(segs[segs.length - 1].end)
+    const total = endMin - startMin
+    if (total <= 0) return null
+
+    const fmtT = (t) => {
+      const [h, m] = t.split(':')
+      const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0
+      const suffix = hr >= 12 ? 'p' : 'a'
+      const h12 = hr > 12 ? hr - 12 : (hr || 12)
+      return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}`
+    }
+
+    const styleByType = {
+      busy:       { bg: 'bg-orange-300',  text: 'text-orange-900', label: 'Busy'   },
+      driving:    { bg: 'bg-amber-200',   text: 'text-amber-900',  label: 'Travel' },
+      free:       { bg: 'bg-green-200',   text: 'text-green-900',  label: 'Free'   },
+      free_short: { bg: 'bg-yellow-200',  text: 'text-yellow-900', label: 'Short'  },
+    }
+
+    return (
+      <div className="w-full">
+        <div
+          className="relative w-full flex border border-gray-200 rounded-md overflow-hidden"
+          style={{ height }}
+        >
+          {segs.map((seg, i) => {
+            const s = timeToMinutes(seg.start)
+            const e = timeToMinutes(seg.end)
+            const widthPct = ((e - s) / total) * 100
+            const sty = styleByType[seg.type]
+            const dur = e - s
+            const tip = seg.type === 'busy'
+              ? `Busy ${fmtT(seg.start)}–${fmtT(seg.end)} (${dur} min)`
+              : seg.type === 'driving'
+                ? `Travel ${fmtT(seg.start)}–${fmtT(seg.end)} (${dur} min)`
+                : seg.type === 'free_short'
+                  ? `Free ${fmtT(seg.start)}–${fmtT(seg.end)} (${dur} min) — too short for ${schedulingSettings.minimumJobDuration}-min job`
+                  : `Free ${fmtT(seg.start)}–${fmtT(seg.end)} (${dur} min)`
+            return (
+              <div
+                key={i}
+                className={`${sty.bg} ${sty.text} text-[9px] font-medium flex items-center justify-center overflow-hidden`}
+                style={{ width: `${widthPct}%` }}
+                title={tip}
+              >
+                {showLabels && widthPct > 8 ? `${dur}m` : ''}
+              </div>
+            )
+          })}
+        </div>
+        {showAxis && (
+          <div className="flex justify-between text-[9px] text-gray-500 mt-1 px-0.5">
+            <span>{fmtT(segs[0].start)}</span>
+            <span>{fmtT(segs[segs.length - 1].end)}</span>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const visibleAvailabilityCleaners = useMemo(() => {
     const activeCleaners = teamMembers.filter(m => m.status === 'active' && isCleaner(m))
     if (!territoryFilter || territoryFilter === 'all') return activeCleaners
@@ -5780,17 +5863,22 @@ const ServiceFlowSchedule = () => {
                             {memberName}
                           </div>
                           {availability.isOpen && (availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {availability.totalAvailable > 0 && (
-                                <span className="text-[9px] font-medium text-green-700 bg-green-50 px-1 py-0.5 rounded">{formatDuration(availability.totalAvailable)} free</span>
-                              )}
-                              {availability.totalBusy > 0 && (
-                                <span className="text-[9px] font-medium text-orange-600 bg-orange-50 px-1 py-0.5 rounded">{formatDuration(availability.totalBusy)} busy</span>
-                              )}
-                              {availability.totalDriving > 0 && (
-                                <span className="text-[9px] font-medium text-amber-600 bg-amber-50 px-1 py-0.5 rounded">{formatDuration(availability.totalDriving)} travel</span>
-                              )}
-                            </div>
+                            <>
+                              <div className="mt-1.5">
+                                <TimelineBar availability={availability} height={18} showLabels={false} />
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {availability.totalAvailable > 0 && (
+                                  <span className="text-[9px] font-medium text-green-700 bg-green-50 px-1 py-0.5 rounded">{formatDuration(availability.totalAvailable)} free</span>
+                                )}
+                                {availability.totalBusy > 0 && (
+                                  <span className="text-[9px] font-medium text-orange-600 bg-orange-50 px-1 py-0.5 rounded">{formatDuration(availability.totalBusy)} busy</span>
+                                )}
+                                {availability.totalDriving > 0 && (
+                                  <span className="text-[9px] font-medium text-amber-600 bg-amber-50 px-1 py-0.5 rounded">{formatDuration(availability.totalDriving)} travel</span>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
                       )
@@ -6097,24 +6185,30 @@ const ServiceFlowSchedule = () => {
                                   {availability.hours}
                                 </div>
                               )}
+                              {/* Visual timeline of the day */}
+                              {availability.isOpen && (availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                                <div className="mt-3 pt-3 border-t border-green-200">
+                                  <TimelineBar availability={availability} height={28} />
+                                </div>
+                              )}
                               {/* Time breakdown: Available / Busy / Driving */}
                               {availability.isOpen && (availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
-                                <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-green-200">
+                                <div className="flex flex-wrap gap-3 mt-3">
                                   {availability.totalAvailable > 0 && (
                                     <div className="flex items-center gap-1.5">
-                                      <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                                      <div className="w-2.5 h-2.5 rounded-sm bg-green-300"></div>
                                       <span className="text-xs font-medium text-green-700">{formatDuration(availability.totalAvailable)} available</span>
                                     </div>
                                   )}
                                   {availability.totalBusy > 0 && (
                                     <div className="flex items-center gap-1.5">
-                                      <div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
+                                      <div className="w-2.5 h-2.5 rounded-sm bg-orange-400"></div>
                                       <span className="text-xs font-medium text-orange-700">{formatDuration(availability.totalBusy)} busy</span>
                                     </div>
                                   )}
                                   {availability.totalDriving > 0 && (
                                     <div className="flex items-center gap-1.5">
-                                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                                      <div className="w-2.5 h-2.5 rounded-sm bg-amber-300"></div>
                                       <span className="text-xs font-medium text-amber-700">{formatDuration(availability.totalDriving)} travel</span>
                                     </div>
                                   )}
