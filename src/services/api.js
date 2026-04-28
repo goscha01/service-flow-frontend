@@ -453,6 +453,29 @@ export const customersAPI = {
   }
 };
 
+// Customer Properties API — multi-address support per customer
+export const customerPropertiesAPI = {
+  list: async (customerId) => {
+    const response = await api.get(`/customers/${customerId}/properties`);
+    return response.data.properties || [];
+  },
+
+  create: async (customerId, payload) => {
+    const response = await api.post(`/customers/${customerId}/properties`, payload);
+    return response.data.property;
+  },
+
+  update: async (customerId, propertyId, payload) => {
+    const response = await api.patch(`/customers/${customerId}/properties/${propertyId}`, payload);
+    return response.data.property;
+  },
+
+  remove: async (customerId, propertyId) => {
+    const response = await api.delete(`/customers/${customerId}/properties/${propertyId}`);
+    return response.data;
+  },
+};
+
 
 // Estimates API functions
 export const estimatesAPI = {
@@ -2767,6 +2790,37 @@ export const jobExpensesAPI = {
   delete: async (id) => { const r = await api.delete(`/job-expenses/${id}`); return r.data; },
 };
 
+// Set Company tag for an OpenPhone contact directly in SF (without going
+// through OpenPhone). After save, source-fill propagates to customer/lead.
+export const opContactsAPI = {
+  setCompany: async (phone, company) => {
+    const r = await api.patch('/op-contacts/set-company', { phone, company });
+    return r.data;
+  },
+  bulkSetCompany: async (items) => {
+    const r = await api.post('/op-contacts/bulk-set-company', { items });
+    return r.data;
+  },
+  // Triggers Sigcore to re-pull all OpenPhone contacts (with their Company
+  // custom field) into Sigcore's snapshot table. After it completes (~2-5min),
+  // run Sync All to pull the updated company values into SF.
+  refreshFromOpenPhone: async () => {
+    const r = await api.post('/op-contacts/refresh-from-openphone');
+    return r.data;
+  },
+};
+
+export const zenbookerAPI = {
+  sync: async (opts = {}) => {
+    const r = await api.post('/zenbooker/sync', opts);
+    return r.data;
+  },
+  syncProgress: async () => {
+    const r = await api.get('/zenbooker/sync/progress');
+    return r.data;
+  },
+};
+
 export const leadbridgeAPI = {
   connect: async (email, password) => { const r = await api.post('/integrations/leadbridge/connect', { email, password }); return r.data; },
   getStatus: async () => { const r = await api.get('/integrations/leadbridge/status'); return r.data; },
@@ -2830,9 +2884,32 @@ export const identitiesAPI = {
     const r = await api.get(`/identities/reconciliation-failures?status=${status}&limit=${limit}&offset=${offset}`);
     return r.data;
   },
+  reconciliationFailuresCsv: async ({ status = 'open' } = {}) => {
+    const r = await api.get(`/identities/reconciliation-failures/export.csv?status=${status}`, { responseType: 'blob' });
+    return r.data;
+  },
+  ambiguityCandidates: async (id) => {
+    const r = await api.get(`/identities/ambiguities/${id}/candidates`);
+    return r.data;
+  },
+  resolveAmbiguity: async (id, body) => {
+    const r = await api.post(`/identities/ambiguities/${id}/resolve`, body);
+    return r.data;
+  },
   backfillDryRun: async () => { const r = await api.post('/identities/backfill'); return r.data; },
   backfillApply: async () => { const r = await api.post('/identities/backfill?apply=1'); return r.data; },
   backfillProgress: async () => { const r = await api.get('/identities/backfill/progress'); return r.data; },
+  opLeadOutcomes: async () => { const r = await api.get('/identities/op-lead-outcomes'); return r.data; },
+  classify: async (id) => { const r = await api.post(`/identities/${id}/classify`); return r.data; },
+  classifyBatch: async (ids, max = 200) => { const r = await api.post('/identities/classify-batch', { ids, max }); return r.data; },
+  classifyBatchProgress: async () => { const r = await api.get('/identities/classify-batch/progress'); return r.data; },
+};
+
+// Phase J — unified integrations. One Connect & Sync per source.
+export const integrationsAPI = {
+  status: async () => { const r = await api.get('/integrations/status'); return r.data; },
+  sync: async (source) => { const r = await api.post(`/integrations/${source}/sync`); return r.data; },
+  syncProgress: async (source) => { const r = await api.get(`/integrations/${source}/sync/progress`); return r.data; },
 };
 
 export const locationsAPI = {
