@@ -107,7 +107,10 @@ const ServiceFlowSchedule = () => {
   const [drivingTimeMinutes, setDrivingTimeMinutes] = useState(0) // Driving time buffer in minutes (from settings)
   // Arrival-window settings from Scheduling & Booking modal (businessHours.schedulingSettings).
   // Defaults: 60-min interval / 120-min window — the "1h step, 2h window" pattern.
-  const [schedulingSettings, setSchedulingSettings] = useState({ timeslotInterval: 60, arrivalWindow: 120 })
+  // minimumJobDuration: free spots shorter than this render in a warning color (yellow)
+  // since they can't fit a minimum-length job — operator sees the gap exists but knows
+  // it's too short to actually book.
+  const [schedulingSettings, setSchedulingSettings] = useState({ timeslotInterval: 60, arrivalWindow: 120, minimumJobDuration: 0 })
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false)
   const [jobs, setJobs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -721,6 +724,17 @@ const ServiceFlowSchedule = () => {
 
   // Cleaners visible in the Availability tab — applies the cleaner role filter,
   // then narrows to the selected territory's cleaners when a territory is set.
+  // Returns true when a free-time slot is shorter than the operator's minimum
+  // job duration setting. Renders in a warning color so the operator still
+  // sees the gap exists but knows it can't fit a minimum-length booking.
+  const isSlotShort = (spot) => {
+    const min = schedulingSettings?.minimumJobDuration || 0
+    if (!min || !spot?.start || !spot?.end) return false
+    const start = timeToMinutes(spot.start)
+    const end = timeToMinutes(spot.end)
+    return (end - start) < min
+  }
+
   const visibleAvailabilityCleaners = useMemo(() => {
     const activeCleaners = teamMembers.filter(m => m.status === 'active' && isCleaner(m))
     if (!territoryFilter || territoryFilter === 'all') return activeCleaners
@@ -986,6 +1000,7 @@ const ServiceFlowSchedule = () => {
         setSchedulingSettings({
           timeslotInterval: parseInt(sched.timeslotInterval, 10) || 60,
           arrivalWindow: parseInt(sched.arrivalWindow, 10) || 120,
+          minimumJobDuration: parseInt(sched.minimumJobDuration, 10) || 0,
         })
       } else {
         // Default business hours
@@ -1729,25 +1744,6 @@ const ServiceFlowSchedule = () => {
     
     // STEP 4: Get Cleaner Job Schedule (#2)
     // This is the list of all job schedules already assigned to this specific cleaner
-
-    // [DEBUG] Apr 29 / Tatiana spot check — fires once per render so we can
-    // see whether jobs are being correctly attributed to the cleaner.
-    if (dateString === '2026-04-29' && Number(memberId) === 2641 && jobs.length > 0 && !window.__sfDbg29) {
-      window.__sfDbg29 = true
-      const sample = jobs.find(j => (j.scheduled_date || '').includes('2026-04-29'))
-      console.log('🪲 Apr29/Tatiana debug — jobs.length:', jobs.length,
-        'sample job for Apr 29 from state:', sample ? {
-          id: sample.id,
-          scheduled_date: sample.scheduled_date,
-          team_member_id: sample.team_member_id,
-          assigned_team_member_id: sample.assigned_team_member_id,
-          team_assignments: sample.team_assignments,
-          team_assignments_member_ids: Array.isArray(sample.team_assignments)
-            ? sample.team_assignments.map(t => t?.team_member_id ?? t?.team_members?.id)
-            : null,
-        } : '(no Apr29 job in jobs state!)')
-    }
-
     const dayJobs = jobs.filter(job => {
       if (!job.scheduled_date && !job.scheduledDate) return false
       let jobDate
@@ -6131,12 +6127,16 @@ const ServiceFlowSchedule = () => {
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {availability.freeSpots.map((spot, si) => {
                                       const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr > 12 ? hr - 12 : hr || 12; return `${h12}:${m || '00'} ${ampm}` }
+                                      const tooShort = isSlotShort(spot)
                                       return (
-                                        <div key={si} className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-                                          <div className="text-sm font-medium text-green-800">{fmtT(spot.start)} - {fmtT(spot.end)}</div>
-                                          <div className="text-xs text-green-600 mt-0.5">{spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} available</div>
+                                        <div key={si} className={`px-3 py-2 rounded-lg border ${tooShort ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+                                          <div className={`text-sm font-medium ${tooShort ? 'text-amber-800' : 'text-green-800'}`}>{fmtT(spot.start)} - {fmtT(spot.end)}</div>
+                                          <div className={`text-xs mt-0.5 ${tooShort ? 'text-amber-600' : 'text-green-600'}`}>
+                                            {spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} available
+                                            {tooShort && ` · too short for ${schedulingSettings.minimumJobDuration}-min job`}
+                                          </div>
                                           {spot.members && spot.members.length > 0 && (
-                                            <div className="text-xs text-green-500 mt-0.5">{spot.members.slice(0, 3).join(', ')}{spot.members.length > 3 ? ` +${spot.members.length - 3}` : ''}</div>
+                                            <div className={`text-xs mt-0.5 ${tooShort ? 'text-amber-500' : 'text-green-500'}`}>{spot.members.slice(0, 3).join(', ')}{spot.members.length > 3 ? ` +${spot.members.length - 3}` : ''}</div>
                                           )}
                                         </div>
                                       )
@@ -6218,8 +6218,10 @@ const ServiceFlowSchedule = () => {
                                   <div className="mt-2 space-y-1">
                                     {availability.freeSpots.slice(0, 4).map((spot, si) => {
                                       const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}:${m || '00'}${hr >= 12 ? 'p' : 'a'}` }
+                                      const tooShort = isSlotShort(spot)
+                                      const color = tooShort ? '#D97706' : '#16B364'
                                       return (
-                                        <div key={si} className="schedule-card px-2 py-1 bg-white text-[10px] text-[#16B364] leading-tight" style={{ borderRadius: '4px', border: '0.5px solid #16B364' }}>
+                                        <div key={si} className="schedule-card px-2 py-1 bg-white text-[10px] leading-tight" style={{ borderRadius: '4px', border: `0.5px solid ${color}`, color }} title={tooShort ? `Too short for ${schedulingSettings.minimumJobDuration}-min job` : undefined}>
                                           <div className="font-medium">{fmtT(spot.start)} - {fmtT(spot.end)}</div>
                                           <div>{spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} free</div>
                                         </div>
@@ -6317,8 +6319,10 @@ const ServiceFlowSchedule = () => {
                                 <div className="mt-1 space-y-0.5">
                                   {availability.freeSpots.slice(0, 3).map((spot, si) => {
                                     const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
+                                    const tooShort = isSlotShort(spot)
+                                    const color = tooShort ? '#D97706' : '#16B364'
                                     return (
-                                      <div key={si} className="schedule-card px-1 py-1 bg-white text-[10px] text-[#16B364] leading-tight" style={{ borderRadius: '4px', border: '0.5px solid #16B364' }}>
+                                      <div key={si} className="schedule-card px-1 py-1 bg-white text-[10px] leading-tight" style={{ borderRadius: '4px', border: `0.5px solid ${color}`, color }} title={tooShort ? `Too short for ${schedulingSettings.minimumJobDuration}-min job` : undefined}>
                                         <span className="font-medium">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
                                         <span className="ml-1">({spot.memberCount} free)</span>
                                       </div>
@@ -6413,13 +6417,15 @@ const ServiceFlowSchedule = () => {
                           return weekDayAvailability.freeSpots && weekDayAvailability.freeSpots.length > 0 ? (
                             weekDayAvailability.freeSpots.slice(0, 2).map((spot, si) => {
                               const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
+                              const tooShort = isSlotShort(spot)
+                              const color = tooShort ? '#D97706' : '#16B364'
                               return (
-                                <div key={`free-${si}`} className="schedule-card bg-white m-2 p-2 mb-1 text-xs" style={{ borderRadius: '4px', border: '0.5px solid #16B364' }}>
+                                <div key={`free-${si}`} className="schedule-card bg-white m-2 p-2 mb-1 text-xs" style={{ borderRadius: '4px', border: `0.5px solid ${color}` }} title={tooShort ? `Too short for ${schedulingSettings.minimumJobDuration}-min job` : undefined}>
                                   <div className="flex items-center gap-1">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-[#16B364]"></div>
-                                    <span className="font-medium text-[#16B364] text-[9px]">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
+                                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }}></div>
+                                    <span className="font-medium text-[9px]" style={{ color }}>{fmtT(spot.start)}-{fmtT(spot.end)}</span>
                                   </div>
-                                  <div className="text-[9px] text-[#16B364] mt-0.5">{spot.memberCount} free</div>
+                                  <div className="text-[9px] mt-0.5" style={{ color }}>{spot.memberCount} free</div>
                                 </div>
                               )
                             })
@@ -6758,10 +6764,15 @@ const ServiceFlowSchedule = () => {
                             <div className="mt-0.5">
                               {monthDayAvail.freeSpots.slice(0, 2).map((spot, si) => {
                                 const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
+                                const tooShort = isSlotShort(spot)
+                                const cls = tooShort
+                                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                  : 'bg-green-50 border-green-200 text-green-800'
+                                const sub = tooShort ? 'text-amber-600' : 'text-green-600'
                                 return (
-                                  <div key={`free-${si}`} className="px-1 py-0.5 mb-0.5 bg-green-50 border border-green-200 rounded text-[9px] text-green-800 leading-tight">
+                                  <div key={`free-${si}`} className={`px-1 py-0.5 mb-0.5 border rounded text-[9px] leading-tight ${cls}`} title={tooShort ? `Too short for ${schedulingSettings.minimumJobDuration}-min job` : undefined}>
                                     <span className="font-medium">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
-                                    <span className="text-green-600 ml-0.5">({spot.memberCount} free)</span>
+                                    <span className={`ml-0.5 ${sub}`}>({spot.memberCount} free)</span>
                                   </div>
                                 )
                               })}
@@ -6989,16 +7000,25 @@ const ServiceFlowSchedule = () => {
                         </span>
                       </h4>
                       <div className="flex flex-wrap gap-2">
-                        {arrivalWindows.map((w, wi) => (
-                          <span
-                            key={wi}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-green-800 bg-green-50 border border-green-200 rounded-full px-2.5 py-1"
-                            title={w.members && w.members.length > 0 ? w.members.join(', ') : undefined}
-                          >
-                            {fmtT(w.start)} – {fmtT(w.end)}
-                            <span className="text-green-600">· {w.memberCount}</span>
-                          </span>
-                        ))}
+                        {arrivalWindows.map((w, wi) => {
+                          const tooShort = isSlotShort(w)
+                          return (
+                            <span
+                              key={wi}
+                              className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-1 border ${
+                                tooShort
+                                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                  : 'bg-green-50 border-green-200 text-green-800'
+                              }`}
+                              title={tooShort
+                                ? `Too short for ${schedulingSettings.minimumJobDuration}-min job`
+                                : (w.members && w.members.length > 0 ? w.members.join(', ') : undefined)}
+                            >
+                              {fmtT(w.start)} – {fmtT(w.end)}
+                              <span className={tooShort ? 'text-amber-600' : 'text-green-600'}>· {w.memberCount}</span>
+                            </span>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
@@ -7009,24 +7029,33 @@ const ServiceFlowSchedule = () => {
                       Free Time Blocks
                     </h4>
                     <div className="space-y-2">
-                      {dayAvail.freeSpots.map((spot, si) => (
-                        <div key={si} className="bg-green-50 rounded-lg border border-green-200 p-3">
+                      {dayAvail.freeSpots.map((spot, si) => {
+                        const tooShort = isSlotShort(spot)
+                        const card = tooShort ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'
+                        const heading = tooShort ? 'text-amber-800' : 'text-green-800'
+                        const pill = tooShort ? 'text-amber-700 bg-amber-100' : 'text-green-600 bg-green-100'
+                        const memberPill = tooShort ? 'text-amber-700 bg-amber-100' : 'text-green-700 bg-green-100'
+                        return (
+                        <div key={si} className={`rounded-lg border p-3 ${card}`} title={tooShort ? `Too short for ${schedulingSettings.minimumJobDuration}-min job` : undefined}>
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-semibold text-green-800">{fmtT(spot.start)} - {fmtT(spot.end)}</span>
-                            <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{spot.memberCount} available</span>
+                            <span className={`text-sm font-semibold ${heading}`}>{fmtT(spot.start)} - {fmtT(spot.end)}</span>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${pill}`}>
+                              {tooShort ? `< ${schedulingSettings.minimumJobDuration}m · ${spot.memberCount} avail` : `${spot.memberCount} available`}
+                            </span>
                           </div>
                           {spot.members && spot.members.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {spot.members.slice(0, 5).map((name, ni) => (
-                                <span key={ni} className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">{name}</span>
+                                <span key={ni} className={`text-xs px-1.5 py-0.5 rounded ${memberPill}`}>{name}</span>
                               ))}
                               {spot.members.length > 5 && (
-                                <span className="text-xs text-green-600">+{spot.members.length - 5} more</span>
+                                <span className={`text-xs ${tooShort ? 'text-amber-600' : 'text-green-600'}`}>+{spot.members.length - 5} more</span>
                               )}
                             </div>
                           )}
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
