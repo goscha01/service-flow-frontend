@@ -5968,22 +5968,13 @@ const ServiceFlowSchedule = () => {
                             {memberName}
                           </div>
                           {availability.isOpen && (availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
-                            <>
-                              <div className="mt-1.5">
-                                <TimelineBar availability={availability} height={18} showLabels={false} />
-                              </div>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {availability.totalAvailable > 0 && (
-                                  <span className="text-[9px] font-medium text-green-700 bg-green-50 px-1 py-0.5 rounded">{formatDuration(availability.totalAvailable)} free</span>
-                                )}
-                                {availability.totalBusy > 0 && (
-                                  <span className="text-[9px] font-medium text-orange-600 bg-orange-50 px-1 py-0.5 rounded">{formatDuration(availability.totalBusy)} busy</span>
-                                )}
-                                {availability.totalDriving > 0 && (
-                                  <span className="text-[9px] font-medium text-amber-600 bg-amber-50 px-1 py-0.5 rounded">{formatDuration(availability.totalDriving)} travel</span>
-                                )}
-                              </div>
-                            </>
+                            <div className="mt-1.5">
+                              <TimelineBar
+                                availability={availability}
+                                orientation="sections"
+                                height={Math.max(80, (buildTimelineSegments(availability).length || 1) * 22)}
+                              />
+                            </div>
                           )}
                         </div>
                       )
@@ -6298,10 +6289,14 @@ const ServiceFlowSchedule = () => {
                                   {availability.hours}
                                 </div>
                               )}
-                              {/* Visual timeline of the day */}
+                              {/* Visual timeline of the day — section cards */}
                               {availability.isOpen && (availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
                                 <div className="mt-3 pt-3 border-t border-green-200">
-                                  <TimelineBar availability={availability} height={28} />
+                                  <TimelineBar
+                                    availability={availability}
+                                    orientation="sections"
+                                    height={Math.max(120, (buildTimelineSegments(availability).length || 1) * 32)}
+                                  />
                                 </div>
                               )}
                               {/* Time breakdown: Available / Busy / Driving */}
@@ -6402,31 +6397,12 @@ const ServiceFlowSchedule = () => {
                             onClick={() => handleDateChange(date)}
                           >
                             {availability.isOpen ? (
-                              <div className="flex gap-2">
-                                {/* Vertical timeline of the day */}
-                                <TimelineBar
-                                  availability={availability}
-                                  orientation="vertical"
-                                  height={170}
-                                  width={16}
-                                />
-                                <div className="flex-1 min-w-0 space-y-1">
-                                  <div className="text-xs font-medium text-[#16B364]">Open</div>
-                                  {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
-                                    <div className="flex flex-col gap-0.5">
-                                      {availability.totalAvailable > 0 && (
-                                        <span className="text-[10px] font-medium text-[#16B364]">{formatDuration(availability.totalAvailable)} free</span>
-                                      )}
-                                      {availability.totalBusy > 0 && (
-                                        <span className="text-[10px] font-medium text-[#FF9502]">{formatDuration(availability.totalBusy)} busy</span>
-                                      )}
-                                      {availability.totalDriving > 0 && (
-                                        <span className="text-[10px] font-medium text-[#FFB856]">{formatDuration(availability.totalDriving)} travel</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                              <TimelineBar
+                                availability={availability}
+                                orientation="sections"
+                                height={Math.max(170, (buildTimelineSegments(availability).length || 1) * 28)}
+                                showAxis={false}
+                              />
                             ) : (
                               <div className="text-center py-4">
                                 <div className="text-xs text-[#A6A9AC] font-medium">Closed</div>
