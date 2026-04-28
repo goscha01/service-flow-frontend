@@ -1729,6 +1729,25 @@ const ServiceFlowSchedule = () => {
     
     // STEP 4: Get Cleaner Job Schedule (#2)
     // This is the list of all job schedules already assigned to this specific cleaner
+
+    // [DEBUG] Apr 29 / Tatiana spot check — fires once per render so we can
+    // see whether jobs are being correctly attributed to the cleaner.
+    if (dateString === '2026-04-29' && Number(memberId) === 2641 && jobs.length > 0 && !window.__sfDbg29) {
+      window.__sfDbg29 = true
+      const sample = jobs.find(j => (j.scheduled_date || '').includes('2026-04-29'))
+      console.log('🪲 Apr29/Tatiana debug — jobs.length:', jobs.length,
+        'sample job for Apr 29 from state:', sample ? {
+          id: sample.id,
+          scheduled_date: sample.scheduled_date,
+          team_member_id: sample.team_member_id,
+          assigned_team_member_id: sample.assigned_team_member_id,
+          team_assignments: sample.team_assignments,
+          team_assignments_member_ids: Array.isArray(sample.team_assignments)
+            ? sample.team_assignments.map(t => t?.team_member_id ?? t?.team_members?.id)
+            : null,
+        } : '(no Apr29 job in jobs state!)')
+    }
+
     const dayJobs = jobs.filter(job => {
       if (!job.scheduled_date && !job.scheduledDate) return false
       let jobDate
