@@ -73,7 +73,7 @@ import CalendarPicker from "../components/CalendarPicker";
 import DiscountModal from "../components/discount-modal";
 import RecurringFrequencyModal from "../components/recurring-frequency-modal";
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { jobsAPI, customersAPI, customerPropertiesAPI, servicesAPI, teamAPI, territoriesAPI, leadsAPI, notificationSettingsAPI } from '../services/api';
+import { jobsAPI, customersAPI, customerPropertiesAPI, servicesAPI, teamAPI, territoriesAPI, leadsAPI, notificationSettingsAPI, availabilityAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useCategory } from '../context/CategoryContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
@@ -225,6 +225,7 @@ export default function CreateJobPage() {
   const [editingServiceDurationId, setEditingServiceDurationId] = useState(null); // Track which service duration is being edited
   const [editingServiceDurationHours, setEditingServiceDurationHours] = useState(''); // Temporary duration hours value
   const [editingServiceDurationMinutes, setEditingServiceDurationMinutes] = useState(''); // Temporary duration minutes value
+  const [minimumJobDuration, setMinimumJobDuration] = useState(0); // minutes; clamps duration at submit (set in Scheduling & Booking modal)
 
   // Expandable sections
   const [expandedSections, setExpandedSections] = useState({
@@ -274,8 +275,28 @@ export default function CreateJobPage() {
     if (user?.id) {
       loadData();
       loadGlobalNotificationSettings();
+      loadSchedulingSettings();
     }
   }, [user?.id]);
+
+  // Pull the minimum-job-duration setting from Scheduling & Booking. Stored in
+  // business_hours.schedulingSettings.minimumJobDuration. Used to clamp the
+  // calculated job duration before submit so a user can't save a job shorter
+  // than the operator's business floor.
+  const loadSchedulingSettings = async () => {
+    if (!user?.id) return;
+    try {
+      const resp = await availabilityAPI.getAvailability(user.id);
+      const bh = resp?.businessHours || resp?.business_hours;
+      const parsed = typeof bh === 'string' ? JSON.parse(bh) : (bh || {});
+      const minDur = parseInt(parsed?.schedulingSettings?.minimumJobDuration, 10);
+      if (Number.isFinite(minDur) && minDur > 0) {
+        setMinimumJobDuration(minDur);
+      }
+    } catch (err) {
+      console.error('Error loading scheduling settings:', err);
+    }
+  };
 
   // Load global appointment confirmation SMS setting and set default
   const loadGlobalNotificationSettings = async () => {
@@ -1514,7 +1535,7 @@ export default function CreateJobPage() {
         scheduledTime: formData.scheduledTime,
         notes: formData.notes,
         status: formData.status,
-        duration: parseInt(calculateTotalDuration() || 0) || 360, // Duration already in minutes
+        duration: Math.max(parseInt(calculateTotalDuration() || 0) || 360, minimumJobDuration || 0), // Duration in minutes; floor enforced by Scheduling & Booking → minimumJobDuration
         workers: parseInt(formData.workers) || 0,
         skillsRequired: parseInt(formData.skillsRequired) || 0,
         price: parseFloat(calculateTotalPrice() || 0),
