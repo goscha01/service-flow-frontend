@@ -6170,27 +6170,18 @@ const ServiceFlowSchedule = () => {
                                       className={`px-2 py-2 align-top ${isToday ? 'bg-blue-50/50' : ''}`}
                                     >
                                       <div className="space-y-1.5">
-                                        {/* Availability */}
-                                        <div className={`p-1.5 rounded text-[11px] ${
-                                          availability.isOpen
-                                            ? 'bg-green-50 text-green-800 border border-green-200'
-                                            : 'bg-gray-100 text-gray-500 border border-gray-200'
-                                        }`}>
-                                          <div className="font-medium truncate">{availability.hours || 'Closed'}</div>
-                                          {availability.isOpen && (availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
-                                            <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
-                                              {availability.totalAvailable > 0 && (
-                                                <span className="text-[10px] text-green-700">{formatDuration(availability.totalAvailable)} free</span>
-                                              )}
-                                              {availability.totalBusy > 0 && (
-                                                <span className="text-[10px] text-orange-600">{formatDuration(availability.totalBusy)} busy</span>
-                                              )}
-                                              {availability.totalDriving > 0 && (
-                                                <span className="text-[10px] text-amber-600">{formatDuration(availability.totalDriving)} travel</span>
-                                              )}
-                                            </div>
-                                          )}
-                                        </div>
+                                        {/* Availability — section cards */}
+                                        {availability.isOpen ? (
+                                          <TimelineBar
+                                            availability={availability}
+                                            orientation="sections"
+                                            height={Math.max(70, (buildTimelineSegments(availability).length || 1) * 22)}
+                                          />
+                                        ) : (
+                                          <div className="p-1.5 rounded text-[11px] bg-gray-100 text-gray-500 border border-gray-200">
+                                            <div className="font-medium truncate">Closed</div>
+                                          </div>
+                                        )}
 
                                         {/* Jobs */}
                                         {dayJobs.length > 0 && (
