@@ -739,13 +739,17 @@ const ServiceFlowSchedule = () => {
   // busy / driving / free / free-but-too-short. busySlots, drivingSlots, and
   // freeSpots from getDayAvailabilityForMember already tile the intersection
   // window exactly, so we just merge + sort + tag with type.
-  const buildTimelineSegments = (availability) => {
+  // `types` filter — restrict to specific segment types (e.g. ['free','free_short']
+  // to render only available time on the all-team-members month overview).
+  const buildTimelineSegments = (availability, types = null) => {
     if (!availability) return []
+    const allow = (t) => !types || types.includes(t)
     const segs = []
-    ;(availability.busySlots || []).forEach(s => segs.push({ start: s.start, end: s.end, type: 'busy' }))
-    ;(availability.drivingSlots || []).forEach(s => segs.push({ start: s.start, end: s.end, type: 'driving' }))
+    if (allow('busy')) (availability.busySlots || []).forEach(s => segs.push({ start: s.start, end: s.end, type: 'busy' }))
+    if (allow('driving')) (availability.drivingSlots || []).forEach(s => segs.push({ start: s.start, end: s.end, type: 'driving' }))
     ;(availability.freeSpots || availability.availableSlots || []).forEach(s => {
-      segs.push({ start: s.start, end: s.end, type: isSlotShort(s) ? 'free_short' : 'free', members: s.members, memberCount: s.memberCount })
+      const t = isSlotShort(s) ? 'free_short' : 'free'
+      if (allow(t)) segs.push({ start: s.start, end: s.end, type: t, members: s.members, memberCount: s.memberCount })
     })
     return segs
       .filter(s => timeToMinutes(s.start) < timeToMinutes(s.end))
@@ -764,8 +768,9 @@ const ServiceFlowSchedule = () => {
     width,       // vertical only: bar width (default 14)
     showLabels = true,
     showAxis = true,
+    types,       // optional filter, e.g. ['free','free_short'] to only render available time
   }) => {
-    const segs = buildTimelineSegments(availability)
+    const segs = buildTimelineSegments(availability, types)
     if (segs.length === 0) return null
     const startMin = timeToMinutes(segs[0].start)
     const endMin = timeToMinutes(segs[segs.length - 1].end)
@@ -6032,43 +6037,41 @@ const ServiceFlowSchedule = () => {
                           {isCurrentMonth && showMembers.map((member) => {
                             const availability = getDayAvailabilityForMember(day, member.id)
                             if (!availability.isOpen) return null
+                            // Only show cleaners who actually have free time on this day
+                            const freeSegs = buildTimelineSegments(availability, ['free', 'free_short'])
+                            if (freeSegs.length === 0) return null
                             const memberColor = member.color || '#2563EB'
                             const memberName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Cleaner'
                             return (
                               <div
                                 key={member.id}
-                                className="schedule-card bg-white p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all flex gap-1.5"
+                                className="schedule-card bg-white p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all"
                                 style={{ borderRadius: '4px', border: `0.5px solid ${memberColor}` }}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setSelectedFilter(member.id.toString())
                                 }}
                               >
-                                {/* Mini vertical timeline on the left edge of the cleaner pill */}
-                                <TimelineBar
-                                  availability={availability}
-                                  orientation="vertical"
-                                  height={32}
-                                  width={6}
-                                  showAxis={false}
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-0.5">
-                                    <span className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                      {availability.hours || ''}
-                                    </span>
-                                    <div
-                                      className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0"
-                                      style={{ backgroundColor: memberColor }}
-                                      title={memberName}
-                                    >
-                                      {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
-                                    </div>
-                                  </div>
-                                  <div className="truncate font-medium text-[10px] text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="truncate font-medium text-[10px] text-gray-700 flex-1 min-w-0" style={{ fontFamily: 'Montserrat', fontWeight: 500 }} title={memberName}>
                                     {memberName}
+                                  </span>
+                                  <div
+                                    className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0 ml-1"
+                                    style={{ backgroundColor: memberColor }}
+                                    title={memberName}
+                                  >
+                                    {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
                                   </div>
                                 </div>
+                                {/* Free-only section cards — busy/travel hidden in this view */}
+                                <TimelineBar
+                                  availability={availability}
+                                  orientation="sections"
+                                  types={['free', 'free_short']}
+                                  height={Math.max(24, freeSegs.length * 22)}
+                                  showAxis={false}
+                                />
                               </div>
                             )
                           })}
