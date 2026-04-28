@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
 import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI, paymentMethodsAPI, paymentSettingsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
-import { sliceIntoArrivalWindows } from "../utils/slotUtils"
 import { 
   Plus, 
   Calendar, 
@@ -93,10 +92,8 @@ const ServiceFlowSchedule = () => {
   const [availabilityMonth, setAvailabilityMonth] = useState(new Date()) // Current month for availability view
   const [userBusinessHours, setUserBusinessHours] = useState(null) // User's business hours from backend (Company Working Time)
   const [drivingTimeMinutes, setDrivingTimeMinutes] = useState(0) // Driving time buffer in minutes (from settings)
-  // Arrival-window settings from Scheduling & Booking modal (businessHours.schedulingSettings).
-  // Defaults: 60-min interval / 120-min window — the "1h step, 2h window" pattern.
-  const [schedulingSettings, setSchedulingSettings] = useState({ timeslotInterval: 60, arrivalWindow: 120 })
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false)
+  const [teamMemberAvailability, setTeamMemberAvailability] = useState({}) // Store team member personal availability
   const [jobs, setJobs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [mapView, setMapView] = useState('roadmap') // roadmap, satellite
@@ -953,11 +950,6 @@ const ServiceFlowSchedule = () => {
           : businessHours
         setUserBusinessHours(parsedHours)
         setDrivingTimeMinutes(parsedHours.drivingTime || 0)
-        const sched = parsedHours.schedulingSettings || {}
-        setSchedulingSettings({
-          timeslotInterval: parseInt(sched.timeslotInterval, 10) || 60,
-          arrivalWindow: parseInt(sched.arrivalWindow, 10) || 120,
-        })
       } else {
         // Default business hours
         setUserBusinessHours({
@@ -1574,49 +1566,40 @@ const ServiceFlowSchedule = () => {
     return null
   }
 
-  // Returns one of:
-  //   { kind: 'slot', start, end }   — bookable time
-  //   { kind: 'off' }                — explicit time off (custom override)
-  //   { kind: 'none' }               — no availability configured for this day
-  // The `date` argument enables date-specific customAvailability overrides
-  // (PTO / additional hours) to take precedence over the weekly schedule.
-  const getPersonalAvailabilityForDay = (memberId, dayOfWeek, date) => {
+  const getPersonalAvailabilityForDay = (memberId, dayOfWeek) => {
     const member = teamMembers.find(m => m.id === memberId)
-    if (!member || !member.availability) return { kind: 'none' }
+    if (!member) return null
 
-    let avail
-    try {
-      avail = typeof member.availability === 'string'
-        ? JSON.parse(member.availability)
-        : member.availability
-    } catch (e) {
-      console.error('Error parsing member availability:', e)
-      return { kind: 'none' }
-    }
-    if (!avail || typeof avail !== 'object') return { kind: 'none' }
-
-    // 1. Date-specific override (customAvailability) wins over weekly schedule
-    if (date && Array.isArray(avail.customAvailability)) {
-      const dateStr = date.toISOString().split('T')[0]
-      const override = avail.customAvailability.find(item => item.date === dateStr)
-      if (override) {
-        if (override.available === false) {
-          return { kind: 'off' }
+    // Check if we have cached availability
+    if (teamMemberAvailability[memberId]) {
+      const avail = teamMemberAvailability[memberId]
+      if (typeof avail === 'string') {
+        try {
+          const parsed = JSON.parse(avail)
+          const dayHours = (parsed.workingHours || {})[dayOfWeek]
+          const slot = extractDaySlot(dayHours)
+          if (slot) return slot
+        } catch (e) {
+          console.error('Error parsing team member availability:', e)
         }
-        if (Array.isArray(override.hours) && override.hours.length > 0) {
-          const first = override.hours[0]
-          if (first && first.start && first.end) {
-            return { kind: 'slot', start: first.start, end: first.end }
-          }
-        }
+      } else if (avail && avail.workingHours) {
+        const slot = extractDaySlot(avail.workingHours[dayOfWeek])
+        if (slot) return slot
       }
     }
 
-    // 2. Weekly schedule
-    const slot = extractDaySlot((avail.workingHours || {})[dayOfWeek])
-    if (slot) return { kind: 'slot', start: slot.start, end: slot.end }
+    // If member has availability in their object
+    if (member.availability) {
+      try {
+        const avail = typeof member.availability === 'string' ? JSON.parse(member.availability) : member.availability
+        const slot = extractDaySlot((avail.workingHours || {})[dayOfWeek])
+        if (slot) return slot
+      } catch (e) {
+        console.error('Error parsing member availability:', e)
+      }
+    }
 
-    return { kind: 'none' }
+    return null // No personal availability set
   }
 
   // Get availability for a specific team member on a specific date
@@ -1644,31 +1627,30 @@ const ServiceFlowSchedule = () => {
     // This is a hard limit - defines when the company operates at all
     const companyHours = getBusinessHours()
     const companyDayHours = companyHours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
-
+    
     // If company is not open on this day, no availability
     if (!companyDayHours.enabled) {
-      return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], reason: 'company_closed' }
+      return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
     }
-
+    
     // STEP 2: Get Personal Cleaner Availability (#3)
     // This defines when the cleaner is willing to work (independent of booked jobs)
-    // Pass date so customAvailability date overrides (PTO / additional hours) are honored.
-    const personalAvailability = getPersonalAvailabilityForDay(memberId, dayOfWeek, date)
-
+    const personalAvailability = getPersonalAvailabilityForDay(memberId, dayOfWeek)
+    
     // STEP 3: Intersect Company Working Time (#4) with Personal Cleaner Availability (#3)
     // BOTH are required - if personal availability is not set, intersection is empty (no bookable time)
     let intersectionTimeSlots = []
-    if (personalAvailability.kind === 'slot') {
+    if (personalAvailability) {
       // Both exist - calculate intersection
       const companyStart = timeToMinutes(companyDayHours.start)
       const companyEnd = timeToMinutes(companyDayHours.end)
       const personalStart = timeToMinutes(personalAvailability.start)
       const personalEnd = timeToMinutes(personalAvailability.end)
-
+      
       // Find intersection: max(start times) to min(end times)
       const intersectionStart = Math.max(companyStart, personalStart)
       const intersectionEnd = Math.min(companyEnd, personalEnd)
-
+      
       if (intersectionStart < intersectionEnd) {
         intersectionTimeSlots = [{
           start: minutesToTime(intersectionStart),
@@ -1676,18 +1658,12 @@ const ServiceFlowSchedule = () => {
         }]
       } else {
         // No intersection - cleaner not available during company hours
-        return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], reason: 'no_overlap' }
+        return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
       }
     } else {
-      // Either explicit time-off or no personal availability set
+      // No personal availability set - intersection is empty
       // Personal cleaner availability alone is NOT bookable time - BOTH are required
-      return {
-        isOpen: false,
-        hours: null,
-        jobCount: 0,
-        availableSlots: [],
-        reason: personalAvailability.kind === 'off' ? 'time_off' : 'no_personal_availability'
-      }
+      return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
     }
     
     // STEP 4: Get Cleaner Job Schedule (#2)
@@ -6020,15 +5996,7 @@ const ServiceFlowSchedule = () => {
                                 <span className={`text-sm font-semibold ${
                                   availability.isOpen ? 'text-green-700' : 'text-gray-700'
                                 }`}>
-                                  {availability.isOpen
-                                    ? 'Open'
-                                    : availability.reason === 'time_off'
-                                      ? 'Time off'
-                                      : availability.reason === 'no_personal_availability'
-                                        ? 'No availability set'
-                                        : availability.reason === 'no_overlap'
-                                          ? 'Outside working hours'
-                                          : 'Closed'}
+                                  {availability.isOpen ? 'Open' : 'Closed'}
                                 </span>
                                 {availability.hasJobs && (
                                   <span className="text-xs font-medium text-orange-600">
@@ -6905,52 +6873,16 @@ const ServiceFlowSchedule = () => {
             {/* Free spot cards (day view - job tab) */}
             {(() => {
               const dayAvail = getDayAvailability(selectedDate)
-              const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr > 12 ? hr - 12 : hr || 12; return `${h12}:${m || '00'} ${ampm}` }
-
-              // Build arrival windows from free spots using the configured interval/length.
-              // Each window inherits the parent spot's members (same set across the whole free block).
-              const arrivalWindows = (dayAvail.freeSpots || []).flatMap(spot => {
-                const sliced = sliceIntoArrivalWindows(
-                  [{ start: spot.start, end: spot.end }],
-                  schedulingSettings.timeslotInterval,
-                  schedulingSettings.arrivalWindow
-                )
-                return sliced.map(w => ({ ...w, memberCount: spot.memberCount, members: spot.members }))
-              })
-
               return dayAvail.freeSpots && dayAvail.freeSpots.length > 0 ? (
-                <div className="mt-4 space-y-4">
-                  {arrivalWindows.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        Bookable Arrival Windows
-                        <span className="text-xs font-normal text-gray-500 ml-1">
-                          ({schedulingSettings.arrivalWindow} min window, every {schedulingSettings.timeslotInterval} min)
-                        </span>
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {arrivalWindows.map((w, wi) => (
-                          <span
-                            key={wi}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-green-800 bg-green-50 border border-green-200 rounded-full px-2.5 py-1"
-                            title={w.members && w.members.length > 0 ? w.members.join(', ') : undefined}
-                          >
-                            {fmtT(w.start)} – {fmtT(w.end)}
-                            <span className="text-green-600">· {w.memberCount}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      Free Time Blocks
-                    </h4>
-                    <div className="space-y-2">
-                      {dayAvail.freeSpots.map((spot, si) => (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    Available Slots
+                  </h4>
+                  <div className="space-y-2">
+                    {dayAvail.freeSpots.map((spot, si) => {
+                      const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr > 12 ? hr - 12 : hr || 12; return `${h12}:${m || '00'} ${ampm}` }
+                      return (
                         <div key={si} className="bg-green-50 rounded-lg border border-green-200 p-3">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-sm font-semibold text-green-800">{fmtT(spot.start)} - {fmtT(spot.end)}</span>
@@ -6967,8 +6899,8 @@ const ServiceFlowSchedule = () => {
                             </div>
                           )}
                         </div>
-                      ))}
-                    </div>
+                      )
+                    })}
                   </div>
                 </div>
               ) : null
