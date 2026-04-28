@@ -7,6 +7,7 @@ import { isAccountOwner } from "../utils/roleUtils"
 import api from "../services/api"
 import LoadingButton from "../components/loading-button"
 import AddTeamMemberModal from "../components/add-team-member-modal"
+import AssignTerritoriesModal from "../components/assign-territories-modal"
 import { useNavigate } from "react-router-dom"
 import { handleTeamDeletionError, createErrorNotification, createSuccessNotification } from "../utils/errorHandler"
 import { getImageUrl } from "../utils/imageUtils"
@@ -30,6 +31,7 @@ const ServiceFlowTeam = () => {
   const [showResendModal, setShowResendModal] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
   const [memberToResend, setMemberToResend] = useState(null)
+  const [territoriesMember, setTerritoriesMember] = useState(null) // member whose territories are being edited
   const [notification, setNotification] = useState(null)
   const [deleteError, setDeleteError] = useState("")
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
@@ -859,6 +861,17 @@ const ServiceFlowTeam = () => {
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
+                                              setTerritoriesMember(member);
+                                            }}
+                                            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-600)] transition-colors flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                                            title="Assign territories (multiple supported)"
+                                          >
+                                            <MapPin className="w-4 h-4" />
+                                            <span>Territories</span>
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
                                               handleEditMember(member);
                                             }}
                                             className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
@@ -963,6 +976,16 @@ const ServiceFlowTeam = () => {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
+                                          setTerritoriesMember(member);
+                                        }}
+                                        className="text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-600)] transition-colors p-2"
+                                        title="Assign territories"
+                                      >
+                                        <MapPin className="w-5 h-5" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           handleEditMember(member);
                                         }}
                                         className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors p-2"
@@ -1030,6 +1053,17 @@ const ServiceFlowTeam = () => {
           isEditing={true}
         />
       )}
+
+      <AssignTerritoriesModal
+        isOpen={!!territoriesMember}
+        member={territoriesMember}
+        userId={user?.id}
+        onClose={() => setTerritoriesMember(null)}
+        onSaved={() => {
+          fetchTeamMembers()
+          setTerritoriesMember(null)
+        }}
+      />
 
       {showDeleteModal && memberToDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
