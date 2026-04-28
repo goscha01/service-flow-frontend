@@ -1667,8 +1667,11 @@ const ServiceFlowSchedule = () => {
     // Pass date so customAvailability date overrides (PTO / additional hours) are honored.
     const personalAvailability = getPersonalAvailabilityForDay(memberId, dayOfWeek, date)
 
-    // STEP 3: Intersect Company Working Time (#4) with Personal Cleaner Availability (#3)
-    // BOTH are required - if personal availability is not set, intersection is empty (no bookable time)
+    // STEP 3: Determine the cleaner's bookable window for the day:
+    //   - kind='slot'  → intersect personal hours with company hours
+    //   - kind='none'  → no personal hours configured; fall back to company hours
+    //                   (cleaners are assumed available during business hours by default)
+    //   - kind='off'   → explicit time-off override; not bookable
     let intersectionTimeSlots = []
     if (personalAvailability.kind === 'slot') {
       // Both exist - calculate intersection
@@ -1690,15 +1693,20 @@ const ServiceFlowSchedule = () => {
         // No intersection - cleaner not available during company hours
         return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], reason: 'no_overlap' }
       }
+    } else if (personalAvailability.kind === 'none') {
+      // No personal hours set — default to full company day window
+      intersectionTimeSlots = [{
+        start: companyDayHours.start,
+        end: companyDayHours.end,
+      }]
     } else {
-      // Either explicit time-off or no personal availability set
-      // Personal cleaner availability alone is NOT bookable time - BOTH are required
+      // kind === 'off' — explicit PTO override
       return {
         isOpen: false,
         hours: null,
         jobCount: 0,
         availableSlots: [],
-        reason: personalAvailability.kind === 'off' ? 'time_off' : 'no_personal_availability'
+        reason: 'time_off'
       }
     }
     
