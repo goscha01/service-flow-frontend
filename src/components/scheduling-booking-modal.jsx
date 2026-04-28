@@ -19,6 +19,7 @@ const ARRIVAL_OPTIONS = [
 
 const DEFAULT_INTERVAL_MIN = 60
 const DEFAULT_ARRIVAL_MIN = 120
+const DEFAULT_MIN_JOB_DURATION = 60 // minutes
 
 const minutesToLabel = (mins, options, fallbackLabel) => {
   const found = options.find(o => o.minutes === mins)
@@ -34,6 +35,7 @@ const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
     timeslotInterval: minutesToLabel(DEFAULT_INTERVAL_MIN, INTERVAL_OPTIONS, "1 hour"),
     arrivalWindow: minutesToLabel(DEFAULT_ARRIVAL_MIN, ARRIVAL_OPTIONS, "2 hours"),
     drivingTime: 0, // minutes; buffer before/after each job, used by schedule availability calc
+    minimumJobDuration: DEFAULT_MIN_JOB_DURATION, // minutes; floor enforced on job creation
     availabilityMethod: "service-provider",
     serviceProviders: 1,
     limitDistance: false,
@@ -72,6 +74,7 @@ const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
             prev.arrivalWindow
           ),
           drivingTime: parseInt(parsed?.drivingTime, 10) || 0,
+          minimumJobDuration: parseInt(sched.minimumJobDuration, 10) || DEFAULT_MIN_JOB_DURATION,
         }))
       } catch (err) {
         console.error("Error loading scheduling settings:", err)
@@ -100,6 +103,7 @@ const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
       const intervalMin = labelToMinutes(settings.timeslotInterval, INTERVAL_OPTIONS, DEFAULT_INTERVAL_MIN)
       const arrivalMin = labelToMinutes(settings.arrivalWindow, ARRIVAL_OPTIONS, DEFAULT_ARRIVAL_MIN)
       const drivingMin = Math.max(0, parseInt(settings.drivingTime, 10) || 0)
+      const minJobMin = Math.max(0, parseInt(settings.minimumJobDuration, 10) || DEFAULT_MIN_JOB_DURATION)
       const merged = {
         ...businessHours,
         // Top-level drivingTime — read by the schedule page for the cleaner-buffer
@@ -109,6 +113,7 @@ const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
           ...(businessHours.schedulingSettings || {}),
           timeslotInterval: intervalMin,
           arrivalWindow: arrivalMin,
+          minimumJobDuration: minJobMin,
         },
       }
       await availabilityAPI.updateAvailability({ businessHours: merged })
@@ -194,6 +199,23 @@ const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
                     step="5"
                     value={settings.drivingTime}
                     onChange={(e) => setSettings(prev => ({ ...prev, drivingTime: e.target.value }))}
+                    className="w-28 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
+                  />
+                  <span className="text-sm text-[var(--sf-text-secondary)]">minutes</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Minimum job duration</label>
+                <p className="text-xs text-[var(--sf-text-muted)] mb-2">Floor enforced when creating a job — duration cannot be shorter than this</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="480"
+                    step="15"
+                    value={settings.minimumJobDuration}
+                    onChange={(e) => setSettings(prev => ({ ...prev, minimumJobDuration: e.target.value }))}
                     className="w-28 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                   />
                   <span className="text-sm text-[var(--sf-text-secondary)]">minutes</span>
