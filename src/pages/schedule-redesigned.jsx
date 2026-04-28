@@ -781,23 +781,24 @@ const ServiceFlowSchedule = () => {
     }
 
     const styleByType = {
-      busy:       { bg: 'bg-orange-300',  text: 'text-orange-900', label: 'Busy'   },
-      driving:    { bg: 'bg-amber-200',   text: 'text-amber-900',  label: 'Travel' },
-      free:       { bg: 'bg-green-200',   text: 'text-green-900',  label: 'Free'   },
-      free_short: { bg: 'bg-yellow-200',  text: 'text-yellow-900', label: 'Short'  },
+      busy:       { bg: 'bg-red-200',     border: 'border-red-300',     text: 'text-red-900',   label: 'Busy',   labelColor: '' },
+      driving:    { bg: 'bg-amber-200',   border: 'border-amber-300',   text: 'text-amber-900', label: 'Travel', labelColor: '' },
+      free:       { bg: 'bg-green-200',   border: 'border-green-300',   text: 'text-green-900', label: 'Free',   labelColor: '' },
+      // Short = green background but red "short" label so it visually pops as a problem slot
+      free_short: { bg: 'bg-green-200',   border: 'border-green-300',   text: 'text-green-900', label: 'Short',  labelColor: 'text-red-700 font-semibold' },
     }
 
     const isVertical = orientation === 'vertical'
     const isSections = orientation === 'sections'
 
-    // Sections mode: full-width vertical stack of colored cards with text inside.
-    // Each section gets EQUAL height (flex-1) so every label has room and there's
-    // no overlap. Duration is shown inline in the label, so the proportional info
-    // is preserved without skewing the layout.
+    // Sections mode: full-width vertical stack of separate colored cards.
+    // Each section gets EQUAL height (flex-1) and is its own rounded card with
+    // its own border + a small gap between cards so they read as a list, not a
+    // single tiled bar.
     if (isSections) {
       return (
         <div
-          className="w-full flex flex-col border border-gray-200 rounded-md overflow-hidden"
+          className="w-full flex flex-col gap-0.5"
           style={{ height }}
         >
           {segs.map((seg, i) => {
@@ -811,12 +812,15 @@ const ServiceFlowSchedule = () => {
             return (
               <div
                 key={i}
-                className={`${sty.bg} ${sty.text} px-1.5 flex items-center overflow-hidden border-b border-white/40 last:border-b-0`}
+                className={`${sty.bg} ${sty.text} ${sty.border} border rounded-md px-1.5 flex items-center overflow-hidden`}
                 style={{ flex: '1 1 0', minHeight: 0 }}
                 title={tip}
               >
                 <div className="text-[10px] font-medium leading-tight truncate w-full">
-                  {fmtT(seg.start)}–{fmtT(seg.end)} · {sty.label.toLowerCase()} · {dur}m
+                  {fmtT(seg.start)}–{fmtT(seg.end)}
+                  {' · '}
+                  <span className={sty.labelColor || ''}>{sty.label.toLowerCase()}</span>
+                  {' · '}{dur}m
                 </div>
               </div>
             )
@@ -6311,8 +6315,8 @@ const ServiceFlowSchedule = () => {
                                   )}
                                   {availability.totalBusy > 0 && (
                                     <div className="flex items-center gap-1.5">
-                                      <div className="w-2.5 h-2.5 rounded-sm bg-orange-400"></div>
-                                      <span className="text-xs font-medium text-orange-700">{formatDuration(availability.totalBusy)} busy</span>
+                                      <div className="w-2.5 h-2.5 rounded-sm bg-red-300"></div>
+                                      <span className="text-xs font-medium text-red-700">{formatDuration(availability.totalBusy)} busy</span>
                                     </div>
                                   )}
                                   {availability.totalDriving > 0 && (
