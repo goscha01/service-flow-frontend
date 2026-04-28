@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, sourceIssuesAPI, participantsAPI, identitiesAPI } from "../../services/api"
+import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, zenbookerAPI, sourceIssuesAPI, participantsAPI, identitiesAPI, integrationsAPI, opContactsAPI } from "../../services/api"
 import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Database, Link2 } from "lucide-react"
 
 const EVENT_DEFS = [
@@ -14,6 +14,25 @@ const EVENT_DEFS = [
 ]
 
 const PROV_SHORT = { openphone: 'OP', leadbridge: 'LB', customer: 'CR' }
+
+// Client-side CSV export for the unidentified-leads lists. Escapes quotes and
+// wraps any value that contains comma/quote/newline.
+function downloadCsv(filename, columns, rows) {
+  const esc = v => {
+    if (v == null) return ''
+    const s = String(v)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const header = columns.map(c => esc(c.label)).join(',')
+  const body = (rows || []).map(r => columns.map(c => esc(typeof c.get === 'function' ? c.get(r) : r[c.key])).join(',')).join('\n')
+  const csv = header + '\n' + body
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click()
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 100)
+}
 const PROV_COLOR = { openphone: 'bg-blue-50 text-blue-600 border-blue-100', leadbridge: 'bg-amber-50 text-amber-600 border-amber-100', customer: 'bg-violet-50 text-violet-600 border-violet-100' }
 
 const LeadsSettings = () => {
@@ -54,20 +73,54 @@ const LeadsSettings = () => {
   const [issuesLoading, setIssuesLoading] = useState(false)
   const [mergingPair, setMergingPair] = useState(null) // "srcId-targetId"
 
-  // Phase F — identity reporting + backfill
+  // Phase F — identity reporting (read-only; technical controls moved to Integration cards)
   const [idStatus, setIdStatus] = useState(null)
   const [idBySource, setIdBySource] = useState(null)
   const [idUnresolved, setIdUnresolved] = useState(null)
   const [idAmbiguities, setIdAmbiguities] = useState(null)
   const [idReportLoading, setIdReportLoading] = useState(false)
-  const [idBackfillBusy, setIdBackfillBusy] = useState(false)
-  const [idBackfillResult, setIdBackfillResult] = useState(null)
 
-  // Upgrade legacy LB flat sources → per-location
-  const [lbUpgradeBusy, setLbUpgradeBusy] = useState(false)
-  const [lbUpgradeResult, setLbUpgradeResult] = useState(null)
+  // Phase H — ambiguity resolution modal
+  const [ambigModal, setAmbigModal] = useState(null)
+  const [ambigActionBusy, setAmbigActionBusy] = useState(false)
 
-  useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues(); loadIdentityReport() }, [])
+  // Phase I — OpenPhone lead creation outcomes (rolling 24h / 7d)
+  const [opOutcomes, setOpOutcomes] = useState(null)
+
+  // Phase J — Integration cards (Connect · Sync Now · last sync)
+  const [integrationStatus, setIntegrationStatus] = useState(null)
+  const [syncBusy, setSyncBusy] = useState({}) // { openphone: true, leadbridge: false, ... }
+  const [aiBusy, setAiBusy] = useState({}) // { <identityId>: true } during classify
+  const [aiBatchBusy, setAiBatchBusy] = useState(false)
+  const [aiBatchProgress, setAiBatchProgress] = useState(null) // { done, total, cost }
+  // Per-row Company picker for the OP-missing-Company list. phone → selected source name.
+  const [pendingCompany, setPendingCompany] = useState({})
+  const [companyBusy, setCompanyBusy] = useState({}) // { <phone>: true } while saving
+
+  useEffect(() => {
+    loadRules(); loadSources(); loadMappings(); loadIssues(); loadIdentityReport()
+    // Check if a classify batch is running on mount; if so, show the bar + start polling.
+    ;(async () => {
+      try {
+        const p = await identitiesAPI.classifyBatchProgress()
+        if (p) setAiBatchProgress(p)
+        if (p?.running) {
+          setAiBatchBusy(true)
+          try {
+            for (let i = 0; i < 1200; i++) {
+              await new Promise(r => setTimeout(r, 3000))
+              let x
+              try { x = await identitiesAPI.classifyBatchProgress() } catch { continue }
+              if (!x) break
+              setAiBatchProgress(x)
+              if (!x.running) break
+            }
+            await loadIdentityReport(); await loadIssues()
+          } finally { setAiBatchBusy(false) }
+        }
+      } catch (_) { /* non-fatal */ }
+    })()
+  }, [])
 
   const loadIssues = async () => {
     setIssuesLoading(true)
@@ -87,70 +140,226 @@ const LeadsSettings = () => {
     finally { setMergingPair(null) }
   }
 
-  // Phase F — identity reporting loaders
+  // Phase F — identity reporting loaders (now also loads integration status)
   const loadIdentityReport = async () => {
     setIdReportLoading(true)
     try {
-      const [status, bySource, unresolved, ambiguities] = await Promise.all([
+      const [status, bySource, unresolved, ambiguities, outcomes, integrations] = await Promise.all([
         identitiesAPI.status(),
         identitiesAPI.bySource(),
-        identitiesAPI.unresolved({ limit: 50 }),
-        identitiesAPI.reconciliationFailures({ status: 'open', limit: 50 }),
+        identitiesAPI.unresolved({ limit: 200 }),
+        identitiesAPI.reconciliationFailures({ status: 'open', limit: 200 }),
+        identitiesAPI.opLeadOutcomes().catch(() => null),
+        integrationsAPI.status().catch(() => null),
       ])
       setIdStatus(status); setIdBySource(bySource); setIdUnresolved(unresolved); setIdAmbiguities(ambiguities)
+      setOpOutcomes(outcomes)
+      setIntegrationStatus(integrations)
     } catch (e) { console.error('identity report load failed', e) }
     finally { setIdReportLoading(false) }
   }
 
-  const pollBackfillProgress = async () => {
-    let last = null
-    for (let i = 0; i < 300; i++) {
-      await new Promise(r => setTimeout(r, 2000))
-      const p = await identitiesAPI.backfillProgress()
-      last = p
-      setIdBackfillResult({ progress: p })
-      if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
+  // Phase J — one Sync Now per integration. Two-phase: (1) actual external pull
+  // via the source-specific endpoint, (2) post-sync orchestrator (source-fill
+  // + lead-recovery + issue counting). Polls each phase until done.
+  const handleSyncIntegration = async (source) => {
+    setSyncBusy(b => ({ ...b, [source]: true }))
+    const pollUntilIdle = async (getProgress, max = 300) => {
+      for (let i = 0; i < max; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        let p; try { p = await getProgress() } catch { continue }
+        const s = p?.status
+        if (!s || s === 'done' || s === 'error' || s === 'idle' || s === 'completed') return p
+      }
+      return null
     }
-    if (last?.status === 'error') setIdBackfillResult({ error: last.error })
-    else if (last?.summary) setIdBackfillResult({ summary: last.summary, dryRun: last.apply === false })
+    try {
+      // Phase 1: actual external pull. Each source has its own established
+      // sync endpoint; we trigger then poll. Tolerant of 409 (already running).
+      try {
+        if (source === 'openphone') {
+          await openPhoneAPI.sync().catch(e => { if (e.response?.status !== 409) throw e })
+          await pollUntilIdle(() => openPhoneAPI.getSyncProgress())
+        } else if (source === 'leadbridge') {
+          await leadbridgeAPI.sync(null).catch(e => { if (e.response?.status !== 409) throw e })
+          await pollUntilIdle(() => leadbridgeAPI.getSyncProgress())
+        } else if (source === 'zenbooker') {
+          await zenbookerAPI.sync().catch(e => { if (e.response?.status !== 409) throw e })
+          await pollUntilIdle(() => zenbookerAPI.syncProgress())
+        }
+      } catch (phase1err) {
+        // Surface the error but still try the orchestrator post-sync — it's
+        // useful to run source-fill and lead-recovery even if the pull failed.
+        console.warn('Phase 1 (actual pull) failed:', phase1err)
+      }
+      // Phase 2: orchestrator (source-fill + recreate-op-leads + issue count).
+      await integrationsAPI.sync(source).catch(e => { if (e.response?.status !== 409) throw e })
+      await pollUntilIdle(() => integrationsAPI.syncProgress(source))
+      await loadIdentityReport(); await loadIssues()
+    } catch (e) { alert('Sync failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSyncBusy(b => ({ ...b, [source]: false })) }
   }
 
-  const handleIdBackfillDryRun = async () => {
-    setIdBackfillBusy(true); setIdBackfillResult({ progress: { phase: 'starting' } })
+  // AI classifier — per-row + batch. Persists ai_category / ai_summary on identity.
+  const handleAiClassify = async (identityId) => {
+    setAiBusy(b => ({ ...b, [identityId]: true }))
     try {
-      await identitiesAPI.backfillDryRun()
-      await pollBackfillProgress()
-    } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setIdBackfillBusy(false) }
+      const verdict = await identitiesAPI.classify(identityId)
+      const patch = { ai_category: verdict.category, ai_confidence: verdict.confidence, ai_summary: verdict.summary }
+      // Patch both lists — the identity may appear in the floating list AND in
+      // the OP-contacts-missing-Company sample (linked via participant_identity_id).
+      setIdUnresolved(prev => prev && prev.items
+        ? { ...prev, items: prev.items.map(r => r.id === identityId ? { ...r, ...patch } : r) }
+        : prev
+      )
+      setIssues(prev => {
+        if (!prev?.namedContactsMissingCompany?.sample) return prev
+        return {
+          ...prev,
+          namedContactsMissingCompany: {
+            ...prev.namedContactsMissingCompany,
+            sample: prev.namedContactsMissingCompany.sample.map(c => c.participant_identity_id === identityId ? { ...c, ...patch } : c),
+          },
+        }
+      })
+    } catch (e) { alert('Classify failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setAiBusy(b => ({ ...b, [identityId]: false })) }
+  }
+  // Set Company tag for an OP contact directly in SF. After save, the row
+  // disappears from the missing-Company list and source attribution flows
+  // through to the linked customer/lead via source-fill.
+  const handleSetCompany = async (phone) => {
+    const company = pendingCompany[phone]
+    if (!company) return
+    setCompanyBusy(b => ({ ...b, [phone]: true }))
+    try {
+      const result = await opContactsAPI.setCompany(phone, company)
+      // Drop the row from the OP-missing-Company list (it now has a Company tag).
+      setIssues(prev => {
+        if (!prev?.namedContactsMissingCompany?.sample) return prev
+        const newSample = prev.namedContactsMissingCompany.sample.filter(c => c.participant_phone !== phone)
+        return {
+          ...prev,
+          namedContactsMissingCompany: {
+            ...prev.namedContactsMissingCompany,
+            sample: newSample,
+            count: Math.max(0, (prev.namedContactsMissingCompany.count || 0) - 1),
+          },
+        }
+      })
+      // If a lead was created (identity was floating with no CRM link), remove
+      // the row from the floating list too — it's now a Connected lead.
+      if (result?.lead_created?.id) {
+        setIdUnresolved(prev => {
+          if (!prev?.items) return prev
+          const last10 = String(phone || '').replace(/\D/g, '').slice(-10)
+          return { ...prev, items: prev.items.filter(r => String(r.normalized_phone || '').replace(/\D/g, '').slice(-10) !== last10) }
+        })
+      }
+      setPendingCompany(p => { const n = { ...p }; delete n[phone]; return n })
+    } catch (e) {
+      alert('Set Company failed: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setCompanyBusy(b => { const n = { ...b }; delete n[phone]; return n })
+    }
   }
 
-  const handleIdBackfillApply = async () => {
-    if (!window.confirm('Run identity backfill (apply)? Strict merge discipline — external_id OR phone+name only, never phone-alone. Idempotent and safe to rerun.')) return
-    setIdBackfillBusy(true); setIdBackfillResult({ progress: { phase: 'starting' } })
+  // Same batch flow, but classifies the identities behind OP-contacts-missing-Company.
+  const handleAiClassifyOpContacts = async () => {
+    const sample = issues?.namedContactsMissingCompany?.sample || []
+    const unclassified = sample.filter(c => c.participant_identity_id && !c.ai_category).map(c => c.participant_identity_id)
+    if (unclassified.length === 0) { alert('Nothing to classify — all OP contacts already have an AI verdict.'); return }
+    if (!window.confirm(`Classify ${unclassified.length} OpenPhone contacts with AI? (~$${(unclassified.length * 0.0003).toFixed(3)} in OpenAI costs)`)) return
+    setAiBatchBusy(true); setAiBatchProgress({ done: 0, total: unclassified.length, cost: 0, running: true })
     try {
-      await identitiesAPI.backfillApply()
-      await pollBackfillProgress()
+      await identitiesAPI.classifyBatch(unclassified, unclassified.length)
+      // Progress is now DB-backed — a Railway restart no longer drops state,
+      // worker is respawned at boot with done-offset preserved.
+      for (let i = 0; i < 1200; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        let p
+        try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
+        if (!p) break
+        setAiBatchProgress(p)
+        if (!p.running) break
+      }
+      await loadIssues(); await loadIdentityReport()
+    } catch (e) {
+      if (e.response?.status === 409) {
+        for (let i = 0; i < 600; i++) {
+          await new Promise(r => setTimeout(r, 3000))
+          let p
+          try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
+          if (!p) break
+          setAiBatchProgress(p)
+          if (!p.running) break
+        }
+        await loadIssues(); await loadIdentityReport()
+      } else {
+        alert('Batch failed: ' + (e.response?.data?.error || e.message))
+      }
+    } finally { setAiBatchBusy(false) }
+  }
+
+  const handleAiClassifyBatch = async () => {
+    const items = idUnresolved?.items || []
+    const unclassified = items.filter(r => !r.ai_category).map(r => r.id)
+    if (unclassified.length === 0) { alert('Nothing to classify — all rows already have an AI verdict.'); return }
+    if (!window.confirm(`Classify ${unclassified.length} floating identities with AI? (~$${(unclassified.length * 0.0003).toFixed(3)} in OpenAI costs)`)) return
+    setAiBatchBusy(true); setAiBatchProgress({ done: 0, total: unclassified.length, cost: 0, running: true })
+    try {
+      // Fire-and-forget; backend runs async and we poll.
+      await identitiesAPI.classifyBatch(unclassified, unclassified.length)
+      // Poll progress every 3s until done.
+      // Progress is now DB-backed — a Railway restart no longer drops state,
+      // worker is respawned at boot with done-offset preserved.
+      for (let i = 0; i < 1200; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        let p
+        try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
+        if (!p) break
+        setAiBatchProgress(p)
+        if (!p.running) break
+      }
+      await loadIdentityReport() // full reload so list reflects all verdicts
+    } catch (e) {
+      if (e.response?.status === 409) {
+        // Already running — just start polling
+        for (let i = 0; i < 600; i++) {
+          await new Promise(r => setTimeout(r, 3000))
+          let p
+          try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
+          if (!p) break
+          setAiBatchProgress(p)
+          if (!p.running) break
+        }
+        await loadIdentityReport()
+      } else {
+        alert('Batch failed: ' + (e.response?.data?.error || e.message))
+      }
+    } finally { setAiBatchBusy(false) }
+  }
+
+  // Phase H — ambiguity resolution
+  const openAmbigModal = async (row) => {
+    setAmbigModal({ loading: true, ambiguity: row, candidates: [] })
+    try {
+      const data = await identitiesAPI.ambiguityCandidates(row.id)
+      setAmbigModal({ loading: false, ambiguity: data.ambiguity, candidates: data.candidates || [] })
+    } catch (e) { setAmbigModal({ loading: false, ambiguity: row, candidates: [], error: e.response?.data?.error || e.message }) }
+  }
+  const closeAmbigModal = () => setAmbigModal(null)
+  const resolveAmbig = async (action, target_identity_id = null) => {
+    if (!ambigModal?.ambiguity) return
+    if (action === 'abandon' && !window.confirm('Abandon this ambiguity? The attempted source event will not be linked to any identity.')) return
+    setAmbigActionBusy(true)
+    try {
+      await identitiesAPI.resolveAmbiguity(ambigModal.ambiguity.id, { action, target_identity_id })
+      closeAmbigModal()
       await loadIdentityReport()
-    } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setIdBackfillBusy(false) }
-  }
-
-  const handleLbUpgradeDryRun = async () => {
-    setLbUpgradeBusy(true); setLbUpgradeResult(null)
-    try { setLbUpgradeResult(await participantsAPI.upgradeLbSourcesDryRun()) }
-    catch (e) { setLbUpgradeResult({ error: e.response?.data?.error || e.message }) }
-    finally { setLbUpgradeBusy(false) }
-  }
-  const handleLbUpgradeApply = async () => {
-    if (!window.confirm('Upgrade legacy `leadbridge_*` sources to per-location values? Rewrites customers.source / leads.source where a LeadBridge conversation exists. Idempotent and safe to rerun.')) return
-    setLbUpgradeBusy(true); setLbUpgradeResult(null)
-    try {
-      setLbUpgradeResult(await participantsAPI.upgradeLbSourcesApply())
-      // Refresh both the Issues counts AND the Lead Sources unmapped list (source values changed)
-      await Promise.all([loadIssues(), loadMappings()])
-    }
-    catch (e) { setLbUpgradeResult({ error: e.response?.data?.error || e.message }) }
-    finally { setLbUpgradeBusy(false) }
+    } catch (e) {
+      alert('Resolve failed: ' + (e.response?.data?.error || e.message))
+    } finally { setAmbigActionBusy(false) }
   }
 
   const loadRules = async () => {
@@ -281,40 +490,59 @@ const LeadsSettings = () => {
 
   // Sync all sources (OpenPhone + LeadBridge) — pulls fresh company data
   const handleSyncAll = async () => {
-    setSyncing(true); setSyncResult(null); setSyncProgress({ op: 'starting', lb: 'starting' })
+    setSyncing(true); setSyncResult(null)
+    setSyncProgress({ op: 'starting', lb: 'starting', zb: 'starting' })
     try {
-      // Kick off both syncs in parallel
-      const [opStart, lbStart] = await Promise.allSettled([
-        openPhoneAPI.sync().catch(e => ({ error: e?.response?.data?.error || e.message })),
-        leadbridgeAPI.sync(null).catch(e => ({ error: e?.response?.data?.error || e.message })),
-      ])
+      // Drive each of the three sources through the two-phase pipeline in
+      // parallel, updating syncProgress per source on each tick so the UI
+      // can render a live status row for each.
+      const sources = [
+        { key: 'openphone', short: 'op', api: openPhoneAPI, getProgress: () => openPhoneAPI.getSyncProgress(), startArg: undefined },
+        { key: 'leadbridge', short: 'lb', api: leadbridgeAPI, getProgress: () => leadbridgeAPI.getSyncProgress(), startArg: null },
+        { key: 'zenbooker',  short: 'zb', api: zenbookerAPI,  getProgress: () => zenbookerAPI.syncProgress(),    startArg: undefined },
+      ]
+      const setStatus = (short, patch) => setSyncProgress(prev => ({ ...prev, ...patch, [short]: patch.status || prev?.[short] }))
 
-      // Poll both sync progresses until both are done
-      const poll = async () => {
-        const [opP, lbP] = await Promise.all([
-          openPhoneAPI.getSyncProgress().catch(() => ({ status: 'idle' })),
-          leadbridgeAPI.getSyncProgress().catch(() => ({ status: 'idle' })),
-        ])
-        setSyncProgress({
-          op: opP.status, opSynced: opP.synced, opTotal: opP.total,
-          lb: lbP.status, lbSynced: lbP.synced, lbTotal: lbP.total,
-        })
-        return opP.status !== 'running' && lbP.status !== 'running'
+      const runOne = async ({ key, short, api, getProgress, startArg }) => {
+        try {
+          // Phase 1: actual external pull.
+          setStatus(short, { status: 'pulling' })
+          await api.sync(startArg).catch(e => { if (e?.response?.status !== 409) throw e })
+          for (let i = 0; i < 300; i++) {
+            await new Promise(r => setTimeout(r, 2000))
+            let p; try { p = await getProgress() } catch { continue }
+            const s = p?.status
+            setStatus(short, {
+              status: s === 'running' ? 'pulling' : s,
+              [`${short}Synced`]: p?.synced, [`${short}Total`]: p?.total,
+            })
+            if (!s || s === 'done' || s === 'error' || s === 'idle' || s === 'completed') break
+          }
+          // Phase 2: orchestrator (source-fill + recreate-op-leads + issues).
+          setStatus(short, { status: 'finalizing' })
+          await integrationsAPI.sync(key).catch(e => { if (e?.response?.status !== 409) throw e })
+          for (let i = 0; i < 300; i++) {
+            await new Promise(r => setTimeout(r, 2000))
+            let p; try { p = await integrationsAPI.syncProgress(key) } catch { continue }
+            const s = p?.status
+            if (!s || s === 'done' || s === 'error' || s === 'idle') break
+          }
+          setStatus(short, { status: 'done' })
+        } catch (e) {
+          setStatus(short, { status: 'error', [`${short}Error`]: e?.response?.data?.error || e.message })
+          throw e
+        }
       }
 
-      // Poll every 2 seconds for up to 5 minutes
-      const maxAttempts = 150
-      for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 2000))
-        if (await poll()) break
-      }
-
+      const results = await Promise.allSettled(sources.map(runOne))
+      const errors = results.filter(r => r.status === 'rejected').length
       setSyncResult({
-        ok: true,
-        message: 'Sync complete. Refresh to see updated sources.'
+        ok: errors === 0,
+        message: errors === 0
+          ? 'All three sources synced. Refresh to see updated sources.'
+          : `Sync finished with ${errors} of 3 sources erroring (likely an expired token — reconnect).`,
       })
-      // Reload mappings + issues (unmapped list + duplicates/missing will update)
-      await Promise.all([loadMappings(), loadIssues()])
+      await Promise.all([loadMappings(), loadIssues(), loadIdentityReport()])
     } catch (e) {
       setSyncResult({ error: e?.response?.data?.error || e.message })
     } finally {
@@ -327,6 +555,109 @@ const LeadsSettings = () => {
 
   return (
     <div className="min-h-screen bg-[var(--sf-bg-page)]">
+      {/* Phase H — ambiguity resolution modal */}
+      {ambigModal && (() => {
+        const a = ambigModal.ambiguity || {}
+        const candidates = ambigModal.candidates || []
+        return (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={closeAmbigModal}>
+            <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="px-5 py-3 border-b border-[var(--sf-border-light)] flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-[var(--sf-text-muted)] font-mono">Ambiguity #{a.id} · {a.source}</div>
+                  <div className="text-sm font-semibold text-[var(--sf-text-primary)]">Resolve identity conflict</div>
+                </div>
+                <button onClick={closeAmbigModal} className="p-1 rounded hover:bg-[var(--sf-bg-hover)]" title="Close"><X size={16} /></button>
+              </div>
+
+              <div className="px-5 py-3 border-b border-[var(--sf-border-light)] bg-amber-50">
+                <div className="text-[10px] uppercase tracking-wider text-amber-900 font-semibold mb-1">Attempted</div>
+                <div className="text-xs space-y-0.5">
+                  <div><strong>Name:</strong> {a.attempted_name || '(none)'}</div>
+                  <div><strong>Phone:</strong> {a.attempted_phone || '(none)'}</div>
+                  <div><strong>External ID:</strong> <span className="font-mono">{a.attempted_external_id || '(none)'}</span></div>
+                  <div><strong>Reason:</strong> <em className="text-amber-800">{a.reason}</em></div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4">
+                {ambigModal.loading ? (
+                  <div className="text-xs text-[var(--sf-text-muted)] flex items-center gap-2">
+                    <Loader2 size={12} className="animate-spin" /> Loading candidates…
+                  </div>
+                ) : ambigModal.error ? (
+                  <div className="text-xs text-red-600">Error: {ambigModal.error}</div>
+                ) : candidates.length === 0 ? (
+                  <div className="text-xs text-[var(--sf-text-muted)]">No candidate identities available. You can still create a new identity or abandon.</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {candidates.map(c => (
+                      <div key={c.id} className="border border-[var(--sf-border-light)] rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] text-[var(--sf-text-muted)] font-mono">Identity #{c.id}</div>
+                            <div className="text-sm font-semibold text-[var(--sf-text-primary)]">{c.display_name || '(no name)'}</div>
+                          </div>
+                          <div className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{c.status || '—'}</div>
+                        </div>
+                        <div className="text-[11px] text-[var(--sf-text-secondary)] space-y-0.5">
+                          <div>Phone: <span className="font-mono">{c.normalized_phone || '-'}</span></div>
+                          <div>Email: <span className="font-mono">{c.email || '-'}</span></div>
+                          <div>Sources: {(c.sources || []).join(', ') || '(none)'}</div>
+                          <div>Priority: <span className="font-mono">{c.identity_priority_source || '-'}</span></div>
+                        </div>
+                        {c.lead && (
+                          <div className="text-[11px] bg-emerald-50 border border-emerald-100 rounded p-2">
+                            <div className="font-semibold text-emerald-800">Lead #{c.lead.id}</div>
+                            <div className="text-emerald-700">{[c.lead.first_name, c.lead.last_name].filter(Boolean).join(' ')} · {c.lead.source || '-'}</div>
+                          </div>
+                        )}
+                        {c.customer && (
+                          <div className="text-[11px] bg-green-50 border border-green-100 rounded p-2">
+                            <div className="font-semibold text-green-800">Customer #{c.customer.id}</div>
+                            <div className="text-green-700">{[c.customer.first_name, c.customer.last_name].filter(Boolean).join(' ')} · {c.customer.phone || '-'}</div>
+                          </div>
+                        )}
+                        {(c.recent_conversations || []).length > 0 && (
+                          <div className="text-[10px] text-[var(--sf-text-muted)]">
+                            <div className="font-semibold mb-0.5">Recent conversations:</div>
+                            {c.recent_conversations.map(rc => (
+                              <div key={rc.id} className="truncate">{rc.last_event_at?.slice(0, 10) || '?'} · {rc.channel} · {rc.last_preview?.slice(0, 60) || '(empty)'}</div>
+                            ))}
+                          </div>
+                        )}
+                        <button onClick={() => resolveAmbig('merge_into', c.id)} disabled={ambigActionBusy}
+                          className="w-full mt-2 px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center justify-center gap-1.5">
+                          {ambigActionBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                          Merge into this identity
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-5 py-3 border-t border-[var(--sf-border-light)] flex items-center gap-2 bg-[var(--sf-bg-page)]">
+                <button onClick={() => resolveAmbig('create_new')} disabled={ambigActionBusy || ambigModal.loading}
+                  className="px-3 py-1.5 text-xs border border-violet-200 text-violet-700 hover:bg-violet-50 rounded-lg disabled:opacity-50 flex items-center gap-1.5">
+                  {ambigActionBusy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  Create new identity
+                </button>
+                <button onClick={() => resolveAmbig('abandon')} disabled={ambigActionBusy || ambigModal.loading}
+                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] rounded-lg disabled:opacity-50 flex items-center gap-1.5">
+                  <Trash2 size={12} />
+                  Abandon
+                </button>
+                <div className="flex-1" />
+                <button onClick={closeAmbigModal} className="px-3 py-1.5 text-xs text-[var(--sf-text-secondary)] hover:underline">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       <div>
         <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4 sticky top-0 z-10">
           <div className="flex items-center gap-3">
@@ -373,12 +704,43 @@ const LeadsSettings = () => {
                 {syncing ? (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 font-medium"><Loader2 size={12} className="animate-spin" /> Syncing sources...</div>
-                    {syncProgress && (
-                      <div className="grid grid-cols-2 gap-3 mt-1.5">
-                        <div>OpenPhone: {syncProgress.opSynced ?? 0}/{syncProgress.opTotal ?? '...'} ({syncProgress.op || 'starting'})</div>
-                        <div>LeadBridge: {syncProgress.lbSynced ?? 0}/{syncProgress.lbTotal ?? '...'} ({syncProgress.lb || 'starting'})</div>
-                      </div>
-                    )}
+                    {syncProgress && (() => {
+                      const sourceRow = (label, short) => {
+                        const status = syncProgress[short] || 'starting'
+                        const synced = syncProgress[`${short}Synced`]
+                        const total = syncProgress[`${short}Total`]
+                        const err = syncProgress[`${short}Error`]
+                        const dotClass = status === 'done' ? 'bg-green-500'
+                          : status === 'error' ? 'bg-red-500'
+                          : status === 'pulling' || status === 'finalizing' ? 'bg-blue-500 animate-pulse'
+                          : 'bg-gray-300'
+                        const pct = (total && total > 0) ? Math.min(100, Math.round((synced || 0) * 100 / total)) : null
+                        return (
+                          <div key={short}>
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
+                              <span className="font-medium w-20">{label}</span>
+                              <span className="text-[var(--sf-text-muted)] flex-1">
+                                {status}{pct != null ? ` · ${synced}/${total} (${pct}%)` : (synced != null && total != null ? ` · ${synced}/${total}` : '')}
+                                {err && <span className="text-red-600"> · {err}</span>}
+                              </span>
+                            </div>
+                            {pct != null && (
+                              <div className="h-1 w-full bg-white/50 rounded mt-0.5 overflow-hidden">
+                                <div className={`h-full transition-all ${status === 'error' ? 'bg-red-500' : status === 'done' ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="space-y-1.5 mt-1.5">
+                          {sourceRow('OpenPhone', 'op')}
+                          {sourceRow('LeadBridge', 'lb')}
+                          {sourceRow('Zenbooker', 'zb')}
+                        </div>
+                      )
+                    })()}
                   </div>
                 ) : syncResult?.error ? (
                   `Error: ${syncResult.error}`
@@ -456,264 +818,428 @@ const LeadsSettings = () => {
             </div>
 
             <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 space-y-4">
-              {/* Status buckets */}
-              {idStatus ? (
-                <>
+              {/* Health banner + action checklist. Implementation numbers live
+                  behind "All identity details" at the bottom. */}
+              {idStatus ? (() => {
+                const ambigCount = idStatus.ambiguities_open || 0
+                const opCompanyCount = issues?.namedContactsMissingCompany?.count || 0
+                const floatingCount = idStatus.details?.floating_named || 0
+                const hasAction = ambigCount > 0 || opCompanyCount > 0 || floatingCount > 0
+                return (
                   <div>
-                    <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
-                      Identity status · {idStatus.total} total
+                    <div className="flex items-center gap-2">
+                      {hasAction ? (
+                        <>
+                          <AlertTriangle size={16} className="text-amber-500" />
+                          <div className="text-sm font-semibold text-[var(--sf-text-primary)]">Needs attention</div>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} className="text-green-600" />
+                          <div className="text-sm font-semibold text-green-700">All clear</div>
+                        </>
+                      )}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                      <div className="bg-green-50 border border-green-100 rounded-lg p-3" title="Identity linked to an SF customer">
-                        <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Customer</div>
-                        <div className="text-lg font-bold text-green-800 mt-0.5">{idStatus.crm_linked?.resolved_customer || 0}</div>
-                      </div>
-                      <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3" title="Identity linked to an SF lead">
-                        <div className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">Lead</div>
-                        <div className="text-lg font-bold text-emerald-800 mt-0.5">{idStatus.crm_linked?.resolved_lead || 0}</div>
-                      </div>
-                      <div className="bg-teal-50 border border-teal-100 rounded-lg p-3" title="Linked to BOTH lead and customer (goal state for converted leads)">
-                        <div className="text-[10px] uppercase tracking-wider text-teal-700 font-semibold">Both</div>
-                        <div className="text-lg font-bold text-teal-800 mt-0.5">{idStatus.crm_linked?.resolved_both || 0}</div>
-                      </div>
-                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-3" title="Multiple candidates — awaiting operator decision">
-                        <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Ambiguous</div>
-                        <div className="text-lg font-bold text-amber-800 mt-0.5">{idStatus.ambiguous || 0}</div>
-                      </div>
-                      <div className="bg-violet-50 border border-violet-100 rounded-lg p-3" title="Real-person floaters that are NOT sync-only">
-                        <div className="text-[10px] uppercase tracking-wider text-violet-700 font-semibold">Floating</div>
-                        <div className="text-lg font-bold text-violet-800 mt-0.5">{idStatus.unresolved_floating_true || 0}</div>
-                      </div>
-                      <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="Sync-source (Zenbooker/future BK/Sheets) — not counted as floating">
-                        <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Sync-only</div>
-                        <div className="text-lg font-bold text-gray-800 mt-0.5">{idStatus.sync_only || 0}</div>
-                      </div>
-                    </div>
-                    {(idStatus.ambiguities_open || 0) > 0 && (
-                      <div className="text-[11px] text-amber-700 mt-2">
-                        <strong>{idStatus.ambiguities_open}</strong> open reconciliation failure{idStatus.ambiguities_open === 1 ? '' : 's'} in the ambiguity queue.
+                    {hasAction && (
+                      <div className="mt-2 space-y-1.5">
+                        {ambigCount > 0 && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-amber-800 hover:text-amber-900">
+                              <strong>{ambigCount}</strong> reconciliation failure{ambigCount === 1 ? '' : 's'} — click to resolve
+                            </summary>
+                            {idAmbiguities?.items?.length > 0 && (
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between mb-1.5 gap-2">
+                                  <div className="text-[10px] text-[var(--sf-text-muted)]">
+                                    {idAmbiguities.items.length < ambigCount ? `Showing ${idAmbiguities.items.length} of ${ambigCount}.` : `Showing all ${ambigCount}.`}
+                                  </div>
+                                  <button onClick={async () => {
+                                    try {
+                                      const blob = await identitiesAPI.reconciliationFailuresCsv({ status: 'open' })
+                                      const url = URL.createObjectURL(blob)
+                                      const a = document.createElement('a')
+                                      a.href = url; a.download = 'reconciliation-failures.csv'
+                                      document.body.appendChild(a); a.click()
+                                      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 100)
+                                    } catch (e) { alert('CSV export failed: ' + (e.response?.data?.error || e.message)) }
+                                  }}
+                                    className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1">
+                                    ⬇ CSV
+                                  </button>
+                                </div>
+                                <div className="space-y-1 max-h-64 overflow-y-auto">
+                                {idAmbiguities.items.map(row => (
+                                  <button key={row.id} onClick={() => openAmbigModal(row)}
+                                    className="w-full text-left text-[11px] font-mono px-2 py-1 bg-amber-50 hover:bg-amber-100 rounded cursor-pointer border border-transparent hover:border-amber-300">
+                                    <span className="text-amber-900">{row.source}</span>
+                                    {' · '}<span>{row.attempted_name || '(no name)'}</span>
+                                    {' · '}<span className="text-[var(--sf-text-muted)]">{row.attempted_phone || '-'}</span>
+                                    {' · '}<em className="text-[10px]">{row.reason}</em>
+                                  </button>
+                                ))}
+                                </div>
+                              </div>
+                            )}
+                          </details>
+                        )}
+                        {opCompanyCount > 0 && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-amber-800 hover:text-amber-900">
+                              <strong>{opCompanyCount}</strong> OpenPhone contact{opCompanyCount === 1 ? '' : 's'} missing Company tag — fix in OpenPhone to attribute their source
+                            </summary>
+                            {(issues?.namedContactsMissingCompany?.sample || []).length > 0 && (
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between mb-1.5 gap-2">
+                                  <div className="text-[10px] text-[var(--sf-text-muted)]">
+                                    {issues.namedContactsMissingCompany.sample.length < opCompanyCount
+                                      ? `Showing ${issues.namedContactsMissingCompany.sample.length} of ${opCompanyCount}.`
+                                      : `Showing all ${opCompanyCount}.`}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button onClick={() => downloadCsv('op-contacts-missing-company.csv',
+                                      [
+                                        { key: 'participant_name', label: 'name' },
+                                        { key: 'participant_phone', label: 'phone' },
+                                        { key: 'ai_category', label: 'ai_category' },
+                                        { key: 'ai_confidence', label: 'ai_confidence' },
+                                        { key: 'ai_summary', label: 'ai_summary' },
+                                        { key: 'participant_identity_id', label: 'identity_id' },
+                                      ],
+                                      issues.namedContactsMissingCompany.sample
+                                    )}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1">
+                                      ⬇ CSV
+                                    </button>
+                                    <button onClick={handleAiClassifyOpContacts} disabled={aiBatchBusy}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-50 flex items-center gap-1">
+                                      {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
+                                      Classify all with AI
+                                    </button>
+                                    <button onClick={async () => {
+                                      try {
+                                        const r = await opContactsAPI.refreshFromOpenPhone()
+                                        alert(r?.message || 'Refresh started in Sigcore. Wait ~2-5 minutes then click Sync All.')
+                                      } catch (e) { alert('Refresh failed: ' + (e.response?.data?.error || e.message)) }
+                                    }}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1"
+                                      title="Pull fresh contact data (incl. Company tags) from OpenPhone via Sigcore. Then run Sync All.">
+                                      ↻ Refresh from OpenPhone
+                                    </button>
+                                  </div>
+                                </div>
+                                {aiBatchProgress && (() => {
+                                  const done = aiBatchProgress.done || 0
+                                  const total = aiBatchProgress.total || 0
+                                  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
+                                  return (
+                                    <div className="mb-2">
+                                      <div className="flex items-center justify-between text-[10px] text-[var(--sf-text-muted)] mb-0.5">
+                                        <span>{aiBatchProgress.running ? `Classifying…` : `Done`}</span>
+                                        <span>{done}/{total || '?'} · ${(aiBatchProgress.cost || 0).toFixed(4)}</span>
+                                      </div>
+                                      <div className="h-1.5 w-full bg-[var(--sf-bg-page)] rounded overflow-hidden">
+                                        <div className={`h-full transition-all duration-300 ${aiBatchProgress.running ? 'bg-[var(--sf-blue-500)]' : (aiBatchProgress.errors > 0 ? 'bg-amber-500' : 'bg-emerald-500')}`}
+                                          style={{ width: `${pct}%` }} />
+                                      </div>
+                                    </div>
+                                  )
+                                })()}
+                                <div className="space-y-1 max-h-64 overflow-y-auto">
+                                  {issues.namedContactsMissingCompany.sample.map(c => {
+                                    const cat = c.ai_category
+                                    const catColor = cat === 'prospect' ? 'bg-emerald-100 text-emerald-800'
+                                      : cat === 'existing_customer' ? 'bg-blue-100 text-blue-800'
+                                      : cat === 'ad' ? 'bg-red-100 text-red-700'
+                                      : cat === 'wrong_number' ? 'bg-gray-200 text-gray-700'
+                                      : cat === 'unclear' ? 'bg-yellow-100 text-yellow-800'
+                                      : ''
+                                    const iid = c.participant_identity_id
+                                    const aiBusyRow = iid && !!aiBusy[iid]
+                                    const phoneKey = c.participant_phone
+                                    const selected = pendingCompany[phoneKey] || ''
+                                    const saving = !!companyBusy[phoneKey]
+                                    return (
+                                      <div key={c.id} className="text-[11px] px-2 py-1 bg-[var(--sf-bg-page)] rounded">
+                                        <div className="flex gap-2 items-center font-mono">
+                                          <span className="text-[var(--sf-text-primary)] truncate flex-1">{c.participant_name}</span>
+                                          <span className="text-[var(--sf-text-muted)] text-[10px]">{c.participant_phone}</span>
+                                          {cat ? (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${catColor}`} title={`${c.ai_confidence}% confidence`}>
+                                              {cat} {c.ai_confidence ? `· ${c.ai_confidence}%` : ''}
+                                            </span>
+                                          ) : iid ? (
+                                            <button onClick={() => handleAiClassify(iid)} disabled={aiBusyRow || aiBatchBusy}
+                                              className="text-[10px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] disabled:opacity-40 flex items-center gap-0.5">
+                                              {aiBusyRow ? <Loader2 size={10} className="animate-spin" /> : '🤖'}
+                                              Classify
+                                            </button>
+                                          ) : null}
+                                        </div>
+                                        {c.ai_summary && (
+                                          <div className="text-[10px] text-[var(--sf-text-muted)] mt-0.5 italic truncate">“{c.ai_summary}”</div>
+                                        )}
+                                        {/* Per-row Company picker */}
+                                        <div className="mt-1 flex items-center gap-1.5">
+                                          <select value={selected}
+                                            onChange={e => setPendingCompany(p => ({ ...p, [phoneKey]: e.target.value }))}
+                                            disabled={saving || cat === 'ad' || cat === 'wrong_number'}
+                                            className="text-[10px] px-1 py-0.5 border border-[var(--sf-border-light)] rounded bg-white flex-1 max-w-[180px]">
+                                            <option value="">Set Company…</option>
+                                            {(sources || []).map(s => (
+                                              <option key={s.id} value={s.name}>{s.name}</option>
+                                            ))}
+                                          </select>
+                                          <button onClick={() => handleSetCompany(phoneKey)}
+                                            disabled={!selected || saving}
+                                            className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-40 flex items-center gap-1">
+                                            {saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                                            Save
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </details>
+                        )}
+                        {floatingCount > 0 && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
+                              <strong>{floatingCount}</strong> floating name{floatingCount === 1 ? '' : 's'} to review <span className="text-[var(--sf-text-muted)]">(optional)</span>
+                            </summary>
+                            {idUnresolved?.items?.length > 0 && (
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between mb-1.5 gap-2">
+                                  <div className="text-[10px] text-[var(--sf-text-muted)]">
+                                    {idUnresolved.items.length < floatingCount ? `Showing ${idUnresolved.items.length} of ${floatingCount}.` : `Showing all ${floatingCount}.`}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button onClick={() => downloadCsv('floating-identities.csv',
+                                      [
+                                        { key: 'id', label: 'identity_id' },
+                                        { key: 'display_name', label: 'name' },
+                                        { key: 'normalized_phone', label: 'phone' },
+                                        { key: 'ai_category', label: 'ai_category' },
+                                        { key: 'ai_confidence', label: 'ai_confidence' },
+                                        { key: 'ai_summary', label: 'ai_summary' },
+                                        { key: 'identity_priority_source', label: 'priority_source' },
+                                      ],
+                                      idUnresolved?.items || []
+                                    )}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1">
+                                      ⬇ CSV
+                                    </button>
+                                    <button onClick={handleAiClassifyBatch} disabled={aiBatchBusy}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-50 flex items-center gap-1">
+                                      {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
+                                      Classify all with AI
+                                    </button>
+                                  </div>
+                                </div>
+                                {aiBatchProgress && (() => {
+                                  const done = aiBatchProgress.done || 0
+                                  const total = aiBatchProgress.total || 0
+                                  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
+                                  const status = aiBatchProgress.running ? `Classifying…` : `Done`
+                                  const barColor = aiBatchProgress.running ? 'bg-[var(--sf-blue-500)]'
+                                    : ((aiBatchProgress.errors || 0) > 0 ? 'bg-amber-500' : 'bg-emerald-500')
+                                  return (
+                                    <div className="mb-2">
+                                      <div className="flex items-center justify-between text-[10px] text-[var(--sf-text-muted)] mb-0.5">
+                                        <span>{status}</span>
+                                        <span>{done}/{total || '?'} · ${(aiBatchProgress.cost || 0).toFixed(4)}</span>
+                                      </div>
+                                      <div className="h-1.5 w-full bg-[var(--sf-bg-page)] rounded overflow-hidden">
+                                        <div className={`h-full transition-all duration-300 ${barColor}`} style={{ width: `${pct}%` }} />
+                                      </div>
+                                      {!aiBatchProgress.running && (aiBatchProgress.errors || 0) > 0 && (
+                                        <div className="text-[10px] text-amber-700 mt-0.5">{aiBatchProgress.errors} error{aiBatchProgress.errors === 1 ? '' : 's'}</div>
+                                      )}
+                                    </div>
+                                  )
+                                })()}
+                                <div className="space-y-1 max-h-64 overflow-y-auto">
+                                  {idUnresolved.items.map(row => {
+                                    const cat = row.ai_category
+                                    const catColor = cat === 'prospect' ? 'bg-emerald-100 text-emerald-800'
+                                      : cat === 'existing_customer' ? 'bg-blue-100 text-blue-800'
+                                      : cat === 'ad' ? 'bg-red-100 text-red-700'
+                                      : cat === 'wrong_number' ? 'bg-gray-200 text-gray-700'
+                                      : cat === 'unclear' ? 'bg-yellow-100 text-yellow-800'
+                                      : ''
+                                    const busy = !!aiBusy[row.id]
+                                    const phoneKey = row.normalized_phone
+                                    const selected = phoneKey ? (pendingCompany[phoneKey] || '') : ''
+                                    const saving = phoneKey && !!companyBusy[phoneKey]
+                                    const offerCompanyPicker = phoneKey && cat !== 'ad' && cat !== 'wrong_number'
+                                    return (
+                                      <div key={row.id} className="text-[11px] px-2 py-1 bg-[var(--sf-bg-page)] rounded">
+                                        <div className="flex gap-2 items-center font-mono">
+                                          <span className="text-[var(--sf-text-muted)]">#{row.id}</span>
+                                          <span className="text-[var(--sf-text-primary)] truncate flex-1">{row.display_name || '(no name)'}</span>
+                                          <span className="text-[var(--sf-text-muted)] text-[10px]">{row.normalized_phone || '-'}</span>
+                                          {cat ? (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${catColor}`} title={`${row.ai_confidence}% confidence`}>
+                                              {cat} {row.ai_confidence ? `· ${row.ai_confidence}%` : ''}
+                                            </span>
+                                          ) : (
+                                            <button onClick={() => handleAiClassify(row.id)} disabled={busy || aiBatchBusy}
+                                              className="text-[10px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] disabled:opacity-40 flex items-center gap-0.5">
+                                              {busy ? <Loader2 size={10} className="animate-spin" /> : '🤖'}
+                                              Classify
+                                            </button>
+                                          )}
+                                        </div>
+                                        {row.ai_summary && (
+                                          <div className="text-[10px] text-[var(--sf-text-muted)] pl-4 mt-0.5 italic truncate">“{row.ai_summary}”</div>
+                                        )}
+                                        {offerCompanyPicker && (
+                                          <div className="mt-1 flex items-center gap-1.5 pl-4">
+                                            <select value={selected}
+                                              onChange={e => setPendingCompany(p => ({ ...p, [phoneKey]: e.target.value }))}
+                                              disabled={saving}
+                                              className="text-[10px] px-1 py-0.5 border border-[var(--sf-border-light)] rounded bg-white flex-1 max-w-[180px]">
+                                              <option value="">Set source → create lead…</option>
+                                              {(sources || []).map(s => (
+                                                <option key={s.id} value={s.name}>{s.name}</option>
+                                              ))}
+                                            </select>
+                                            <button onClick={() => handleSetCompany(phoneKey)}
+                                              disabled={!selected || saving}
+                                              className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-40 flex items-center gap-1">
+                                              {saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                                              Save
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </details>
+                        )}
                       </div>
                     )}
                   </div>
-
-                  {/* Source coverage */}
-                  {idBySource && (
-                    <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                      <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
-                        Source coverage
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3" title="Same person converged across 2+ sources (goal state)">
-                          <div className="text-[10px] uppercase tracking-wider text-blue-700 font-semibold">Multi-source</div>
-                          <div className="text-lg font-bold text-blue-800 mt-0.5">{idBySource.multi_source || 0}</div>
-                        </div>
-                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">LB only</div>
-                          <div className="text-lg font-bold text-gray-800 mt-0.5">{idBySource.single_source?.leadbridge_only || 0}</div>
-                        </div>
-                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">OP only</div>
-                          <div className="text-lg font-bold text-gray-800 mt-0.5">{idBySource.single_source?.openphone_only || 0}</div>
-                        </div>
-                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">ZB only</div>
-                          <div className="text-lg font-bold text-gray-800 mt-0.5">{idBySource.single_source?.zenbooker_only || 0}</div>
-                        </div>
-                      </div>
-                      {(idBySource.single_source?.no_source_ids || 0) > 0 && (
-                        <div className="text-[11px] text-[var(--sf-text-muted)] mt-2">
-                          {idBySource.single_source.no_source_ids} identities with no external source IDs (legacy / manually seeded).
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-xs text-[var(--sf-text-muted)]">Loading identity metrics…</div>
+                )
+              })() : (
+                <div className="text-xs text-[var(--sf-text-muted)]">Loading…</div>
               )}
 
-              {/* Backfill actions (Phase E runner) */}
-              <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-[var(--sf-border-light)]">
-                <button onClick={handleIdBackfillDryRun} disabled={idBackfillBusy}
-                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
-                  title="Preview strict backfill — ext_id OR phone+name only, never phone-alone">
-                  {idBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
-                  Backfill Preview
-                </button>
-                <button onClick={handleIdBackfillApply} disabled={idBackfillBusy}
-                  className="px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5"
-                  title="Apply identity backfill — normalize names, link OP mappings + ZB customers">
-                  {idBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                  Backfill Apply
-                </button>
-                <span className="text-[10px] text-[var(--sf-text-muted)] ml-auto">
-                  Strict merge: external_id OR phone+name. Never phone-alone.
-                </span>
-              </div>
-
-              {/* Backfill progress / result */}
-              {idBackfillResult?.progress && idBackfillBusy && (
-                <div className="rounded-lg p-3 text-xs bg-blue-50 text-blue-800 flex items-center gap-2">
-                  <Loader2 size={12} className="animate-spin" />
-                  <span>Backfill running — phase <strong>{idBackfillResult.progress.phase || 'starting'}</strong></span>
-                </div>
-              )}
-              {idBackfillResult && !idBackfillBusy && (
-                <div className={`rounded-lg p-3 text-xs ${idBackfillResult.error ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-800'}`}>
-                  {idBackfillResult.error ? (
-                    `Error: ${idBackfillResult.error}`
-                  ) : idBackfillResult.summary ? (
-                    <div className="space-y-1">
-                      <div className="font-semibold">{idBackfillResult.dryRun ? 'Dry-run preview:' : 'Backfill complete:'}</div>
-                      {['normalize_identities', 'normalize_leads', 'normalize_customers', 'backfill_mappings', 'backfill_zenbooker_customers'].map(phase => {
-                        const p = idBackfillResult.summary[phase]
-                        if (!p) return null
+              {/* Integrations — compact status row with per-source Sync. Timestamps + last-run details behind drawer. */}
+              {integrationStatus?.integrations && (
+                <div className="pt-3 border-t border-[var(--sf-border-light)]">
+                  <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">Integrations</div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {[
+                      { key: 'leadbridge', label: 'LeadBridge' },
+                      { key: 'openphone', label: 'OpenPhone' },
+                      { key: 'zenbooker', label: 'Zenbooker' },
+                    ].map(({ key, label }) => {
+                      const cfg = integrationStatus.integrations[key] || {}
+                      const busy = !!syncBusy[key]
+                      return (
+                        <div key={key} className="flex items-center justify-between gap-2 border border-[var(--sf-border-light)] rounded-lg px-2.5 py-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.connected ? 'bg-green-500' : 'bg-gray-300'}`} />
+                            <span className="text-xs font-medium text-[var(--sf-text-primary)]">{label}</span>
+                          </div>
+                          <button onClick={() => handleSyncIntegration(key)} disabled={busy || !cfg.connected}
+                            className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] disabled:opacity-40 flex items-center gap-1">
+                            {busy ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                            Sync
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <details className="mt-2">
+                    <summary className="text-[11px] text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] cursor-pointer">Sync details</summary>
+                    <div className="mt-2 space-y-1 text-[11px] text-[var(--sf-text-muted)]">
+                      {['leadbridge','openphone','zenbooker'].map(k => {
+                        const cfg = integrationStatus.integrations[k] || {}
+                        const ts = cfg.last_sync_at || cfg.connected_at
+                        const run = cfg.last_run?.summary
                         return (
-                          <div key={phase} className="pl-2 text-[11px]">
-                            <strong>{phase.replace(/_/g, ' ')}:</strong>
-                            {' '}scanned {p.scanned ?? '-'}
-                            {p.updated != null ? `, updated ${p.updated}` : ''}
-                            {p.merged_by_external_id != null ? `, ext-id ${p.merged_by_external_id}` : ''}
-                            {p.merged_by_phone_name != null ? `, phone+name ${p.merged_by_phone_name}` : ''}
-                            {p.created_new != null ? `, created ${p.created_new}` : ''}
-                            {p.skipped_ambiguous != null ? `, ambiguous ${p.skipped_ambiguous}` : ''}
-                            {p.errors ? `, errors ${p.errors}` : ''}
+                          <div key={k} className="flex flex-wrap items-center gap-2">
+                            <span className="capitalize w-20">{k}</span>
+                            <span>{ts ? `last sync ${new Date(ts).toLocaleString()}` : 'never synced'}</span>
+                            {run && <span className="text-[10px]">· synced {run.records_synced || 0} · linked {run.records_linked || 0} · created {run.records_created || 0}{(run.leads_recovered || 0) > 0 ? ` · recovered ${run.leads_recovered}` : ''}</span>}
                           </div>
                         )
                       })}
                     </div>
-                  ) : null}
-                </div>
-              )}
-
-              {/* Floating identities preview */}
-              {idUnresolved && (idUnresolved.items?.length || 0) > 0 && (
-                <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                  <details>
-                    <summary className="text-xs text-[var(--sf-blue-500)] cursor-pointer hover:text-[var(--sf-blue-600)]">
-                      View floating identities ({idStatus?.unresolved_floating_true || 0}) — operator review, not bulk import
-                    </summary>
-                    <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
-                      {idUnresolved.items.map(row => (
-                        <div key={row.id} className="text-[11px] font-mono flex gap-2 items-center px-2 py-1 bg-[var(--sf-bg-page)] rounded">
-                          <span className="text-[var(--sf-text-muted)]">#{row.id}</span>
-                          <span className="text-[var(--sf-text-primary)] truncate flex-1">{row.display_name || '(no name)'}</span>
-                          <span className="text-[var(--sf-text-muted)] text-[10px]">{row.normalized_phone || '-'}</span>
-                          <span className="text-[10px] text-[var(--sf-text-muted)]">{row.identity_priority_source || '-'}</span>
-                        </div>
-                      ))}
-                    </div>
                   </details>
                 </div>
               )}
 
-              {/* Reconciliation failures preview */}
-              {idAmbiguities && (idAmbiguities.items?.length || 0) > 0 && (
-                <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                  <details>
-                    <summary className="text-xs text-amber-700 cursor-pointer hover:text-amber-800">
-                      Reconciliation failures ({idAmbiguities.items.length} shown)
-                    </summary>
-                    <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
-                      {idAmbiguities.items.map(row => (
-                        <div key={row.id} className="text-[11px] font-mono px-2 py-1 bg-amber-50 rounded">
-                          <span className="text-amber-900">{row.source}</span>
-                          {' · '}
-                          <span>{row.attempted_name || '(no name)'}</span>
-                          {' · '}
-                          <span className="text-[var(--sf-text-muted)]">{row.attempted_phone || '-'}</span>
-                          {' · '}
-                          <em className="text-[10px]">{row.reason}</em>
-                          {' · '}
-                          <span className="text-[10px] text-[var(--sf-text-muted)]">cand: [{(row.candidate_identity_ids || []).join(', ')}]</span>
-                        </div>
-                      ))}
+              {/* Single drawer for implementation-level numbers (kept for debugging / curiosity). */}
+              {idStatus && (
+                <details className="pt-3 border-t border-[var(--sf-border-light)]">
+                  <summary className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] cursor-pointer">All identity details</summary>
+                  <div className="mt-2 space-y-3">
+                    <div className="text-[11px] text-[var(--sf-text-muted)]">
+                      <strong className="text-[var(--sf-text-primary)]">{idStatus.total}</strong> identities ·
+                      {' '}<strong className="text-[var(--sf-text-primary)]">{idStatus.connected}</strong> connected ·
+                      {' '}<strong className="text-[var(--sf-text-primary)]">{idStatus.need_review}</strong> need review ·
+                      {' '}<strong className="text-[var(--sf-text-primary)]">{idStatus.ignored}</strong> ignored
                     </div>
-                  </details>
-                </div>
+                    <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Customer</div>
+                        <div className="font-semibold">{idStatus.details?.resolved_customer || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Lead</div>
+                        <div className="font-semibold">{idStatus.details?.resolved_lead || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Both</div>
+                        <div className="font-semibold">{idStatus.details?.resolved_both || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Floating named</div>
+                        <div className="font-semibold">{idStatus.details?.floating_named || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Aggregator</div>
+                        <div className="font-semibold">{idStatus.details?.floating_aggregator || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Noise</div>
+                        <div className="font-semibold">{idStatus.details?.floating_noise || 0}</div>
+                      </div>
+                    </div>
+                    {idBySource && (() => {
+                      const s = idBySource.single_source || {}
+                      const multi = idBySource.multi_source || 0
+                      return (
+                        <div className="text-[11px] text-[var(--sf-text-muted)]">
+                          Sources: <strong className="text-[var(--sf-text-primary)]">OP {s.openphone_only || 0}</strong> · <strong className="text-[var(--sf-text-primary)]">LB {s.leadbridge_only || 0}</strong> · <strong className="text-[var(--sf-text-primary)]">ZB {s.zenbooker_only || 0}</strong> · <strong className="text-[var(--sf-text-primary)]">multi {multi}</strong>
+                        </div>
+                      )
+                    })()}
+                    {opOutcomes && (() => {
+                      const created24 = (opOutcomes.last24h?.created_lead_openphone_direct || 0) + (opOutcomes.last24h?.created_lead_openphone_lb_recovery || 0)
+                      return (
+                        <div className="text-[11px] text-[var(--sf-text-muted)]">
+                          OpenPhone (24h): <strong className="text-[var(--sf-text-primary)]">{created24}</strong> created · <strong className="text-[var(--sf-text-primary)]">{opOutcomes.total24h || 0}</strong> decisions
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </details>
               )}
             </div>
 
-            {/* Upgrade legacy flat LeadBridge sources → per-location */}
-            {(issues?.legacyLbFlatSources?.total || 0) > 0 && (
-              <div className="bg-white rounded-xl border border-amber-200 p-5 mt-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
-                      Upgrade Legacy LeadBridge Sources
-                    </h3>
-                    <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                      {issues.legacyLbFlatSources.total} records ({issues.legacyLbFlatSources.customers} customers + {issues.legacyLbFlatSources.leads} leads)
-                      still use flat <code className="text-[10px] px-1 py-0.5 bg-gray-100 rounded">leadbridge_yelp</code> / <code className="text-[10px] px-1 py-0.5 bg-gray-100 rounded">leadbridge_thumbtack</code>.
-                      The upgrade resolves each to its <strong>per-location</strong> source using the linked LB conversation (e.g. <em>Spotless Homes Tampa (yelp)</em>).
-                      New LB records already write the correct format — this is a one-time backfill.
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <button onClick={handleLbUpgradeDryRun} disabled={lbUpgradeBusy}
-                        className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
-                        {lbUpgradeBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
-                        Preview (Dry-run)
-                      </button>
-                      <button onClick={handleLbUpgradeApply} disabled={lbUpgradeBusy}
-                        className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5">
-                        {lbUpgradeBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                        Upgrade Legacy Sources
-                      </button>
-                    </div>
-
-                    {lbUpgradeResult && !lbUpgradeBusy && (
-                      <div className={`rounded-lg p-3 text-xs mt-3 ${lbUpgradeResult.error ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-800'}`}>
-                        {lbUpgradeResult.error ? `Error: ${lbUpgradeResult.error}` : lbUpgradeResult.summary ? (
-                          <div className="space-y-1">
-                            <div className="font-semibold">{lbUpgradeResult.dryRun ? 'Dry-run preview:' : 'Upgrade complete:'}</div>
-                            <div className="grid grid-cols-2 gap-2 mt-1">
-                              <div>Legacy rows found: {lbUpgradeResult.summary.total_legacy_flat_rows_found}</div>
-                              <div>Already correct (skipped): {lbUpgradeResult.summary.already_correct_skipped}</div>
-                              <div className="font-semibold">{lbUpgradeResult.dryRun ? 'Would upgrade' : 'Upgraded'}: {lbUpgradeResult.summary.upgraded_successfully}</div>
-                              <div className="text-amber-900">Unresolved (no LB context): <strong>{lbUpgradeResult.summary.unresolved_no_context}</strong></div>
-                            </div>
-                            {lbUpgradeResult.summary.by_new_source && Object.keys(lbUpgradeResult.summary.by_new_source).length > 0 && (
-                              <details className="mt-2">
-                                <summary className="cursor-pointer text-amber-900 font-medium">Breakdown by new source</summary>
-                                <div className="mt-1 space-y-0.5 ml-2">
-                                  {Object.entries(lbUpgradeResult.summary.by_new_source).map(([src, cnt]) => (
-                                    <div key={src}><strong>{cnt}</strong> → {src}</div>
-                                  ))}
-                                </div>
-                              </details>
-                            )}
-                            {(lbUpgradeResult.summary.unresolved_samples || []).length > 0 && (
-                              <details className="mt-2">
-                                <summary className="cursor-pointer text-amber-900 font-medium">Unresolved records ({lbUpgradeResult.summary.unresolved_samples.length} shown)</summary>
-                                <div className="mt-1 space-y-0.5 ml-2 max-h-48 overflow-y-auto">
-                                  {lbUpgradeResult.summary.unresolved_samples.map(s => (
-                                    <div key={`${s.table}-${s.id}`} className="font-mono text-[10px]">
-                                      {s.table}#{s.id} · {s.name || '(no name)'} · {s.phone || '(no phone)'} · <em>{s.reason}</em>
-                                    </div>
-                                  ))}
-                                </div>
-                              </details>
-                            )}
-                            {lbUpgradeResult.summary.errors > 0 && (
-                              <div className="text-red-600 mt-1">Errors: {lbUpgradeResult.summary.errors}</div>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Phase F — Convert-Unmapped-to-Leads section removed. OpenPhone lead
-                creation now runs per-identity via maybeCreateLeadFromOpenPhone with
-                LB-recovery rule (feature-flag gated). No bulk import. */}
           </section>
 
           {/* ── ISSUES / MANUAL RESOLUTION ── */}
-          {(issues?.duplicateCustomerCount > 0 || issues?.namedContactsMissingCompany?.count > 0 || issues?.unknownContacts?.count > 0 || issues?.unresolvedCustomerSources?.length > 0) && (
+          {(issues?.duplicateCustomerCount > 0 || issues?.unresolvedCustomerSources?.length > 0) && (
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <AlertTriangle size={18} className="text-amber-500" />
@@ -779,52 +1305,6 @@ const LeadsSettings = () => {
                   </div>
                 )}
 
-                {/* Named contacts missing company (ACTIONABLE) */}
-                {issues.namedContactsMissingCompany?.count > 0 && (
-                  <div className="bg-white rounded-xl border border-amber-200 p-5">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
-                          {issues.namedContactsMissingCompany.count} Named Contacts Missing Company
-                        </h3>
-                        <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                          These OpenPhone contacts have a <strong>name</strong> but no <strong>Company</strong> tag. Open each in OpenPhone and add a company to fix the source.
-                        </p>
-                        <details className="mt-2">
-                          <summary className="text-xs text-[var(--sf-blue-500)] cursor-pointer hover:text-[var(--sf-blue-600)]">
-                            View list ({issues.namedContactsMissingCompany.sample.length} shown)
-                          </summary>
-                          <div className="mt-2 max-h-64 overflow-y-auto space-y-0.5 text-xs text-[var(--sf-text-muted)]">
-                            {issues.namedContactsMissingCompany.sample.map(c => (
-                              <div key={c.id} className="font-mono py-0.5">
-                                <span className="text-[var(--sf-text-primary)]">{c.participant_name}</span>
-                                <span className="ml-2">{c.participant_phone}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Unknown contacts (INFO ONLY) */}
-                {issues.unknownContacts?.count > 0 && (
-                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5">
-                    <div className="flex items-start gap-2">
-                      <HelpCircle size={14} className="text-[var(--sf-text-muted)] flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-[var(--sf-text-muted)]">
-                          {issues.unknownContacts.count} Unknown Numbers (not in OpenPhone contacts)
-                        </h3>
-                        <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                          SMS/call conversations from numbers that were never saved as contacts in OpenPhone. No name, no company — usually spam, wrong numbers, or one-off inquiries. Nothing to fix unless you want to save them as contacts in OpenPhone.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Unresolved customer.source values */}
                 {issues.unresolvedCustomerSources?.length > 0 && (

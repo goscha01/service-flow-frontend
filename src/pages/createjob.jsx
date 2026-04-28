@@ -73,7 +73,7 @@ import CalendarPicker from "../components/CalendarPicker";
 import DiscountModal from "../components/discount-modal";
 import RecurringFrequencyModal from "../components/recurring-frequency-modal";
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI, leadsAPI, notificationSettingsAPI } from '../services/api';
+import { jobsAPI, customersAPI, customerPropertiesAPI, servicesAPI, teamAPI, territoriesAPI, leadsAPI, notificationSettingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useCategory } from '../context/CategoryContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
@@ -206,7 +206,15 @@ export default function CreateJobPage() {
   const [territories, setTerritories] = useState([]);
   const [territoriesLoading, setTerritoriesLoading] = useState(false);
   const [addressAutoPopulated, setAddressAutoPopulated] = useState(false);
-  
+
+  // Customer properties (multi-address). The selected one drives serviceAddress
+  // and is stamped on the created job as property_id — so recurring jobs and
+  // duplicates persist the exact same property.
+  const [customerProperties, setCustomerProperties] = useState([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState(null);
+  const [showPropertyDropdown, setShowPropertyDropdown] = useState(false);
+  const propertyDropdownRef = useRef(null);
+
   // Service modifiers and intake questions state
   const [selectedModifiers, setSelectedModifiers] = useState({}); // { modifierId: selectedOptions[] }
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({}); // { questionId: answer }
@@ -362,6 +370,18 @@ export default function CreateJobPage() {
         if (customer) {
           setSelectedCustomer(customer);
           setCustomerSelected(true);
+          // Load customer properties and prefer the duplicated job's property_id.
+          // This runs in parallel with the setFormData below — the dropdown
+          // re-renders with the real property once the fetch completes.
+          customerPropertiesAPI.list(customer.id)
+            .then((props) => {
+              setCustomerProperties(props || []);
+              if (duplicateJob.property_id) {
+                const hit = (props || []).find((p) => String(p.id) === String(duplicateJob.property_id));
+                if (hit) setSelectedPropertyId(hit.id);
+              }
+            })
+            .catch((e) => console.warn('Duplicate: could not load customer properties:', e?.message));
         } else {
           console.warn('⚠️ Duplicate: customer_id not found in loaded customers:', duplicateJob.customer_id);
         }
@@ -661,18 +681,68 @@ export default function CreateJobPage() {
       // Autopopulate service address from customer address if available (ONLY valid address fields)
       serviceAddress: hasAddress ? parsedAddress : prev.serviceAddress
     }));
-    
+
     // Set flag to show address was auto-populated
     setAddressAutoPopulated(hasAddress);
-    
+
     // Clear the flag after 3 seconds
     if (hasAddress) {
       setTimeout(() => setAddressAutoPopulated(false), 3000);
     }
-    
+
     setShowCustomerDropdown(false);
     setCustomerSearch("");
-  }, []);
+
+    // Load this customer's properties and choose the right default.
+    // Priority: (1) duplicated job's property_id, (2) most-recent job's
+    // property_id, (3) the property flagged is_default, (4) first row.
+    try {
+      const props = await customerPropertiesAPI.list(customer.id);
+      setCustomerProperties(props || []);
+
+      if (props && props.length > 0) {
+        const duplicatePropId = location.state?.duplicateJob?.property_id;
+        let chosen = null;
+
+        if (duplicatePropId) {
+          chosen = props.find((p) => String(p.id) === String(duplicatePropId));
+        }
+
+        if (!chosen) {
+          try {
+            const jobsResp = await jobsAPI.getAll(
+              user.id, "", "", 1, 1, "", "", "scheduled_date", "DESC", "", "", customer.id
+            );
+            const latest = (jobsResp?.jobs || jobsResp || [])[0];
+            if (latest?.property_id) {
+              chosen = props.find((p) => String(p.id) === String(latest.property_id));
+            }
+          } catch (e) {
+            console.warn('Could not look up latest job for property default:', e?.message);
+          }
+        }
+
+        if (!chosen) chosen = props.find((p) => p.is_default) || props[0];
+
+        if (chosen) {
+          setSelectedPropertyId(chosen.id);
+          setFormData((prev) => ({
+            ...prev,
+            serviceAddress: {
+              street: chosen.street || '',
+              city: chosen.city || '',
+              state: chosen.state || '',
+              zipCode: chosen.zip_code || '',
+              country: chosen.country || 'USA',
+              unit: chosen.suite || prev.serviceAddress?.unit || ''
+            }
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load customer properties:', e?.message);
+    }
+  }, [location.state, user?.id]);
 
   // Handle customerId from URL params
   useEffect(() => {
@@ -774,6 +844,9 @@ export default function CreateJobPage() {
     const handleClickOutside = (event) => {
       if (customerDropdownRef.current && !customerDropdownRef.current.contains(event.target)) {
         setShowCustomerDropdown(false);
+      }
+      if (propertyDropdownRef.current && !propertyDropdownRef.current.contains(event.target)) {
+        setShowPropertyDropdown(false);
       }
     };
 
@@ -1458,6 +1531,7 @@ export default function CreateJobPage() {
         offerToProviders: Boolean(formData.offerToProviders),
         contactInfo: formData.contactInfo,
         serviceAddress: formData.serviceAddress,
+        propertyId: selectedPropertyId || null,
         // Additional comprehensive fields
         serviceName: formData.serviceName,
         invoiceStatus: formData.invoiceStatus,
@@ -1588,7 +1662,48 @@ export default function CreateJobPage() {
 
   const handleAddressSave = (serviceAddress) => {
     setFormData(prev => ({ ...prev, serviceAddress }));
+    // If the user manually edits the address, clear the selected property
+    // so the backend decides whether to match an existing one or create new.
+    setSelectedPropertyId(null);
     setShowAddressModal(false);
+  };
+
+  // Pick an existing property from the dropdown — hydrate serviceAddress from it.
+  const handleSelectProperty = (property) => {
+    setSelectedPropertyId(property.id);
+    setFormData((prev) => ({
+      ...prev,
+      serviceAddress: {
+        street: property.street || '',
+        city: property.city || '',
+        state: property.state || '',
+        zipCode: property.zip_code || '',
+        country: property.country || 'USA',
+        unit: property.suite || ''
+      }
+    }));
+    setShowPropertyDropdown(false);
+  };
+
+  // Create a brand-new property right from the create-job page, then select it.
+  const handleCreatePropertyInline = async (addr) => {
+    if (!selectedCustomer) return;
+    try {
+      const created = await customerPropertiesAPI.create(selectedCustomer.id, {
+        street: addr.street || '',
+        city: addr.city || '',
+        state: addr.state || '',
+        zipCode: addr.zipCode || '',
+        country: addr.country || 'USA'
+      });
+      const list = await customerPropertiesAPI.list(selectedCustomer.id);
+      setCustomerProperties(list || []);
+      if (created) handleSelectProperty(created);
+      setShowAddressModal(false);
+    } catch (e) {
+      console.error('Error creating property inline:', e);
+      setError('Failed to save property. Please try again.');
+    }
   };
 
   const copyCustomerAddressToService = () => {
@@ -3696,6 +3811,68 @@ setIntakeQuestionAnswers(answers);
                   </div>
                         </>
                       )}
+                  {/* Property selector — only shown when the selected customer has more than one property */}
+                  {selectedCustomer && customerProperties.length > 1 && (
+                    <div className="px-5 py-3 border-b border-[var(--sf-border-light)]">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Property</span>
+                        <span className="text-xs text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{customerProperties.length} on file</span>
+                      </div>
+                      <div className="relative" ref={propertyDropdownRef}>
+                        <button
+                          type="button"
+                          onClick={() => setShowPropertyDropdown((v) => !v)}
+                          className="w-full flex items-center justify-between px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-left hover:bg-[var(--sf-bg-page)]"
+                        >
+                          <span className="text-sm text-[var(--sf-text-primary)] truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                            {(() => {
+                              const current = customerProperties.find((p) => p.id === selectedPropertyId);
+                              if (!current) return 'Select a property';
+                              const line = [current.street, current.city].filter(Boolean).join(', ');
+                              return line || current.label || 'Property';
+                            })()}
+                          </span>
+                          <ChevronDown className="w-4 h-4 text-[var(--sf-text-muted)] ml-2" />
+                        </button>
+                        {showPropertyDropdown && (
+                          <div className="absolute left-0 right-0 mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                            {customerProperties.map((p) => {
+                              const line1 = [p.street, p.suite].filter(Boolean).join(', ') || p.label || '—';
+                              const line2 = [p.city, p.state, p.zip_code].filter(Boolean).join(', ');
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => handleSelectProperty(p)}
+                                  className={`w-full text-left px-3 py-2 hover:bg-[var(--sf-bg-page)] ${selectedPropertyId === p.id ? 'bg-[var(--sf-blue-50)]' : ''}`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-medium text-[var(--sf-text-primary)] truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{line1}</div>
+                                      {line2 && <div className="text-xs text-[var(--sf-text-muted)] truncate">{line2}</div>}
+                                    </div>
+                                    {p.is_default && (
+                                      <span className="ml-2 px-2 py-0.5 text-xs font-medium text-[var(--sf-blue-500)] bg-[var(--sf-blue-50)] rounded flex-shrink-0">Default</span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                            <div className="border-t border-[var(--sf-border-light)]">
+                              <button
+                                type="button"
+                                onClick={() => { setShowPropertyDropdown(false); setShowAddressModal(true); }}
+                                className="w-full text-left px-3 py-2 text-sm text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-page)]"
+                              >
+                                + Add new property
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Service Address with Map */}
                   {formData.serviceAddress.street && (
                     <>

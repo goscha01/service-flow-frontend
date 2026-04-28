@@ -22,10 +22,11 @@ import {
   Edit,
   Trash2
 } from "lucide-react"
-import { customersAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
+import { customersAPI, customerPropertiesAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import CustomerModal from "../components/customer-modal"
+import ServiceAddressModal from "../components/service-address-modal"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { canCreateJobs, isAccountOwner } from "../utils/roleUtils"
 
@@ -46,6 +47,12 @@ const CustomerDetailsRedesigned = () => {
   const [showMenuDropdown, setShowMenuDropdown] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const menuRef = useRef(null)
+  const [properties, setProperties] = useState([])
+  const [propertiesLoading, setPropertiesLoading] = useState(false)
+  const [showPropertyModal, setShowPropertyModal] = useState(false)
+  const [editingProperty, setEditingProperty] = useState(null)
+  const [propertyMenuOpenId, setPropertyMenuOpenId] = useState(null)
+  const propertyMenuRef = useRef(null)
 
   useEffect(() => {
     if (!authLoading && customerId && user?.id) {
@@ -63,21 +70,97 @@ const CustomerDetailsRedesigned = () => {
       const customerData = await customersAPI.getById(customerId)
       setCustomer(customerData)
 
-      const [jobsData, estimatesData, invoicesData] = await Promise.all([
+      const [jobsData, estimatesData, invoicesData, propsData] = await Promise.all([
         jobsAPI.getAll(user.id, "", "", 1, 50, "", "", "scheduled_date", "DESC", "", "", customerId),
         estimatesAPI.getAll(user.id, { customerId: customerId }),
-        invoicesAPI.getAll(user.id, { customerId: customerId })
+        invoicesAPI.getAll(user.id, { customerId: customerId }),
+        customerPropertiesAPI.list(customerId).catch((e) => {
+          console.error('Failed to load properties:', e)
+          return []
+        })
       ])
 
       setJobs(jobsData.jobs || jobsData)
       setEstimates(estimatesData.estimates || estimatesData)
       setInvoices(invoicesData.invoices || invoicesData)
+      setProperties(propsData || [])
 
     } catch (error) {
       console.error('Error fetching customer data:', error)
       setError("Failed to load customer data. Please try again.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const reloadProperties = async () => {
+    try {
+      setPropertiesLoading(true)
+      const list = await customerPropertiesAPI.list(customerId)
+      setProperties(list || [])
+    } catch (e) {
+      console.error('Error reloading properties:', e)
+    } finally {
+      setPropertiesLoading(false)
+    }
+  }
+
+  const handleOpenAddProperty = () => {
+    setEditingProperty(null)
+    setShowPropertyModal(true)
+    setPropertyMenuOpenId(null)
+  }
+
+  const handleOpenEditProperty = (property) => {
+    setEditingProperty(property)
+    setShowPropertyModal(true)
+    setPropertyMenuOpenId(null)
+  }
+
+  const handleSavePropertyFromModal = async (addr) => {
+    try {
+      const payload = {
+        street: addr.street || '',
+        city: addr.city || '',
+        state: addr.state || '',
+        zipCode: addr.zipCode || '',
+        country: addr.country || 'USA'
+      }
+      if (editingProperty) {
+        await customerPropertiesAPI.update(customerId, editingProperty.id, payload)
+      } else {
+        await customerPropertiesAPI.create(customerId, payload)
+      }
+      await reloadProperties()
+      setShowPropertyModal(false)
+      setEditingProperty(null)
+    } catch (e) {
+      console.error('Error saving property:', e)
+      setError('Failed to save property. Please try again.')
+    }
+  }
+
+  const handleSetDefaultProperty = async (property) => {
+    try {
+      await customerPropertiesAPI.update(customerId, property.id, { isDefault: true })
+      await reloadProperties()
+      setPropertyMenuOpenId(null)
+    } catch (e) {
+      console.error('Error setting default property:', e)
+    }
+  }
+
+  const handleDeleteProperty = async (property) => {
+    if (!window.confirm('Delete this property? Existing jobs for this address will keep their history but will no longer reference a property.')) {
+      setPropertyMenuOpenId(null)
+      return
+    }
+    try {
+      await customerPropertiesAPI.remove(customerId, property.id)
+      await reloadProperties()
+      setPropertyMenuOpenId(null)
+    } catch (e) {
+      console.error('Error deleting property:', e)
     }
   }
 
@@ -115,6 +198,9 @@ const CustomerDetailsRedesigned = () => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowMenuDropdown(false)
+      }
+      if (propertyMenuRef.current && !propertyMenuRef.current.contains(event.target)) {
+        setPropertyMenuOpenId(null)
       }
     }
 
@@ -574,36 +660,85 @@ const CustomerDetailsRedesigned = () => {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Properties</h3>
                     {isAccountOwner(user) && (
-                      <div className="flex items-center space-x-2">
-                        <button className="flex items-center space-x-1 px-3 py-1.5 bg-[var(--sf-blue-500)] text-white text-xs font-medium rounded-lg hover:bg-[var(--sf-blue-600)]">
-                          <Plus className="w-3 h-3" />
-                          <span>Add Property</span>
-                        </button>
-                        <button className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={handleOpenAddProperty}
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-[var(--sf-blue-500)] text-white text-xs font-medium rounded-lg hover:bg-[var(--sf-blue-600)]"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Property</span>
+                      </button>
                     )}
                   </div>
-                  
+
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <MapPin className="w-4 h-4 text-[var(--sf-text-muted)]" />
-                        <div>
-                          <div className="text-sm font-medium text-[var(--sf-text-primary)]">Victory Ave</div>
-                          <div className="text-xs text-[var(--sf-text-muted)]">Sochumi</div>
-                        </div>
+                    {propertiesLoading && properties.length === 0 ? (
+                      <div className="text-xs text-[var(--sf-text-muted)] py-4 text-center">Loading…</div>
+                    ) : properties.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <MapPin className="w-10 h-10 text-gray-300 mb-2" />
+                        <p className="text-sm text-[var(--sf-text-muted)] text-center">No properties yet</p>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="px-2 py-1 bg-blue-100 text-[var(--sf-blue-500)] text-xs font-medium rounded">
-                          Default
-                        </span>
-                        <button className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
+                    ) : (
+                      properties.map((p) => {
+                        const line1 = [p.street, p.suite].filter(Boolean).join(', ') || '—'
+                        const line2 = [p.city, p.state, p.zip_code].filter(Boolean).join(', ')
+                        const isMenuOpen = propertyMenuOpenId === p.id
+                        return (
+                          <div key={p.id} className="flex items-start justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg">
+                            <div className="flex items-start space-x-3 min-w-0">
+                              <MapPin className="w-4 h-4 text-[var(--sf-text-muted)] mt-0.5 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-[var(--sf-text-primary)] truncate">{line1}</div>
+                                {line2 && (
+                                  <div className="text-xs text-[var(--sf-text-muted)] truncate">{line2}</div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+                              {p.is_default && (
+                                <span className="px-2 py-1 bg-blue-100 text-[var(--sf-blue-500)] text-xs font-medium rounded">
+                                  Default
+                                </span>
+                              )}
+                              {isAccountOwner(user) && (
+                                <div className="relative" ref={isMenuOpen ? propertyMenuRef : null}>
+                                  <button
+                                    onClick={() => setPropertyMenuOpenId(isMenuOpen ? null : p.id)}
+                                    className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </button>
+                                  {isMenuOpen && (
+                                    <div className="absolute right-0 mt-1 w-44 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg z-10 py-1">
+                                      <button
+                                        onClick={() => handleOpenEditProperty(p)}
+                                        className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]"
+                                      >
+                                        Edit
+                                      </button>
+                                      {!p.is_default && (
+                                        <button
+                                          onClick={() => handleSetDefaultProperty(p)}
+                                          className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]"
+                                        >
+                                          Set as default
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => handleDeleteProperty(p)}
+                                        className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] text-red-600"
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
                   </div>
                 </div>
 
@@ -652,6 +787,19 @@ const CustomerDetailsRedesigned = () => {
         onSave={handleCustomerSave}
         customer={customer}
         isEditing={true}
+      />
+
+      <ServiceAddressModal
+        isOpen={showPropertyModal}
+        onClose={() => { setShowPropertyModal(false); setEditingProperty(null) }}
+        onSave={handleSavePropertyFromModal}
+        currentAddress={editingProperty ? {
+          street: editingProperty.street || '',
+          city: editingProperty.city || '',
+          state: editingProperty.state || '',
+          zipCode: editingProperty.zip_code || '',
+          country: editingProperty.country || 'USA'
+        } : null}
       />
     </div>
   )
