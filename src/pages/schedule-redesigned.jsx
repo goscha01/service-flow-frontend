@@ -810,14 +810,13 @@ const ServiceFlowSchedule = () => {
             return (
               <div
                 key={i}
-                className={`${sty.bg} ${sty.text} px-1.5 flex flex-col justify-center overflow-hidden border-b border-white/40 last:border-b-0`}
+                className={`${sty.bg} ${sty.text} px-1.5 flex items-center overflow-hidden border-b border-white/40 last:border-b-0`}
                 style={{ height: `${heightPct}%` }}
                 title={tip}
               >
-                <div className="text-[10px] font-medium leading-tight truncate">{fmtT(seg.start)}–{fmtT(seg.end)}</div>
-                {heightPct > 14 && (
-                  <div className="text-[9px] leading-tight truncate opacity-80">{sty.label} · {dur}m</div>
-                )}
+                <div className="text-[10px] font-medium leading-tight truncate w-full">
+                  {fmtT(seg.start)}–{fmtT(seg.end)} · {sty.label.toLowerCase()} · {dur}m
+                </div>
               </div>
             )
           })}
