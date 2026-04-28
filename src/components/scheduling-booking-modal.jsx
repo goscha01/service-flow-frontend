@@ -33,6 +33,7 @@ const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
   const [settings, setSettings] = useState({
     timeslotInterval: minutesToLabel(DEFAULT_INTERVAL_MIN, INTERVAL_OPTIONS, "1 hour"),
     arrivalWindow: minutesToLabel(DEFAULT_ARRIVAL_MIN, ARRIVAL_OPTIONS, "2 hours"),
+    drivingTime: 0, // minutes; buffer before/after each job, used by schedule availability calc
     availabilityMethod: "service-provider",
     serviceProviders: 1,
     limitDistance: false,
@@ -70,6 +71,7 @@ const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
             ARRIVAL_OPTIONS,
             prev.arrivalWindow
           ),
+          drivingTime: parseInt(parsed?.drivingTime, 10) || 0,
         }))
       } catch (err) {
         console.error("Error loading scheduling settings:", err)
@@ -97,8 +99,12 @@ const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
     try {
       const intervalMin = labelToMinutes(settings.timeslotInterval, INTERVAL_OPTIONS, DEFAULT_INTERVAL_MIN)
       const arrivalMin = labelToMinutes(settings.arrivalWindow, ARRIVAL_OPTIONS, DEFAULT_ARRIVAL_MIN)
+      const drivingMin = Math.max(0, parseInt(settings.drivingTime, 10) || 0)
       const merged = {
         ...businessHours,
+        // Top-level drivingTime — read by the schedule page for the cleaner-buffer
+        // calculation. Existing convention from settings/availability.jsx.
+        drivingTime: drivingMin,
         schedulingSettings: {
           ...(businessHours.schedulingSettings || {}),
           timeslotInterval: intervalMin,
@@ -175,6 +181,23 @@ const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
                     <option key={opt.minutes} value={opt.label}>{opt.label}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Driving time between jobs</label>
+                <p className="text-xs text-[var(--sf-text-muted)] mb-2">Buffer minutes blocked before and after each job for travel</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="240"
+                    step="5"
+                    value={settings.drivingTime}
+                    onChange={(e) => setSettings(prev => ({ ...prev, drivingTime: e.target.value }))}
+                    className="w-28 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
+                  />
+                  <span className="text-sm text-[var(--sf-text-secondary)]">minutes</span>
+                </div>
               </div>
             </div>
 
