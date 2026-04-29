@@ -34,6 +34,8 @@ const SYNONYMS = {
   tags: ['tags', 'labels'],
   source: ['source', 'lead source', 'referral source', 'how heard', 'how did you hear', 'referred by', 'channel'],
   createdAt: ['created at', 'created date', 'created on', 'date created', 'date added', 'lead date', 'lead created', 'date', 'signup date', 'signed up', 'first contact', 'inquiry date'],
+  leadValue: ['value', 'lead value', 'lead price', 'estimated value', 'deal value', 'opportunity value', 'estimated price', 'quote', 'quote amount', 'estimate'],
+  leadServiceId: ['service id', 'service interested', 'interested service', 'service of interest'],
 
   // ── Job-specific ───────────────────────────────────────────────
   serviceName: ['service', 'service name', 'service_name', 'service type'],

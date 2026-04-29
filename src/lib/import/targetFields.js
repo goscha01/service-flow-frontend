@@ -8,37 +8,40 @@
 
 export const TARGET_TYPE_LABELS = {
   customers: 'Customers',
+  leads: 'Leads',
   jobs: 'Jobs',
   team_members: 'Team Members',
   services: 'Services',
   territories: 'Territories',
 };
 
-export const TARGET_TYPES = ['customers', 'jobs', 'team_members', 'services', 'territories'];
+export const TARGET_TYPES = ['customers', 'leads', 'jobs', 'team_members', 'services', 'territories'];
 
 // Default tiebreaker when multiple types are equally likely from the mapping.
-const TYPE_PRIORITY = ['customers', 'jobs', 'team_members', 'services', 'territories'];
+// Leads beats customers because if the user mapped a lead-only field
+// (lead value, pipeline, …) we want that to win.
+const TYPE_PRIORITY = ['leads', 'customers', 'jobs', 'team_members', 'services', 'territories'];
 
 const ALL = TARGET_TYPES;
 
 export const UNIFIED_FIELDS = [
-  // ── Identity (Customer + Team Member share these) ───────────────
+  // ── Identity (shared across people-like types) ──────────────────
   { key: 'firstName', label: 'First Name', group: 'Identity',
-    targets: ['customers', 'team_members'], requiredFor: ['customers', 'team_members'] },
+    targets: ['customers', 'leads', 'team_members'], requiredFor: ['customers', 'team_members'] },
   { key: 'lastName', label: 'Last Name', group: 'Identity',
-    targets: ['customers', 'team_members'], requiredFor: ['customers', 'team_members'] },
+    targets: ['customers', 'leads', 'team_members'], requiredFor: ['customers', 'team_members'] },
   { key: 'email', label: 'Email', group: 'Identity',
-    targets: ['customers', 'team_members', 'jobs'], requiredFor: ['team_members'] },
+    targets: ['customers', 'leads', 'team_members', 'jobs'], requiredFor: ['team_members'] },
   { key: 'phone', label: 'Phone', group: 'Identity',
-    targets: ['customers', 'team_members', 'jobs'] },
+    targets: ['customers', 'leads', 'team_members', 'jobs'] },
   { key: 'additionalPhone', label: 'Additional Phone', group: 'Identity',
     targets: ['customers'] },
   { key: 'companyName', label: 'Company Name', group: 'Identity',
-    targets: ['customers'] },
+    targets: ['customers', 'leads'] },
 
-  // ── Address (Customer / Team / Job service-address / Territory) ─
+  // ── Address (Customer / Lead / Team / Job service-address) ──────
   { key: 'address', label: 'Address', group: 'Address',
-    targets: ['customers', 'team_members', 'jobs'] },
+    targets: ['customers', 'leads', 'team_members', 'jobs'] },
   { key: 'apt', label: 'Apt / Suite', group: 'Address',
     targets: ['customers', 'jobs'] },
   { key: 'city', label: 'City', group: 'Address',
@@ -48,11 +51,15 @@ export const UNIFIED_FIELDS = [
   { key: 'zipCode', label: 'Zip / Postal Code', group: 'Address',
     targets: ['customers', 'team_members', 'jobs'] },
 
-  // ── Lead / Customer specifics ───────────────────────────────────
+  // ── Lead specifics (also used by Customers) ─────────────────────
   { key: 'source', label: 'Lead Source', group: 'Lead',
-    targets: ['customers'] },
+    targets: ['customers', 'leads'] },
   { key: 'createdAt', label: 'Lead Created Date / Date Added', group: 'Lead',
-    targets: ['customers'] },
+    targets: ['customers', 'leads'] },
+  { key: 'leadValue', label: 'Lead Value / Estimated Price', group: 'Lead',
+    targets: ['leads'] },
+  { key: 'leadServiceId', label: 'Service (lead is interested in)', group: 'Lead',
+    targets: ['leads'] },
 
   // ── Schedule (Jobs only) ────────────────────────────────────────
   { key: 'scheduledDate', label: 'Scheduled Date', group: 'Schedule',
@@ -140,7 +147,7 @@ export const UNIFIED_FIELDS = [
 
   // ── Notes & metadata ────────────────────────────────────────────
   { key: 'notes', label: 'Notes', group: 'Notes',
-    targets: ['customers', 'jobs', 'team_members', 'services', 'territories'] },
+    targets: ['customers', 'leads', 'jobs', 'team_members', 'services', 'territories'] },
   { key: 'customerNotes', label: 'Customer Notes', group: 'Notes', targets: ['jobs'] },
   { key: 'internalNotes', label: 'Internal Notes', group: 'Notes', targets: ['jobs'] },
   { key: 'specialInstructions', label: 'Special Instructions', group: 'Notes', targets: ['jobs'] },
