@@ -37,6 +37,10 @@ const SYNONYMS = {
   leadValue: ['value', 'lead value', 'lead price', 'estimated value', 'deal value', 'opportunity value', 'estimated price', 'quote', 'quote amount', 'estimate'],
   leadCost: ['lead cost', 'cost per lead', 'cpl', 'acquisition cost', 'cost', 'lead fee', 'thumbtack price', 'lead spend', 'paid for lead', 'amount paid'],
   leadServiceId: ['service id', 'service interested', 'interested service', 'service of interest'],
+  lastTaskDate: ['last task date', 'last task', 'last activity', 'last activity date', 'last contact', 'last contact date', 'last touched', 'last followup', 'last follow up', 'last follow-up', 'last interaction'],
+  lastTaskTitle: ['last task title', 'last task name', 'last activity title', 'last activity name'],
+  nextTaskDate: ['next task date', 'next task', 'next followup', 'next follow up', 'next follow-up', 'follow up date', 'follow-up date', 'followup date', 'next contact', 'next activity', 'next due', 'due date', 'next call'],
+  nextTaskTitle: ['next task title', 'next task name', 'follow up title', 'follow-up title', 'next activity title'],
   assignedTeamMemberName: ['assigned to', 'assigned team member', 'team member', 'cleaner', 'cleaner name', 'worker', 'pro', 'assigned cleaner', 'crew', 'crew name', 'tech', 'technician', 'staff'],
   assignedTeamMemberEmail: ['team member email', 'cleaner email', 'worker email', 'pro email', 'crew email', 'tech email', 'staff email', 'assigned email'],
 
