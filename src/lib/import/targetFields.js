@@ -1,148 +1,10 @@
 // Target field definitions for the Data Import flow.
 //
-// Each entry describes one field a user can map a CSV column to. The wizard
-// uses this catalog to build the right-hand "SF field" dropdowns and to
-// validate that required fields have been mapped.
-
-export const TARGET_FIELDS = {
-  customers: [
-    { key: 'firstName', label: 'First Name', required: true, group: 'Identity' },
-    { key: 'lastName', label: 'Last Name', required: true, group: 'Identity' },
-    { key: 'companyName', label: 'Company Name', group: 'Identity' },
-    { key: 'email', label: 'Email', group: 'Contact' },
-    { key: 'phone', label: 'Phone', group: 'Contact' },
-    { key: 'additionalPhone', label: 'Additional Phone', group: 'Contact' },
-    { key: 'address', label: 'Address', group: 'Address' },
-    { key: 'apt', label: 'Apt / Suite', group: 'Address' },
-    { key: 'city', label: 'City', group: 'Address' },
-    { key: 'state', label: 'State', group: 'Address' },
-    { key: 'zipCode', label: 'Zip / Postal Code', group: 'Address' },
-    { key: 'source', label: 'Lead Source', group: 'Other' },
-    { key: 'createdAt', label: 'Lead Created Date / Date Added', group: 'Other' },
-    { key: 'notes', label: 'Notes', group: 'Other' },
-    { key: 'status', label: 'Status (active/inactive/archived)', group: 'Other' },
-    { key: 'tags', label: 'Tags', group: 'Other' },
-  ],
-
-  jobs: [
-    // Customer identity (one of email/name required so backend can find/create)
-    { key: 'customerFirstName', label: 'Customer First Name', required: true, group: 'Customer' },
-    { key: 'customerLastName', label: 'Customer Last Name', required: true, group: 'Customer' },
-    { key: 'customerEmail', label: 'Customer Email', group: 'Customer' },
-    { key: 'phone', label: 'Customer Phone', group: 'Customer' },
-    // Service address
-    { key: 'address', label: 'Service Address', group: 'Address' },
-    { key: 'apt', label: 'Apt / Suite', group: 'Address' },
-    { key: 'city', label: 'City', group: 'Address' },
-    { key: 'state', label: 'State', group: 'Address' },
-    { key: 'zipCode', label: 'Zip / Postal Code', group: 'Address' },
-    // Schedule
-    { key: 'scheduledDate', label: 'Scheduled Date', required: true, group: 'Schedule' },
-    { key: 'scheduledTime', label: 'Scheduled Time', group: 'Schedule' },
-    { key: 'bookingStartDateTime', label: 'Booking Start (ISO datetime)', group: 'Schedule' },
-    { key: 'bookingEndDateTime', label: 'Booking End (ISO datetime)', group: 'Schedule' },
-    { key: 'duration', label: 'Duration (min or HH:MM)', group: 'Schedule' },
-    { key: 'estimatedDuration', label: 'Estimated Duration (min)', group: 'Schedule' },
-    { key: 'isRecurring', label: 'Is Recurring', group: 'Schedule' },
-    { key: 'recurringFrequency', label: 'Recurring Frequency', group: 'Schedule' },
-    // Service
-    { key: 'serviceName', label: 'Service Name', group: 'Service' },
-    { key: 'bedroomCount', label: 'Bedrooms', group: 'Service' },
-    { key: 'bathroomCount', label: 'Bathrooms', group: 'Service' },
-    { key: 'workersNeeded', label: 'Workers Needed', group: 'Service' },
-    { key: 'extras', label: 'Extras', group: 'Service' },
-    { key: 'excludes', label: 'Excludes', group: 'Service' },
-    // Pricing
-    { key: 'price', label: 'Price', group: 'Pricing' },
-    { key: 'servicePrice', label: 'Service Price (pre-tax)', group: 'Pricing' },
-    { key: 'serviceTotal', label: 'Service Total', group: 'Pricing' },
-    { key: 'discount', label: 'Discount', group: 'Pricing' },
-    { key: 'additionalFees', label: 'Additional Fees', group: 'Pricing' },
-    { key: 'taxes', label: 'Taxes', group: 'Pricing' },
-    { key: 'total', label: 'Total', group: 'Pricing' },
-    { key: 'finalAmount', label: 'Final Amount', group: 'Pricing' },
-    { key: 'tipAmount', label: 'Tip', group: 'Pricing' },
-    // Payment
-    { key: 'amountPaidByCustomer', label: 'Amount Paid', group: 'Payment' },
-    { key: 'amountOwed', label: 'Amount Owed', group: 'Payment' },
-    { key: 'paymentMethod', label: 'Payment Method', group: 'Payment' },
-    { key: 'paymentStatus', label: 'Payment Status (paid/unpaid/partial)', group: 'Payment' },
-    { key: 'invoiceId', label: 'Invoice ID', group: 'Payment' },
-    { key: 'invoiceAmount', label: 'Invoice Amount', group: 'Payment' },
-    { key: 'invoiceDate', label: 'Invoice Date', group: 'Payment' },
-    { key: 'paymentDate', label: 'Payment Date', group: 'Payment' },
-    // Status / assignment
-    { key: 'status', label: 'Job Status', group: 'Status' },
-    { key: 'priority', label: 'Priority', group: 'Status' },
-    { key: 'workers', label: 'Workers Assigned (#)', group: 'Status' },
-    { key: 'assignedCrewExternalId', label: 'Assigned Crew (external ID)', group: 'Status' },
-    { key: 'serviceRegionExternalId', label: 'Service Region / Location', group: 'Status' },
-    { key: 'territory', label: 'Territory', group: 'Status' },
-    // Flags
-    { key: 'qualityCheck', label: 'Quality Check (true/false)', group: 'Flags' },
-    { key: 'photosRequired', label: 'Photos Required (true/false)', group: 'Flags' },
-    { key: 'customerSignature', label: 'Customer Signature (true/false)', group: 'Flags' },
-    { key: 'autoInvoice', label: 'Auto-Invoice (true/false)', group: 'Flags' },
-    { key: 'autoReminders', label: 'Auto-Reminders (true/false)', group: 'Flags' },
-    { key: 'recurringEndDate', label: 'Recurring End Date', group: 'Flags' },
-    // Notes / metadata
-    { key: 'notes', label: 'Notes', group: 'Notes' },
-    { key: 'customerNotes', label: 'Customer Notes', group: 'Notes' },
-    { key: 'internalNotes', label: 'Internal Notes', group: 'Notes' },
-    { key: 'specialInstructions', label: 'Special Instructions', group: 'Notes' },
-    { key: 'tags', label: 'Tags (comma-separated)', group: 'Notes' },
-    { key: 'externalId', label: 'External Job ID (dedup key)', group: 'Notes' },
-  ],
-
-  team_members: [
-    { key: 'firstName', label: 'First Name', required: true, group: 'Identity' },
-    { key: 'lastName', label: 'Last Name', required: true, group: 'Identity' },
-    { key: 'email', label: 'Email', required: true, group: 'Identity' },
-    { key: 'phone', label: 'Phone', group: 'Identity' },
-    { key: 'role', label: 'Role (cleaner / manager / office / admin)', group: 'Identity' },
-    { key: 'color', label: 'Color', group: 'Identity' },
-    // Address
-    { key: 'location', label: 'Location', group: 'Address' },
-    { key: 'city', label: 'City', group: 'Address' },
-    { key: 'state', label: 'State', group: 'Address' },
-    { key: 'zipCode', label: 'Zip / Postal Code', group: 'Address' },
-    // Pay / salary
-    { key: 'hourlyRate', label: 'Hourly Rate', group: 'Pay' },
-    { key: 'commission', label: 'Commission %', group: 'Pay' },
-    { key: 'salaryStartDate', label: 'Salary Start Date', group: 'Pay' },
-    { key: 'payoutScheduleType', label: 'Payout Schedule (weekly/biweekly/monthly)', group: 'Pay' },
-    { key: 'payoutDayOfWeek', label: 'Payout Day of Week (0=Sun … 6=Sat)', group: 'Pay' },
-    { key: 'payoutIntervalDays', label: 'Payout Interval (days)', group: 'Pay' },
-    // Status
-    { key: 'status', label: 'Status (active/inactive/archived)', group: 'Status' },
-    { key: 'isActive', label: 'Active (true/false)', group: 'Status' },
-    { key: 'isServiceProvider', label: 'Is Service Provider (true/false)', group: 'Status' },
-    { key: 'skills', label: 'Skills (comma-separated)', group: 'Status' },
-  ],
-
-  services: [
-    { key: 'name', label: 'Name', required: true },
-    { key: 'description', label: 'Description' },
-    { key: 'price', label: 'Price' },
-    { key: 'duration', label: 'Duration (min or HH:MM)' },
-    { key: 'category', label: 'Category' },
-    { key: 'isActive', label: 'Active (true/false)' },
-    { key: 'requirePaymentMethod', label: 'Require Payment Method (true/false)' },
-  ],
-
-  territories: [
-    { key: 'name', label: 'Name', required: true },
-    { key: 'description', label: 'Description' },
-    { key: 'location', label: 'Location' },
-    { key: 'city', label: 'City' },
-    { key: 'state', label: 'State' },
-    { key: 'radius', label: 'Radius (miles)' },
-    { key: 'timezone', label: 'Timezone' },
-    { key: 'zipCodes', label: 'Zip Codes (comma/space separated)' },
-    { key: 'status', label: 'Status (active/inactive)' },
-    { key: 'pricingMultiplier', label: 'Pricing Multiplier (e.g. 1.25)' },
-  ],
-};
+// Single unified catalog. Each field appears once. `targets` declares which
+// import types the field applies to — picking a single-target field tells
+// the system what kind of data the user is importing.
+//
+// `requiredFor` is the types where the field is required (must be mapped).
 
 export const TARGET_TYPE_LABELS = {
   customers: 'Customers',
@@ -152,8 +14,215 @@ export const TARGET_TYPE_LABELS = {
   territories: 'Territories',
 };
 
-export const TARGET_TYPES = Object.keys(TARGET_FIELDS);
+export const TARGET_TYPES = ['customers', 'jobs', 'team_members', 'services', 'territories'];
+
+// Default tiebreaker when multiple types are equally likely from the mapping.
+const TYPE_PRIORITY = ['customers', 'jobs', 'team_members', 'services', 'territories'];
+
+const ALL = TARGET_TYPES;
+
+export const UNIFIED_FIELDS = [
+  // ── Identity (Customer + Team Member share these) ───────────────
+  { key: 'firstName', label: 'First Name', group: 'Identity',
+    targets: ['customers', 'team_members'], requiredFor: ['customers', 'team_members'] },
+  { key: 'lastName', label: 'Last Name', group: 'Identity',
+    targets: ['customers', 'team_members'], requiredFor: ['customers', 'team_members'] },
+  { key: 'email', label: 'Email', group: 'Identity',
+    targets: ['customers', 'team_members', 'jobs'], requiredFor: ['team_members'] },
+  { key: 'phone', label: 'Phone', group: 'Identity',
+    targets: ['customers', 'team_members', 'jobs'] },
+  { key: 'additionalPhone', label: 'Additional Phone', group: 'Identity',
+    targets: ['customers'] },
+  { key: 'companyName', label: 'Company Name', group: 'Identity',
+    targets: ['customers'] },
+
+  // ── Address (Customer / Team / Job service-address / Territory) ─
+  { key: 'address', label: 'Address', group: 'Address',
+    targets: ['customers', 'team_members', 'jobs'] },
+  { key: 'apt', label: 'Apt / Suite', group: 'Address',
+    targets: ['customers', 'jobs'] },
+  { key: 'city', label: 'City', group: 'Address',
+    targets: ['customers', 'team_members', 'jobs'] },
+  { key: 'state', label: 'State', group: 'Address',
+    targets: ['customers', 'team_members', 'jobs'] },
+  { key: 'zipCode', label: 'Zip / Postal Code', group: 'Address',
+    targets: ['customers', 'team_members', 'jobs'] },
+
+  // ── Lead / Customer specifics ───────────────────────────────────
+  { key: 'source', label: 'Lead Source', group: 'Lead',
+    targets: ['customers'] },
+  { key: 'createdAt', label: 'Lead Created Date / Date Added', group: 'Lead',
+    targets: ['customers'] },
+
+  // ── Schedule (Jobs only) ────────────────────────────────────────
+  { key: 'scheduledDate', label: 'Scheduled Date', group: 'Schedule',
+    targets: ['jobs'], requiredFor: ['jobs'] },
+  { key: 'scheduledTime', label: 'Scheduled Time', group: 'Schedule', targets: ['jobs'] },
+  { key: 'bookingStartDateTime', label: 'Booking Start (ISO datetime)', group: 'Schedule', targets: ['jobs'] },
+  { key: 'bookingEndDateTime', label: 'Booking End (ISO datetime)', group: 'Schedule', targets: ['jobs'] },
+  { key: 'duration', label: 'Duration (min or HH:MM)', group: 'Schedule',
+    targets: ['jobs', 'services'] },
+  { key: 'estimatedDuration', label: 'Estimated Duration (min)', group: 'Schedule', targets: ['jobs'] },
+  { key: 'isRecurring', label: 'Is Recurring', group: 'Schedule', targets: ['jobs'] },
+  { key: 'recurringFrequency', label: 'Recurring Frequency', group: 'Schedule', targets: ['jobs'] },
+  { key: 'recurringEndDate', label: 'Recurring End Date', group: 'Schedule', targets: ['jobs'] },
+
+  // ── Service (Jobs / Services overlap) ───────────────────────────
+  { key: 'serviceName', label: 'Service Name', group: 'Service', targets: ['jobs'] },
+  { key: 'name', label: 'Name', group: 'Service',
+    targets: ['services', 'territories'], requiredFor: ['services', 'territories'] },
+  { key: 'description', label: 'Description', group: 'Service',
+    targets: ['services', 'territories'] },
+  { key: 'category', label: 'Category', group: 'Service', targets: ['services'] },
+  { key: 'requirePaymentMethod', label: 'Require Payment Method', group: 'Service', targets: ['services'] },
+  { key: 'bedroomCount', label: 'Bedrooms', group: 'Service', targets: ['jobs'] },
+  { key: 'bathroomCount', label: 'Bathrooms', group: 'Service', targets: ['jobs'] },
+  { key: 'workersNeeded', label: 'Workers Needed', group: 'Service', targets: ['jobs'] },
+  { key: 'extras', label: 'Extras', group: 'Service', targets: ['jobs'] },
+  { key: 'excludes', label: 'Excludes', group: 'Service', targets: ['jobs'] },
+
+  // ── Pricing (Jobs / Services overlap on price) ──────────────────
+  { key: 'price', label: 'Price', group: 'Pricing',
+    targets: ['jobs', 'services'] },
+  { key: 'servicePrice', label: 'Service Price (pre-tax)', group: 'Pricing', targets: ['jobs'] },
+  { key: 'serviceTotal', label: 'Service Total', group: 'Pricing', targets: ['jobs'] },
+  { key: 'discount', label: 'Discount', group: 'Pricing', targets: ['jobs'] },
+  { key: 'additionalFees', label: 'Additional Fees', group: 'Pricing', targets: ['jobs'] },
+  { key: 'taxes', label: 'Taxes', group: 'Pricing', targets: ['jobs'] },
+  { key: 'total', label: 'Total', group: 'Pricing', targets: ['jobs'] },
+  { key: 'finalAmount', label: 'Final Amount', group: 'Pricing', targets: ['jobs'] },
+  { key: 'tipAmount', label: 'Tip', group: 'Pricing', targets: ['jobs'] },
+
+  // ── Payment (Jobs only) ─────────────────────────────────────────
+  { key: 'amountPaidByCustomer', label: 'Amount Paid', group: 'Payment', targets: ['jobs'] },
+  { key: 'amountOwed', label: 'Amount Owed', group: 'Payment', targets: ['jobs'] },
+  { key: 'paymentMethod', label: 'Payment Method', group: 'Payment', targets: ['jobs'] },
+  { key: 'paymentStatus', label: 'Payment Status (paid/unpaid/partial)', group: 'Payment', targets: ['jobs'] },
+  { key: 'invoiceId', label: 'Invoice ID', group: 'Payment', targets: ['jobs'] },
+  { key: 'invoiceAmount', label: 'Invoice Amount', group: 'Payment', targets: ['jobs'] },
+  { key: 'invoiceDate', label: 'Invoice Date', group: 'Payment', targets: ['jobs'] },
+  { key: 'paymentDate', label: 'Payment Date', group: 'Payment', targets: ['jobs'] },
+
+  // ── Team Pay / Salary (Team Members only) ───────────────────────
+  { key: 'role', label: 'Role (cleaner / manager / office / admin)', group: 'Team Pay', targets: ['team_members'] },
+  { key: 'hourlyRate', label: 'Hourly Rate', group: 'Team Pay', targets: ['team_members'] },
+  { key: 'commission', label: 'Commission %', group: 'Team Pay', targets: ['team_members'] },
+  { key: 'salaryStartDate', label: 'Salary Start Date', group: 'Team Pay', targets: ['team_members'] },
+  { key: 'payoutScheduleType', label: 'Payout Schedule (weekly/biweekly/monthly)', group: 'Team Pay', targets: ['team_members'] },
+  { key: 'payoutDayOfWeek', label: 'Payout Day of Week (0=Sun … 6=Sat)', group: 'Team Pay', targets: ['team_members'] },
+  { key: 'payoutIntervalDays', label: 'Payout Interval (days)', group: 'Team Pay', targets: ['team_members'] },
+  { key: 'isServiceProvider', label: 'Is Service Provider (true/false)', group: 'Team Pay', targets: ['team_members'] },
+  { key: 'skills', label: 'Skills (comma-separated)', group: 'Team Pay', targets: ['team_members'] },
+  { key: 'color', label: 'Color (calendar)', group: 'Team Pay', targets: ['team_members'] },
+
+  // ── Territory specifics ─────────────────────────────────────────
+  { key: 'location', label: 'Location', group: 'Territory',
+    targets: ['team_members', 'territories'] },
+  { key: 'radius', label: 'Radius (miles)', group: 'Territory', targets: ['territories'] },
+  { key: 'timezone', label: 'Timezone', group: 'Territory', targets: ['territories'] },
+  { key: 'zipCodes', label: 'Zip Codes (comma/space separated)', group: 'Territory', targets: ['territories'] },
+  { key: 'pricingMultiplier', label: 'Pricing Multiplier (e.g. 1.25)', group: 'Territory', targets: ['territories'] },
+  { key: 'territory', label: 'Territory (job assignment)', group: 'Territory', targets: ['jobs'] },
+  { key: 'serviceRegionExternalId', label: 'Service Region / Location ID', group: 'Territory', targets: ['jobs'] },
+
+  // ── Status & flags ──────────────────────────────────────────────
+  { key: 'status', label: 'Status', group: 'Status', targets: ALL },
+  { key: 'isActive', label: 'Active (true/false)', group: 'Status',
+    targets: ['team_members', 'services', 'territories'] },
+  { key: 'priority', label: 'Priority', group: 'Status', targets: ['jobs'] },
+  { key: 'workers', label: 'Workers Assigned (#)', group: 'Status', targets: ['jobs'] },
+  { key: 'assignedCrewExternalId', label: 'Assigned Crew (external ID)', group: 'Status', targets: ['jobs'] },
+  { key: 'qualityCheck', label: 'Quality Check (true/false)', group: 'Status', targets: ['jobs'] },
+  { key: 'photosRequired', label: 'Photos Required (true/false)', group: 'Status', targets: ['jobs'] },
+  { key: 'customerSignature', label: 'Customer Signature (true/false)', group: 'Status', targets: ['jobs'] },
+  { key: 'autoInvoice', label: 'Auto-Invoice (true/false)', group: 'Status', targets: ['jobs'] },
+  { key: 'autoReminders', label: 'Auto-Reminders (true/false)', group: 'Status', targets: ['jobs'] },
+
+  // ── Notes & metadata ────────────────────────────────────────────
+  { key: 'notes', label: 'Notes', group: 'Notes',
+    targets: ['customers', 'jobs', 'team_members', 'services', 'territories'] },
+  { key: 'customerNotes', label: 'Customer Notes', group: 'Notes', targets: ['jobs'] },
+  { key: 'internalNotes', label: 'Internal Notes', group: 'Notes', targets: ['jobs'] },
+  { key: 'specialInstructions', label: 'Special Instructions', group: 'Notes', targets: ['jobs'] },
+  { key: 'tags', label: 'Tags (comma-separated)', group: 'Notes',
+    targets: ['customers', 'jobs'] },
+  { key: 'externalId', label: 'External ID (dedup key)', group: 'Notes',
+    targets: ['customers', 'jobs', 'team_members'] },
+];
+
+/**
+ * Infer the import type from a mapping object.
+ *
+ * Vote per type: each mapped field counts toward the types it can target.
+ * Single-target fields (e.g. `hourlyRate` → team_members only) act as strong
+ * signals; multi-target fields contribute to all their targets equally.
+ *
+ * Returns { type, votes, ambiguous, mappedFields }.
+ *   - type: best-guess type (TYPE_PRIORITY breaks ties)
+ *   - votes: { customers: N, jobs: N, ... }
+ *   - ambiguous: true if multiple types tied AND no single-target field was
+ *     mapped (so we can show a hint)
+ */
+export function inferType(mapping, unifiedFields = UNIFIED_FIELDS) {
+  const votes = { customers: 0, jobs: 0, team_members: 0, services: 0, territories: 0 };
+  let strongSignal = null; // first single-target field mapped
+
+  const mappedKeys = Object.keys(mapping || {}).filter((k) => mapping[k]);
+  if (mappedKeys.length === 0) return { type: 'customers', votes, ambiguous: false, mappedFields: 0 };
+
+  for (const k of mappedKeys) {
+    const f = unifiedFields.find((x) => x.key === k);
+    if (!f) continue;
+    const targets = f.targets || [];
+    if (targets.length === 1 && !strongSignal) strongSignal = targets[0];
+    for (const t of targets) {
+      votes[t] = (votes[t] || 0) + (targets.length === 1 ? 5 : 1);
+    }
+  }
+
+  // If a single-target field was mapped, that type wins
+  if (strongSignal) return { type: strongSignal, votes, ambiguous: false, mappedFields: mappedKeys.length };
+
+  // Otherwise pick highest vote, tiebreak by priority
+  let best = null;
+  let bestScore = -1;
+  for (const t of TYPE_PRIORITY) {
+    if (votes[t] > bestScore) { best = t; bestScore = votes[t]; }
+  }
+  const tied = Object.values(votes).filter((v) => v === bestScore).length > 1;
+  return { type: best || 'customers', votes, ambiguous: tied, mappedFields: mappedKeys.length };
+}
+
+/**
+ * Required field keys for a given target type.
+ */
+export function getRequiredFieldsForTarget(target, unifiedFields = UNIFIED_FIELDS) {
+  return unifiedFields
+    .filter((f) => (f.requiredFor || []).includes(target))
+    .map((f) => f.key);
+}
+
+/**
+ * Filter the mapping to only fields valid for the given target type.
+ * Used before sending to the backend so we don't send unrelated fields.
+ */
+export function filterMappingForTarget(mapping, target, unifiedFields = UNIFIED_FIELDS) {
+  const out = {};
+  for (const [k, v] of Object.entries(mapping || {})) {
+    if (!v) continue;
+    const f = unifiedFields.find((x) => x.key === k);
+    if (f && (f.targets || []).includes(target)) out[k] = v;
+  }
+  return out;
+}
+
+// Legacy export for any old callers (e.g. preset save flow). Returns the
+// per-type field arrays the old code used to consume.
+export const TARGET_FIELDS = TARGET_TYPES.reduce((acc, t) => {
+  acc[t] = UNIFIED_FIELDS.filter((f) => (f.targets || []).includes(t));
+  return acc;
+}, {});
 
 export function getRequiredFields(target) {
-  return (TARGET_FIELDS[target] || []).filter((f) => f.required).map((f) => f.key);
+  return getRequiredFieldsForTarget(target);
 }

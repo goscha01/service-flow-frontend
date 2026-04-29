@@ -7,7 +7,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import FieldMappingTable from '../../components/FieldMappingTable';
 import {
-  TARGET_FIELDS, TARGET_TYPE_LABELS, TARGET_TYPES, getRequiredFields,
+  UNIFIED_FIELDS, TARGET_FIELDS, TARGET_TYPE_LABELS, TARGET_TYPES,
+  inferType, getRequiredFieldsForTarget, filterMappingForTarget,
 } from '../../lib/import/targetFields';
 import { suggestMapping, detectSource } from '../../lib/import/headerMatcher';
 
@@ -44,15 +45,14 @@ export default function DataImportPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Steps: 1=upload, 2=mapping (with inline type dropdown), 3=preview,
+  // Steps: 1=upload, 2=mapping (single unified dropdown), 3=preview,
   //        4=settings, 5=importing, 6=results
   const [step, setStep] = useState(1);
-  const [type, setType] = useState('customers'); // default; user can change on map step
   const [selectedFile, setSelectedFile] = useState(null);
   const [csvHeaders, setCsvHeaders] = useState([]);
   const [parsedRows, setParsedRows] = useState([]);
   const [mapping, setMapping] = useState({});
-  const [allPresets, setAllPresets] = useState([]); // loaded once for all types
+  const [allPresets, setAllPresets] = useState([]);
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const [savePresetName, setSavePresetName] = useState('');
   const [importSettings, setImportSettings] = useState({
@@ -63,13 +63,13 @@ export default function DataImportPage() {
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0, imported: 0, skipped: 0, errors: 0 });
   const [importResult, setImportResult] = useState(null);
 
-  // Honor ?type= and ?preset= query params (used by BK redirect + Jobs page)
-  useEffect(() => {
-    const t = searchParams.get('type');
-    if (t && TARGET_TYPES.includes(t)) setType(t);
-  }, [searchParams]);
+  // Type is DERIVED from the mapping — no manual selector. Picking a
+  // single-target field (e.g. Hourly Rate → team_members) is what tells the
+  // system what kind of data the user is importing.
+  const inference = useMemo(() => inferType(mapping), [mapping]);
+  const type = inference.type;
 
-  // Load all presets once on mount (across all types)
+  // Load all presets once on mount
   useEffect(() => {
     api.get('/import-mapping-presets')
       .then((r) => {
@@ -79,23 +79,18 @@ export default function DataImportPage() {
           const match = (r.data?.presets || []).find(
             (p) => p.is_system && p.name.toLowerCase().replace(/\s+/g, '-') === presetParam.toLowerCase(),
           );
-          if (match) {
-            setSelectedPresetId(match.id);
-            setType(match.target);
-          }
+          if (match) setSelectedPresetId(match.id);
         }
       })
       .catch(() => setAllPresets([]));
   }, [searchParams]);
 
-  // Presets relevant to the currently selected type
-  const presets = useMemo(
-    () => allPresets.filter((p) => p.target === type),
-    [allPresets, type],
-  );
+  // All presets are valid options regardless of inferred type — picking one
+  // overwrites the mapping (which then drives type inference).
+  const presets = allPresets;
 
-  const targetFields = type ? TARGET_FIELDS[type] : [];
-  const requiredFields = type ? getRequiredFields(type) : [];
+  const targetFields = UNIFIED_FIELDS;
+  const requiredFields = getRequiredFieldsForTarget(type);
   const sampleRow = parsedRows[0] || {};
 
   const missingRequired = useMemo(
@@ -148,7 +143,7 @@ export default function DataImportPage() {
         setParsedRows(rows);
 
         // Try to detect a known source (BK, ZenBooker) and auto-pick the
-        // matching system preset — this also flips the type to match.
+        // matching system preset.
         let appliedFromPreset = false;
         if (!selectedPresetId) {
           const detected = detectSource(headers);
@@ -156,17 +151,16 @@ export default function DataImportPage() {
             const match = allPresets.find((p) => p.is_system && p.name === detected);
             if (match) {
               setSelectedPresetId(match.id);
-              setType(match.target);
               setMapping(filterMappingToHeaders(match.mapping, headers));
               appliedFromPreset = true;
             }
           }
         }
 
-        // No preset matched → fall back to auto-suggest for the current type
+        // No preset matched → run synonym/fuzzy auto-suggest against the
+        // unified catalog (any field key from any type is a candidate).
         if (!appliedFromPreset) {
-          const suggested = suggestMapping(headers, TARGET_FIELDS[type] || []);
-          setMapping(suggested);
+          setMapping(suggestMapping(headers, UNIFIED_FIELDS));
         }
 
         setStep(2);
@@ -194,26 +188,12 @@ export default function DataImportPage() {
   const handlePresetChange = (presetId) => {
     setSelectedPresetId(presetId);
     if (!presetId) {
-      // "Custom (no preset)" — re-run auto-suggest
-      setMapping(suggestMapping(csvHeaders, targetFields));
+      // "Custom (no preset)" — re-run auto-suggest against unified catalog
+      setMapping(suggestMapping(csvHeaders, UNIFIED_FIELDS));
       return;
     }
     const preset = allPresets.find((p) => p.id === presetId);
-    if (preset) {
-      // Picking a preset of a different type also switches the type
-      if (preset.target !== type) setType(preset.target);
-      setMapping(filterMappingToHeaders(preset.mapping, csvHeaders));
-    }
-  };
-
-  // Changing the type clears the preset and re-auto-suggests for the new
-  // target field set. Keeps mapping entries that still resolve to known
-  // headers in the new target (rare, but harmless).
-  const handleTypeChange = (newType) => {
-    if (newType === type) return;
-    setType(newType);
-    setSelectedPresetId('');
-    setMapping(suggestMapping(csvHeaders, TARGET_FIELDS[newType] || []));
+    if (preset) setMapping(filterMappingToHeaders(preset.mapping, csvHeaders));
   };
 
   const handleSavePreset = async () => {
@@ -223,7 +203,9 @@ export default function DataImportPage() {
       return;
     }
     try {
-      const r = await api.post('/import-mapping-presets', { name, target: type, mapping });
+      // Save preset under the inferred type, with only fields valid for it
+      const presetMapping = filterMappingForTarget(mapping, type);
+      const r = await api.post('/import-mapping-presets', { name, target: type, mapping: presetMapping });
       const newPreset = r.data?.preset;
       if (newPreset) {
         setAllPresets((prev) => [...prev, newPreset]);
@@ -250,10 +232,15 @@ export default function DataImportPage() {
       apiBaseUrl = apiBaseUrl.replace(/\/api$/, '');
       const url = `${apiBaseUrl}/api/data-import/import`;
 
+      // Send only the fields valid for the inferred type — extra mappings
+      // outside this type are silently dropped at submit. (UI doesn't allow
+      // multi-type import yet; this guards against stale state.)
+      const submitMapping = filterMappingForTarget(mapping, type);
+
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ type, rows: parsedRows, mapping, importSettings }),
+        body: JSON.stringify({ type, rows: parsedRows, mapping: submitMapping, importSettings }),
       });
 
       if (!response.ok) {
@@ -405,22 +392,8 @@ export default function DataImportPage() {
           </p>
         </div>
 
-        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
-              Importing as
-            </label>
-            <select
-              value={type}
-              onChange={(e) => handleTypeChange(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm"
-            >
-              {TARGET_TYPES.map((t) => (
-                <option key={t} value={t}>{TARGET_TYPE_LABELS[t]}</option>
-              ))}
-            </select>
-          </div>
-          <div>
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 mb-4 flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="flex-1">
             <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">Preset</label>
             <select
               value={selectedPresetId}
@@ -431,19 +404,31 @@ export default function DataImportPage() {
               {systemPresets.length > 0 && (
                 <optgroup label="System">
                   {systemPresets.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {TARGET_TYPE_LABELS[p.target]}
+                    </option>
                   ))}
                 </optgroup>
               )}
               {userPresets.length > 0 && (
                 <optgroup label="My Presets">
                   {userPresets.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {TARGET_TYPE_LABELS[p.target]}
+                    </option>
                   ))}
                 </optgroup>
               )}
             </select>
           </div>
+          {inference.mappedFields > 0 && (
+            <div className="text-sm">
+              <div className="text-[var(--sf-text-muted)] uppercase text-xs tracking-wider mb-1">Detected as</div>
+              <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg font-medium text-orange-700">
+                {TARGET_TYPE_LABELS[type]}
+              </div>
+            </div>
+          )}
         </div>
 
         <FieldMappingTable
@@ -504,9 +489,12 @@ export default function DataImportPage() {
 
   // ── Step 3: Preview ────────────────────────────────────────────────
   if (step === 3) {
+    // Preview uses only fields valid for the inferred type — what will
+    // actually be sent to the backend.
+    const submitMapping = filterMappingForTarget(mapping, type);
     const previewMapped = parsedRows.slice(0, 10).map((row) => {
       const out = {};
-      for (const [sf, csv] of Object.entries(mapping)) {
+      for (const [sf, csv] of Object.entries(submitMapping)) {
         if (csv && row[csv] !== undefined) out[sf] = row[csv];
       }
       return out;
