@@ -1066,12 +1066,13 @@ const ServiceFlowSchedule = () => {
           const hasTeamAssignments = job.team_assignments && Array.isArray(job.team_assignments) && job.team_assignments.length > 0
           return !hasDirectAssignment && !hasTeamAssignments
         })
-      } else if (selectedFilter !== 'all') {
+      } else if (selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'all-team-members') {
         // Optional filter: show only jobs assigned to a specific team member
-        // Use isJobAssignedTo to handle jobs with multiple team members
+        // Treat 'all-team-members' (an availability-tab-only sentinel) as 'all' here —
+        // otherwise it's coerced to NaN by isJobAssignedTo and wipes every job after a tab switch.
         filtered = filtered.filter(job => isJobAssignedTo(job, selectedFilter))
       }
-      // If selectedFilter === 'all', no filtering is applied - show all jobs
+      // If selectedFilter === 'all' or 'all-team-members', no team-member filter is applied
     }
     
     // Status filter
@@ -1711,8 +1712,9 @@ const ServiceFlowSchedule = () => {
     }
 
     // Apply team member filter if one is selected (works for both Jobs and Availability tabs)
-    // This ensures consistency: same team member shows same jobs in both tabs
-    if (selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
+    // This ensures consistency: same team member shows same jobs in both tabs.
+    // 'all-team-members' is the availability-tab "show all" sentinel; treat as no filter.
+    if (selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned' && selectedFilter !== 'all-team-members') {
       const beforeFilter = filteredJobs.length
       const targetId = Number(selectedFilter)
       filteredJobs = filteredJobs.filter(job => {
@@ -4457,7 +4459,12 @@ const ServiceFlowSchedule = () => {
             <div className="relative bg-gray-50 rounded-2xl p-1 inline-flex gap-1 w-full">
               <button
                 type="button"
-                onClick={() => setActiveTab('jobs')}
+                onClick={() => {
+                  setActiveTab('jobs')
+                  // 'all-team-members' is an availability-tab sentinel; reset to 'all'
+                  // so the Jobs tab doesn't try to filter by it (would wipe everything).
+                  if (selectedFilter === 'all-team-members') setSelectedFilter('all')
+                }}
                 className={`relative flex-1 px-2 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                   activeTab === 'jobs'
                     ? 'text-blue-600 bg-white'
@@ -4919,7 +4926,12 @@ const ServiceFlowSchedule = () => {
             <div className="relative bg-gray-50 rounded-2xl p-1 inline-flex gap-1">
               <button
                 type="button"
-                onClick={() => setActiveTab('jobs')}
+                onClick={() => {
+                  setActiveTab('jobs')
+                  // 'all-team-members' is an availability-tab sentinel; reset to 'all'
+                  // so the Jobs tab doesn't try to filter by it (would wipe everything).
+                  if (selectedFilter === 'all-team-members') setSelectedFilter('all')
+                }}
                 className={`relative px-2 py-1 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                   activeTab === 'jobs'
                     ? 'text-blue-600 bg-white'
