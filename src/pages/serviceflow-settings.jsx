@@ -122,8 +122,11 @@ const ServiceFlowSettings = () => {
       case "stripe-connect":
         navigate("/settings/stripe-connect")
         break
+      case "data-import":
+        navigate("/settings/data-import")
+        break
       case "booking-koala":
-        navigate("/settings/booking-koala")
+        navigate("/settings/data-import?preset=booking-koala")
         break
       case "developers":
         navigate("/settings/developers")
@@ -311,10 +314,10 @@ const ServiceFlowSettings = () => {
           active: true,
         },
         {
-          id: "booking-koala",
+          id: "data-import",
           icon: Upload,
-          title: "Booking Koala",
-          description: "Import customers and jobs from Booking Koala",
+          title: "Data Import",
+          description: "Import customers, jobs, team members, services, or territories from any CSV/Excel file (Booking Koala, ZenBooker, or manual mapping)",
           active: true,
         },
         {

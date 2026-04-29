@@ -1,6 +1,6 @@
 import ReactDOM from "react-dom/client"
 import App from "./App"
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from "react-router-dom"
 import { AuthProvider } from "./context/AuthContext"
 import { TimeFormatProvider } from "./context/TimeFormatContext"
 import ProtectedRoute from "./components/ProtectedRoute"
@@ -62,7 +62,7 @@ import ReschedulingCancellation from "./pages/settings/rescheduling-cancellation
 import Developers from "./pages/settings/developers"
 import CalendarSyncing from "./pages/settings/calendar-syncing"
 import GoogleSheetsSettings from "./pages/settings/google-sheets"
-import BookingKoalaIntegration from "./pages/settings/booking-koala"
+import DataImportPage from "./pages/settings/data-import"
 import TaxesFees from "./pages/settings/taxes-fees"
 import PaymentsSettings from "./pages/settings/payments"
 import PayoutSettings from "./pages/settings/payout-settings"
@@ -106,9 +106,7 @@ import TeamMemberFieldApp from "./pages/team-member-field-app"
 import TeamMemberSignup from "./pages/team-member-signup"
 import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
 import ImportDataPage from "./pages/import-data"
-import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
-import UnifiedImportJobsPage from "./pages/import-jobs-unified"
 import LeadsPipeline from "./pages/leads-pipeline"
 import Communications from "./pages/communications"
 import ConnectedInboxes from "./pages/settings/ConnectedInboxes"
@@ -117,6 +115,17 @@ import Notifications from "./pages/notifications"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 import { CategoryProvider } from "./context/CategoryContext"
 import AppLayout from "./components/app-layout"
+
+// Preserve incoming query params when redirecting old import routes
+// (/settings/booking-koala, /import-jobs, /import-customers) to the new
+// generic /settings/data-import flow.
+function RedirectToDataImport({ defaultParams = {} }) {
+  const [search] = useSearchParams()
+  const merged = new URLSearchParams(defaultParams)
+  for (const [k, v] of search.entries()) merged.set(k, v)
+  const qs = merged.toString()
+  return <Navigate to={`/settings/data-import${qs ? `?${qs}` : ''}`} replace />
+}
 
 const root = ReactDOM.createRoot(document.getElementById("root"))
 root.render(
@@ -213,7 +222,8 @@ root.render(
       <Route path="/settings/developers" element={<Developers />} />
       <Route path="/settings/calendar-syncing" element={<CalendarSyncing />} />
       <Route path="/settings/google-sheets" element={<GoogleSheetsSettings />} />
-      <Route path="/settings/booking-koala" element={<BookingKoalaIntegration />} />
+      <Route path="/settings/data-import" element={<DataImportPage />} />
+      <Route path="/settings/booking-koala" element={<RedirectToDataImport defaultParams={{ preset: 'booking-koala' }} />} />
       <Route path="/settings/taxes-fees" element={<TaxesFees />} />
       <Route path="/settings/payments" element={<PaymentsSettings />} />
       <Route path="/settings/payout-settings" element={<PayoutSettings />} />
@@ -223,8 +233,8 @@ root.render(
       <Route path="/settings/booking-quote-requests" element={<BookingQuoteRequests />} />
       <Route path="/settings/field-app" element={<FieldApp />} />
       <Route path="/import-data" element={<ProtectedRoute><ImportDataPage /></ProtectedRoute>} />
-      <Route path="/import-customers" element={<ProtectedRoute><ImportCustomersPage /></ProtectedRoute>} />
-      <Route path="/import-jobs" element={<ProtectedRoute><UnifiedImportJobsPage /></ProtectedRoute>} />
+      <Route path="/import-customers" element={<RedirectToDataImport defaultParams={{ type: 'customers' }} />} />
+      <Route path="/import-jobs" element={<RedirectToDataImport defaultParams={{ type: 'jobs' }} />} />
       <Route path="/import-jobs-legacy" element={<ProtectedRoute><ImportJobsPage /></ProtectedRoute>} />
       </Route>
       {/* Public Booking Routes - No authentication required */}
