@@ -1281,14 +1281,23 @@ const ServiceFlowSchedule = () => {
   // If the stored value is in hours (e.g. 3 for 3h), normalize to minutes so "late" uses correct end time.
   const getJobDuration = (job) => {
     if (!job) return 0;
-    
-    let duration = job.estimated_duration || 
-                   job.service_duration || 
-                   job.duration ||
+
+    // Priority order matters:
+    //   1. job.duration            — the booking's actual scheduled duration
+    //   2. job.estimated_duration  — alternate column some flows use
+    //   3. service_duration        — backend stamps this with the SERVICE TEMPLATE's
+    //                                default duration (e.g. 60 for Regular Cleaning).
+    //                                Must NOT win over job.duration or every job
+    //                                renders as the template default instead of its
+    //                                real length (mostly "1 hour" in practice).
+    //   4. nested service / services relation duration — last-resort fallback
+    let duration = job.duration ||
+                   job.estimated_duration ||
+                   job.service_duration ||
                    (job.service && (job.service.duration || job.service.service_duration || job.service.estimated_duration)) ||
                    (job.services && (job.services.duration || job.services.service_duration || job.services.estimated_duration)) ||
                    0;
-    
+
     duration = parseInt(duration, 10);
     if (isNaN(duration) || duration < 0) return 0;
     // Values 1–24 are commonly hours (e.g. 3 = 3h). Convert to minutes so end-time and display are correct.
