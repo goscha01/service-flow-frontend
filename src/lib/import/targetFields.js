@@ -58,6 +58,8 @@ export const UNIFIED_FIELDS = [
     targets: ['customers', 'leads'] },
   { key: 'leadValue', label: 'Lead Value / Estimated Price', group: 'Lead',
     targets: ['leads'] },
+  { key: 'leadCost', label: 'Lead Cost / Acquisition Cost (CPL)', group: 'Lead',
+    targets: ['leads'] },
   { key: 'leadServiceId', label: 'Service (lead is interested in)', group: 'Lead',
     targets: ['leads'] },
 
@@ -132,13 +134,17 @@ export const UNIFIED_FIELDS = [
   { key: 'territory', label: 'Territory (job assignment)', group: 'Territory', targets: ['jobs'] },
   { key: 'serviceRegionExternalId', label: 'Service Region / Location ID', group: 'Territory', targets: ['jobs'] },
 
+  // ── Assignment (Job → Team Member) ───────────────────────────────
+  { key: 'assignedTeamMemberName', label: 'Assigned Team Member (name)', group: 'Assignment', targets: ['jobs'] },
+  { key: 'assignedTeamMemberEmail', label: 'Assigned Team Member (email)', group: 'Assignment', targets: ['jobs'] },
+  { key: 'assignedCrewExternalId', label: 'Assigned Crew (external ID — for BK/ZB exports)', group: 'Assignment', targets: ['jobs'] },
+
   // ── Status & flags ──────────────────────────────────────────────
   { key: 'status', label: 'Status', group: 'Status', targets: ALL },
   { key: 'isActive', label: 'Active (true/false)', group: 'Status',
     targets: ['team_members', 'services', 'territories'] },
   { key: 'priority', label: 'Priority', group: 'Status', targets: ['jobs'] },
   { key: 'workers', label: 'Workers Assigned (#)', group: 'Status', targets: ['jobs'] },
-  { key: 'assignedCrewExternalId', label: 'Assigned Crew (external ID)', group: 'Status', targets: ['jobs'] },
   { key: 'qualityCheck', label: 'Quality Check (true/false)', group: 'Status', targets: ['jobs'] },
   { key: 'photosRequired', label: 'Photos Required (true/false)', group: 'Status', targets: ['jobs'] },
   { key: 'customerSignature', label: 'Customer Signature (true/false)', group: 'Status', targets: ['jobs'] },

@@ -35,7 +35,10 @@ const SYNONYMS = {
   source: ['source', 'lead source', 'referral source', 'how heard', 'how did you hear', 'referred by', 'channel'],
   createdAt: ['created at', 'created date', 'created on', 'date created', 'date added', 'lead date', 'lead created', 'date', 'signup date', 'signed up', 'first contact', 'inquiry date'],
   leadValue: ['value', 'lead value', 'lead price', 'estimated value', 'deal value', 'opportunity value', 'estimated price', 'quote', 'quote amount', 'estimate'],
+  leadCost: ['lead cost', 'cost per lead', 'cpl', 'acquisition cost', 'cost', 'lead fee', 'thumbtack price', 'lead spend', 'paid for lead', 'amount paid'],
   leadServiceId: ['service id', 'service interested', 'interested service', 'service of interest'],
+  assignedTeamMemberName: ['assigned to', 'assigned team member', 'team member', 'cleaner', 'cleaner name', 'worker', 'pro', 'assigned cleaner', 'crew', 'crew name', 'tech', 'technician', 'staff'],
+  assignedTeamMemberEmail: ['team member email', 'cleaner email', 'worker email', 'pro email', 'crew email', 'tech email', 'staff email', 'assigned email'],
 
   // ── Job-specific ───────────────────────────────────────────────
   serviceName: ['service', 'service name', 'service_name', 'service type'],
