@@ -81,6 +81,9 @@ export const UNIFIED_FIELDS = [
   { key: 'duration', label: 'Duration (min or HH:MM)', group: 'Schedule',
     targets: ['jobs', 'services'] },
   { key: 'estimatedDuration', label: 'Estimated Duration (min)', group: 'Schedule', targets: ['jobs'] },
+  { key: 'hoursWorked', label: 'Hours Worked (actual — drives cleaner salary)', group: 'Schedule', targets: ['jobs'] },
+  { key: 'startTime', label: 'Actual Start Time', group: 'Schedule', targets: ['jobs'] },
+  { key: 'endTime', label: 'Actual End Time', group: 'Schedule', targets: ['jobs'] },
   { key: 'isRecurring', label: 'Is Recurring', group: 'Schedule', targets: ['jobs'] },
   { key: 'recurringFrequency', label: 'Recurring Frequency', group: 'Schedule', targets: ['jobs'] },
   { key: 'recurringEndDate', label: 'Recurring End Date', group: 'Schedule', targets: ['jobs'] },
@@ -109,7 +112,8 @@ export const UNIFIED_FIELDS = [
   { key: 'taxes', label: 'Taxes', group: 'Pricing', targets: ['jobs'] },
   { key: 'total', label: 'Total', group: 'Pricing', targets: ['jobs'] },
   { key: 'finalAmount', label: 'Final Amount', group: 'Pricing', targets: ['jobs'] },
-  { key: 'tipAmount', label: 'Tip', group: 'Pricing', targets: ['jobs'] },
+  { key: 'tipAmount', label: 'Tip (total — split across assigned cleaners)', group: 'Pricing', targets: ['jobs'] },
+  { key: 'incentiveAmount', label: 'Incentive / Bonus (total)', group: 'Pricing', targets: ['jobs'] },
 
   // ── Payment (Jobs only) ─────────────────────────────────────────
   { key: 'amountPaidByCustomer', label: 'Amount Paid', group: 'Payment', targets: ['jobs'] },
