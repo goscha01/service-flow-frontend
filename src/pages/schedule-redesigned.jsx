@@ -2128,11 +2128,15 @@ const ServiceFlowSchedule = () => {
         totalDriving
       }
     } else {
+      // No remaining free time, but the day is still "open" if there are jobs to
+      // show. Without this the cell renders "Closed" even though the cleaner is
+      // working all day — jobs + drive-time buffers just fill the window.
       return {
-        isOpen: dayJobs.length === 0,
-        hours: dayJobs.length === 0 ? null : null,
+        isOpen: dayJobs.length > 0,
+        hours: null,
         jobCount: dayJobs.length,
         hasJobs: dayJobs.length > 0,
+        reason: dayJobs.length > 0 ? 'fully_booked' : undefined,
         availableSlots: [],
         freeSpots: [],
         busySlots,
