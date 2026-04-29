@@ -124,7 +124,12 @@ export default function DataImportPage() {
             setError('CSV file appears to be empty');
             return;
           }
-          headers = parsed[0].map((h) => h.replace(/^"|"$/g, '').trim());
+          // Headers from row 0; name unnamed columns "Column N" so they
+          // still appear in the mapping UI rather than being dropped.
+          headers = parsed[0].map((h, i) => {
+            const trimmed = h.replace(/^"|"$/g, '').trim();
+            return trimmed || `Column ${i + 1}`;
+          });
           rows = parsed.slice(1).map((r) => {
             const obj = {};
             headers.forEach((h, i) => {
@@ -133,10 +138,28 @@ export default function DataImportPage() {
             return obj;
           });
         } else {
+          // Read Excel as a 2D array (header: 1) so empty columns aren't
+          // silently dropped — sheet_to_json's default mode only returns
+          // keys present in row 1, losing columns that are blank in row 1
+          // but populated later.
           const wb = XLSX.read(e.target.result, { type: 'binary' });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          rows = XLSX.utils.sheet_to_json(ws);
-          headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+          const arr = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          if (arr.length === 0) {
+            setError('Excel file appears to be empty');
+            return;
+          }
+          headers = (arr[0] || []).map((h, i) => {
+            const trimmed = String(h || '').trim();
+            return trimmed || `Column ${i + 1}`;
+          });
+          rows = arr.slice(1).map((r) => {
+            const obj = {};
+            headers.forEach((h, i) => {
+              obj[h] = r[i] !== undefined && r[i] !== null ? String(r[i]).trim() : '';
+            });
+            return obj;
+          });
         }
 
         setCsvHeaders(headers);
