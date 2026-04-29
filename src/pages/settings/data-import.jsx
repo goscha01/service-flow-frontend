@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Upload, FileText, CheckCircle, AlertCircle, Loader2, X,
-  Users, Calendar, UserCog, Briefcase, Map, Save, ChevronRight,
+  Upload, FileText, CheckCircle, AlertCircle, Loader2, X, Save,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -11,22 +10,6 @@ import {
   TARGET_FIELDS, TARGET_TYPE_LABELS, TARGET_TYPES, getRequiredFields,
 } from '../../lib/import/targetFields';
 import { suggestMapping, detectSource } from '../../lib/import/headerMatcher';
-
-const TYPE_ICONS = {
-  customers: Users,
-  jobs: Calendar,
-  team_members: UserCog,
-  services: Briefcase,
-  territories: Map,
-};
-
-const TYPE_DESCRIPTIONS = {
-  customers: 'Name, contact, address, notes',
-  jobs: 'Service, schedule, customer, price, status',
-  team_members: 'Name, email, role, hourly rate, commission',
-  services: 'Name, price, duration, description',
-  territories: 'Name, location, radius, zip codes',
-};
 
 // CSV parser that handles multi-line quoted fields (BK-compatible)
 function parseCSV(text) {
@@ -61,14 +44,15 @@ export default function DataImportPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Steps: 1=type, 2=upload, 3=mapping, 4=preview, 5=settings, 6=importing, 7=results
+  // Steps: 1=upload, 2=mapping (with inline type dropdown), 3=preview,
+  //        4=settings, 5=importing, 6=results
   const [step, setStep] = useState(1);
-  const [type, setType] = useState(null);
+  const [type, setType] = useState('customers'); // default; user can change on map step
   const [selectedFile, setSelectedFile] = useState(null);
   const [csvHeaders, setCsvHeaders] = useState([]);
   const [parsedRows, setParsedRows] = useState([]);
   const [mapping, setMapping] = useState({});
-  const [presets, setPresets] = useState([]);
+  const [allPresets, setAllPresets] = useState([]); // loaded once for all types
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const [savePresetName, setSavePresetName] = useState('');
   const [importSettings, setImportSettings] = useState({
@@ -82,29 +66,33 @@ export default function DataImportPage() {
   // Honor ?type= and ?preset= query params (used by BK redirect + Jobs page)
   useEffect(() => {
     const t = searchParams.get('type');
-    if (t && TARGET_TYPES.includes(t)) {
-      setType(t);
-      setStep(2);
-    }
+    if (t && TARGET_TYPES.includes(t)) setType(t);
   }, [searchParams]);
 
-  // Load presets when type changes
+  // Load all presets once on mount (across all types)
   useEffect(() => {
-    if (!type) return;
-    api.get('/import-mapping-presets', { params: { target: type } })
+    api.get('/import-mapping-presets')
       .then((r) => {
-        setPresets(r.data?.presets || []);
-        // If URL has ?preset=booking-koala, auto-pick that system preset
+        setAllPresets(r.data?.presets || []);
         const presetParam = searchParams.get('preset');
         if (presetParam) {
           const match = (r.data?.presets || []).find(
             (p) => p.is_system && p.name.toLowerCase().replace(/\s+/g, '-') === presetParam.toLowerCase(),
           );
-          if (match) setSelectedPresetId(match.id);
+          if (match) {
+            setSelectedPresetId(match.id);
+            setType(match.target);
+          }
         }
       })
-      .catch(() => setPresets([]));
-  }, [type, searchParams]);
+      .catch(() => setAllPresets([]));
+  }, [searchParams]);
+
+  // Presets relevant to the currently selected type
+  const presets = useMemo(
+    () => allPresets.filter((p) => p.target === type),
+    [allPresets, type],
+  );
 
   const targetFields = type ? TARGET_FIELDS[type] : [];
   const requiredFields = type ? getRequiredFields(type) : [];
@@ -159,24 +147,29 @@ export default function DataImportPage() {
         setCsvHeaders(headers);
         setParsedRows(rows);
 
-        // Auto-suggest mapping
-        const suggested = suggestMapping(headers, targetFields);
-        setMapping(suggested);
-
-        // If a system preset matches the detected source and user hasn't picked
-        // one yet, pre-select it (does not happen if ?preset= already set one)
+        // Try to detect a known source (BK, ZenBooker) and auto-pick the
+        // matching system preset — this also flips the type to match.
+        let appliedFromPreset = false;
         if (!selectedPresetId) {
           const detected = detectSource(headers);
           if (detected) {
-            const match = presets.find((p) => p.is_system && p.name === detected);
+            const match = allPresets.find((p) => p.is_system && p.name === detected);
             if (match) {
               setSelectedPresetId(match.id);
+              setType(match.target);
               setMapping(filterMappingToHeaders(match.mapping, headers));
+              appliedFromPreset = true;
             }
           }
         }
 
-        setStep(3);
+        // No preset matched → fall back to auto-suggest for the current type
+        if (!appliedFromPreset) {
+          const suggested = suggestMapping(headers, TARGET_FIELDS[type] || []);
+          setMapping(suggested);
+        }
+
+        setStep(2);
       } catch (err) {
         console.error('Parse error:', err);
         setError('Failed to parse file. Please ensure it is a valid CSV or Excel file.');
@@ -205,8 +198,22 @@ export default function DataImportPage() {
       setMapping(suggestMapping(csvHeaders, targetFields));
       return;
     }
-    const preset = presets.find((p) => p.id === presetId);
-    if (preset) setMapping(filterMappingToHeaders(preset.mapping, csvHeaders));
+    const preset = allPresets.find((p) => p.id === presetId);
+    if (preset) {
+      // Picking a preset of a different type also switches the type
+      if (preset.target !== type) setType(preset.target);
+      setMapping(filterMappingToHeaders(preset.mapping, csvHeaders));
+    }
+  };
+
+  // Changing the type clears the preset and re-auto-suggests for the new
+  // target field set. Keeps mapping entries that still resolve to known
+  // headers in the new target (rare, but harmless).
+  const handleTypeChange = (newType) => {
+    if (newType === type) return;
+    setType(newType);
+    setSelectedPresetId('');
+    setMapping(suggestMapping(csvHeaders, TARGET_FIELDS[newType] || []));
   };
 
   const handleSavePreset = async () => {
@@ -234,7 +241,7 @@ export default function DataImportPage() {
       return;
     }
     setError('');
-    setStep(6);
+    setStep(5);
     setImportProgress({ current: 0, total: parsedRows.length, imported: 0, skipped: 0, errors: 0 });
 
     try {
@@ -280,7 +287,7 @@ export default function DataImportPage() {
                 skipped: detail?.skipped || 0,
                 errors: detail?.errors || [],
               });
-              setStep(7);
+              setStep(6);
             } else if (evt.type === 'error') {
               throw new Error(evt.message || evt.error || 'Import failed');
             }
@@ -294,13 +301,12 @@ export default function DataImportPage() {
     } catch (err) {
       console.error('Import error:', err);
       setError(err.message || 'Failed to import data');
-      setStep(5);
+      setStep(4);
     }
   };
 
   const reset = () => {
     setStep(1);
-    setType(null);
     setSelectedFile(null);
     setCsvHeaders([]);
     setParsedRows([]);
@@ -310,7 +316,7 @@ export default function DataImportPage() {
     setImportResult(null);
   };
 
-  // ── Step 1: Pick type ────────────────────────────────────────────
+  // ── Step 1: Upload ───────────────────────────────────────────────
   if (step === 1) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -321,63 +327,17 @@ export default function DataImportPage() {
           >
             <span>← Back to Settings</span>
           </button>
-          <div className="flex items-center space-x-4 mb-4">
+          <div className="flex items-center space-x-4 mb-2">
             <div className="p-3 bg-orange-100 rounded-lg">
               <Upload className="w-8 h-8 text-orange-600" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-[var(--sf-text-primary)]">Data Import</h1>
               <p className="text-[var(--sf-text-secondary)]">
-                Import from any CSV or Excel file. Pick a system preset (Booking Koala, ZenBooker) or map columns manually.
+                Upload a CSV or Excel file. You'll map columns to Service Flow fields on the next step.
               </p>
             </div>
           </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          {TARGET_TYPES.map((t) => {
-            const Icon = TYPE_ICONS[t];
-            return (
-              <button
-                key={t}
-                onClick={() => { setType(t); setStep(2); }}
-                className="text-left border-2 border-[var(--sf-border-light)] rounded-lg p-6 hover:border-orange-400 transition-colors bg-white"
-              >
-                <div className="flex items-center space-x-3 mb-2">
-                  <div className="p-2 bg-orange-50 rounded-lg">
-                    <Icon className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
-                    {TARGET_TYPE_LABELS[t]}
-                  </h3>
-                </div>
-                <p className="text-sm text-[var(--sf-text-secondary)] mb-3">{TYPE_DESCRIPTIONS[t]}</p>
-                <div className="text-sm text-orange-600 flex items-center">
-                  Import {TARGET_TYPE_LABELS[t]} <ChevronRight className="w-4 h-4 ml-1" />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Step 2: Upload ───────────────────────────────────────────────
-  if (step === 2) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="mb-6">
-          <button
-            onClick={() => { setStep(1); setType(null); }}
-            className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
-          >
-            <span>← Back</span>
-          </button>
-          <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">
-            Upload {TARGET_TYPE_LABELS[type]} File
-          </h1>
-          <p className="text-[var(--sf-text-secondary)] mt-1">CSV or Excel (.csv, .xlsx, .xls)</p>
         </div>
 
         {error && (
@@ -425,8 +385,8 @@ export default function DataImportPage() {
     );
   }
 
-  // ── Step 3: Map fields ────────────────────────────────────────────
-  if (step === 3) {
+  // ── Step 2: Map fields ────────────────────────────────────────────
+  if (step === 2) {
     const systemPresets = presets.filter((p) => p.is_system);
     const userPresets = presets.filter((p) => !p.is_system);
 
@@ -434,40 +394,56 @@ export default function DataImportPage() {
       <div className="max-w-5xl mx-auto p-6">
         <div className="mb-6">
           <button
-            onClick={() => setStep(2)}
+            onClick={() => setStep(1)}
             className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
           >
             <span>← Back</span>
           </button>
           <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">Map Fields</h1>
           <p className="text-[var(--sf-text-secondary)] mt-1">
-            Match each column from your file to the matching {TARGET_TYPE_LABELS[type]} field.
+            Match each column from your file to the matching Service Flow field.
           </p>
         </div>
 
-        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 mb-4">
-          <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Preset</label>
-          <select
-            value={selectedPresetId}
-            onChange={(e) => handlePresetChange(e.target.value)}
-            className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm"
-          >
-            <option value="">Custom (manual mapping)</option>
-            {systemPresets.length > 0 && (
-              <optgroup label="System">
-                {systemPresets.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </optgroup>
-            )}
-            {userPresets.length > 0 && (
-              <optgroup label="My Presets">
-                {userPresets.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </optgroup>
-            )}
-          </select>
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+              Importing as
+            </label>
+            <select
+              value={type}
+              onChange={(e) => handleTypeChange(e.target.value)}
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm"
+            >
+              {TARGET_TYPES.map((t) => (
+                <option key={t} value={t}>{TARGET_TYPE_LABELS[t]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">Preset</label>
+            <select
+              value={selectedPresetId}
+              onChange={(e) => handlePresetChange(e.target.value)}
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm"
+            >
+              <option value="">Custom (manual mapping)</option>
+              {systemPresets.length > 0 && (
+                <optgroup label="System">
+                  {systemPresets.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </optgroup>
+              )}
+              {userPresets.length > 0 && (
+                <optgroup label="My Presets">
+                  {userPresets.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
         </div>
 
         <FieldMappingTable
@@ -509,13 +485,13 @@ export default function DataImportPage() {
 
         <div className="flex justify-end space-x-3 mt-6">
           <button
-            onClick={() => setStep(2)}
+            onClick={() => setStep(1)}
             className="px-6 py-2 border border-[var(--sf-border-light)] rounded-lg"
           >
             Cancel
           </button>
           <button
-            onClick={() => setStep(4)}
+            onClick={() => setStep(3)}
             disabled={missingRequired.length > 0}
             className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
           >
@@ -526,8 +502,8 @@ export default function DataImportPage() {
     );
   }
 
-  // ── Step 4: Preview ────────────────────────────────────────────────
-  if (step === 4) {
+  // ── Step 3: Preview ────────────────────────────────────────────────
+  if (step === 3) {
     const previewMapped = parsedRows.slice(0, 10).map((row) => {
       const out = {};
       for (const [sf, csv] of Object.entries(mapping)) {
@@ -540,7 +516,7 @@ export default function DataImportPage() {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <button
-          onClick={() => setStep(3)}
+          onClick={() => setStep(2)}
           className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
         >
           <span>← Back</span>
@@ -582,10 +558,10 @@ export default function DataImportPage() {
         </div>
 
         <div className="flex justify-end space-x-3">
-          <button onClick={() => setStep(3)} className="px-6 py-2 border border-[var(--sf-border-light)] rounded-lg">
+          <button onClick={() => setStep(2)} className="px-6 py-2 border border-[var(--sf-border-light)] rounded-lg">
             Back
           </button>
-          <button onClick={() => setStep(5)} className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+          <button onClick={() => setStep(4)} className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
             Continue
           </button>
         </div>
@@ -593,12 +569,12 @@ export default function DataImportPage() {
     );
   }
 
-  // ── Step 5: Import settings ─────────────────────────────────────
-  if (step === 5) {
+  // ── Step 4: Import settings ─────────────────────────────────────
+  if (step === 4) {
     return (
       <div className="max-w-3xl mx-auto p-6">
         <button
-          onClick={() => setStep(4)}
+          onClick={() => setStep(3)}
           className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
         >
           <span>← Back</span>
@@ -646,7 +622,7 @@ export default function DataImportPage() {
         </div>
 
         <div className="flex justify-end space-x-3">
-          <button onClick={() => setStep(4)} className="px-6 py-2 border border-[var(--sf-border-light)] rounded-lg">
+          <button onClick={() => setStep(3)} className="px-6 py-2 border border-[var(--sf-border-light)] rounded-lg">
             Back
           </button>
           <button onClick={handleImport} className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
@@ -657,8 +633,8 @@ export default function DataImportPage() {
     );
   }
 
-  // ── Step 6: Importing ────────────────────────────────────────────
-  if (step === 6) {
+  // ── Step 5: Importing ────────────────────────────────────────────
+  if (step === 5) {
     const pct = importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0;
     return (
       <div className="max-w-3xl mx-auto p-6 text-center py-12">
@@ -682,8 +658,8 @@ export default function DataImportPage() {
     );
   }
 
-  // ── Step 7: Results ────────────────────────────────────────────
-  if (step === 7 && importResult) {
+  // ── Step 6: Results ────────────────────────────────────────────
+  if (step === 6 && importResult) {
     return (
       <div className="max-w-3xl mx-auto p-6 text-center py-12">
         <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
