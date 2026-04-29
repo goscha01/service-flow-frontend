@@ -44,6 +44,20 @@ const SYNONYMS = {
   assignedTeamMemberName: ['assigned to', 'assigned team member', 'team member', 'cleaner', 'cleaner name', 'worker', 'pro', 'assigned cleaner', 'crew', 'crew name', 'tech', 'technician', 'staff'],
   assignedTeamMemberEmail: ['team member email', 'cleaner email', 'worker email', 'pro email', 'crew email', 'tech email', 'staff email', 'assigned email'],
 
+  // Reviews
+  rating: ['rating', 'stars', 'star rating', 'score', 'review rating'],
+  ratingMax: ['rating max', 'rating scale', 'max rating', 'out of'],
+  reviewText: ['review', 'review text', 'review body', 'feedback', 'comment', 'comments', 'testimonial'],
+  reviewerName: ['reviewer', 'reviewer name', 'review by', 'review author', 'author', 'reviewed by'],
+  reviewerEmail: ['reviewer email', 'review email', 'author email'],
+  reviewSource: ['source', 'review source', 'platform', 'review platform', 'channel', 'review channel'],
+  reviewDate: ['review date', 'reviewed at', 'reviewed on', 'date', 'created'],
+  reviewExternalId: ['review id', 'external review id', 'review external id', 'id'],
+  reviewExternalUrl: ['review url', 'review link', 'url', 'link'],
+  reviewResponse: ['response', 'pro response', 'reply', 'owner response', 'owner reply'],
+  reviewResponseDate: ['response date', 'reply date', 'responded at'],
+  reviewJobExternalId: ['job id', 'job external id', 'booking id', 'order id'],
+
   // ── Job-specific ───────────────────────────────────────────────
   serviceName: ['service', 'service name', 'service_name', 'service type'],
   scheduledDate: ['date', 'scheduled date', 'booking date', 'booking start date time', 'start date'],

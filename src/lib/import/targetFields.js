@@ -13,14 +13,13 @@ export const TARGET_TYPE_LABELS = {
   team_members: 'Team Members',
   services: 'Services',
   territories: 'Territories',
+  reviews: 'Reviews',
 };
 
-export const TARGET_TYPES = ['customers', 'leads', 'jobs', 'team_members', 'services', 'territories'];
+export const TARGET_TYPES = ['customers', 'leads', 'jobs', 'team_members', 'services', 'territories', 'reviews'];
 
 // Default tiebreaker when multiple types are equally likely from the mapping.
-// Leads beats customers because if the user mapped a lead-only field
-// (lead value, pipeline, …) we want that to win.
-const TYPE_PRIORITY = ['leads', 'customers', 'jobs', 'team_members', 'services', 'territories'];
+const TYPE_PRIORITY = ['reviews', 'leads', 'customers', 'jobs', 'team_members', 'services', 'territories'];
 
 const ALL = TARGET_TYPES;
 
@@ -163,6 +162,22 @@ export const UNIFIED_FIELDS = [
   { key: 'customerSignature', label: 'Customer Signature (true/false)', group: 'Status', targets: ['jobs'] },
   { key: 'autoInvoice', label: 'Auto-Invoice (true/false)', group: 'Status', targets: ['jobs'] },
   { key: 'autoReminders', label: 'Auto-Reminders (true/false)', group: 'Status', targets: ['jobs'] },
+
+  // ── Reviews ──────────────────────────────────────────────────────
+  { key: 'rating', label: 'Rating (1–5)', group: 'Review',
+    targets: ['reviews'], requiredFor: ['reviews'] },
+  { key: 'ratingMax', label: 'Rating Max (default 5)', group: 'Review', targets: ['reviews'] },
+  { key: 'reviewText', label: 'Review Text', group: 'Review', targets: ['reviews'] },
+  { key: 'reviewerName', label: 'Reviewer Name', group: 'Review', targets: ['reviews'] },
+  { key: 'reviewerEmail', label: 'Reviewer Email (links to existing customer)', group: 'Review', targets: ['reviews'] },
+  { key: 'reviewSource', label: 'Source (google / yelp / thumbtack / direct / …)', group: 'Review',
+    targets: ['reviews'], requiredFor: ['reviews'] },
+  { key: 'reviewDate', label: 'Review Date', group: 'Review', targets: ['reviews'] },
+  { key: 'reviewExternalId', label: 'External Review ID (dedup key)', group: 'Review', targets: ['reviews'] },
+  { key: 'reviewExternalUrl', label: 'External Review URL', group: 'Review', targets: ['reviews'] },
+  { key: 'reviewResponse', label: 'Pro Response Text', group: 'Review', targets: ['reviews'] },
+  { key: 'reviewResponseDate', label: 'Pro Response Date', group: 'Review', targets: ['reviews'] },
+  { key: 'reviewJobExternalId', label: 'Job External ID (link to existing job)', group: 'Review', targets: ['reviews'] },
 
   // ── Notes & metadata ────────────────────────────────────────────
   { key: 'notes', label: 'Notes', group: 'Notes',
