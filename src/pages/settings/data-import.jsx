@@ -226,7 +226,7 @@ export default function DataImportPage() {
       const r = await api.post('/import-mapping-presets', { name, target: type, mapping });
       const newPreset = r.data?.preset;
       if (newPreset) {
-        setPresets((prev) => [...prev, newPreset]);
+        setAllPresets((prev) => [...prev, newPreset]);
         setSelectedPresetId(newPreset.id);
         setSavePresetName('');
       }
