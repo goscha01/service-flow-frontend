@@ -62,6 +62,15 @@ export const UNIFIED_FIELDS = [
     targets: ['leads'] },
   { key: 'leadServiceId', label: 'Service (lead is interested in)', group: 'Lead',
     targets: ['leads'] },
+  // Task tracking — populates lead_tasks rows on import
+  { key: 'lastTaskDate', label: 'Last Task Date (most recent activity)', group: 'Lead Tasks',
+    targets: ['leads'] },
+  { key: 'lastTaskTitle', label: 'Last Task Title (optional)', group: 'Lead Tasks',
+    targets: ['leads'] },
+  { key: 'nextTaskDate', label: 'Next Task Date (follow-up due)', group: 'Lead Tasks',
+    targets: ['leads'] },
+  { key: 'nextTaskTitle', label: 'Next Task Title (optional)', group: 'Lead Tasks',
+    targets: ['leads'] },
 
   // ── Schedule (Jobs only) ────────────────────────────────────────
   { key: 'scheduledDate', label: 'Scheduled Date', group: 'Schedule',
