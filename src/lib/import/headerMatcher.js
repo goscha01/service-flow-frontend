@@ -33,6 +33,7 @@ const SYNONYMS = {
   status: ['status', 'state', 'booking status'],
   tags: ['tags', 'labels'],
   source: ['source', 'lead source', 'referral source', 'how heard', 'how did you hear', 'referred by', 'channel'],
+  createdAt: ['created at', 'created date', 'created on', 'date created', 'date added', 'lead date', 'lead created', 'date', 'signup date', 'signed up', 'first contact', 'inquiry date'],
 
   // ── Job-specific ───────────────────────────────────────────────
   serviceName: ['service', 'service name', 'service_name', 'service type'],
@@ -79,19 +80,37 @@ const SYNONYMS = {
   role: ['role', 'position', 'title'],
   hourlyRate: ['hourly rate', 'hourly_rate', 'rate', 'pay rate', 'wage'],
   commission: ['commission', 'commission %', 'commission percent', 'commission_percentage'],
+  salaryStartDate: ['salary start date', 'salary_start_date', 'pay start date', 'start date', 'hire date', 'hired on'],
+  payoutScheduleType: ['payout schedule', 'payout frequency', 'pay frequency', 'pay schedule'],
+  payoutDayOfWeek: ['payout day', 'payout day of week', 'pay day'],
+  payoutIntervalDays: ['payout interval', 'payout interval days', 'pay interval'],
   isActive: ['active', 'is active', 'is_active', 'enabled'],
+  isServiceProvider: ['is service provider', 'service provider', 'is_service_provider', 'provider'],
+  skills: ['skills', 'specialties', 'capabilities'],
   color: ['color', 'colour'],
+  location: ['location', 'home base', 'office location'],
 
   // ── Service ────────────────────────────────────────────────────
   name: ['name', 'service name', 'territory name'],
   description: ['description', 'desc'],
   category: ['category', 'group', 'type'],
+  requirePaymentMethod: ['require payment method', 'requires payment', 'payment required', 'cc required'],
 
   // ── Territory ──────────────────────────────────────────────────
-  location: ['location', 'address'],
   radius: ['radius', 'radius (miles)', 'radius_miles'],
   timezone: ['timezone', 'tz', 'time zone'],
   zipCodes: ['zip codes', 'zip_codes', 'zips', 'postal codes'],
+  pricingMultiplier: ['pricing multiplier', 'price multiplier', 'multiplier', 'pricing_multiplier'],
+
+  // ── Job flags ──────────────────────────────────────────────────
+  priority: ['priority', 'urgency'],
+  workers: ['workers', '# workers', 'crew count', 'team count'],
+  qualityCheck: ['quality check', 'qc', 'qa'],
+  photosRequired: ['photos required', 'photos', 'photo required', 'photo proof'],
+  customerSignature: ['customer signature', 'signature required', 'signature'],
+  autoInvoice: ['auto invoice', 'auto-invoice', 'auto_invoice'],
+  autoReminders: ['auto reminders', 'auto-reminders', 'auto_reminders', 'send reminders'],
+  recurringEndDate: ['recurring end date', 'recurring end', 'end date', 'recurring until'],
 };
 
 const norm = (s) => String(s || '').toLowerCase().trim().replace(/\s+/g, ' ');

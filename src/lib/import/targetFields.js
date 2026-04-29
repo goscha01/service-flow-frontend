@@ -18,6 +18,7 @@ export const TARGET_FIELDS = {
     { key: 'state', label: 'State', group: 'Address' },
     { key: 'zipCode', label: 'Zip / Postal Code', group: 'Address' },
     { key: 'source', label: 'Lead Source', group: 'Other' },
+    { key: 'createdAt', label: 'Lead Created Date / Date Added', group: 'Other' },
     { key: 'notes', label: 'Notes', group: 'Other' },
     { key: 'status', label: 'Status (active/inactive/archived)', group: 'Other' },
     { key: 'tags', label: 'Tags', group: 'Other' },
@@ -72,9 +73,18 @@ export const TARGET_FIELDS = {
     { key: 'paymentDate', label: 'Payment Date', group: 'Payment' },
     // Status / assignment
     { key: 'status', label: 'Job Status', group: 'Status' },
+    { key: 'priority', label: 'Priority', group: 'Status' },
+    { key: 'workers', label: 'Workers Assigned (#)', group: 'Status' },
     { key: 'assignedCrewExternalId', label: 'Assigned Crew (external ID)', group: 'Status' },
     { key: 'serviceRegionExternalId', label: 'Service Region / Location', group: 'Status' },
     { key: 'territory', label: 'Territory', group: 'Status' },
+    // Flags
+    { key: 'qualityCheck', label: 'Quality Check (true/false)', group: 'Flags' },
+    { key: 'photosRequired', label: 'Photos Required (true/false)', group: 'Flags' },
+    { key: 'customerSignature', label: 'Customer Signature (true/false)', group: 'Flags' },
+    { key: 'autoInvoice', label: 'Auto-Invoice (true/false)', group: 'Flags' },
+    { key: 'autoReminders', label: 'Auto-Reminders (true/false)', group: 'Flags' },
+    { key: 'recurringEndDate', label: 'Recurring End Date', group: 'Flags' },
     // Notes / metadata
     { key: 'notes', label: 'Notes', group: 'Notes' },
     { key: 'customerNotes', label: 'Customer Notes', group: 'Notes' },
@@ -85,18 +95,29 @@ export const TARGET_FIELDS = {
   ],
 
   team_members: [
-    { key: 'firstName', label: 'First Name', required: true },
-    { key: 'lastName', label: 'Last Name', required: true },
-    { key: 'email', label: 'Email', required: true },
-    { key: 'phone', label: 'Phone' },
-    { key: 'role', label: 'Role (cleaner / manager / office / admin)' },
-    { key: 'hourlyRate', label: 'Hourly Rate' },
-    { key: 'commission', label: 'Commission %' },
-    { key: 'isActive', label: 'Active (true/false)' },
-    { key: 'city', label: 'City' },
-    { key: 'state', label: 'State' },
-    { key: 'zipCode', label: 'Zip / Postal Code' },
-    { key: 'color', label: 'Color' },
+    { key: 'firstName', label: 'First Name', required: true, group: 'Identity' },
+    { key: 'lastName', label: 'Last Name', required: true, group: 'Identity' },
+    { key: 'email', label: 'Email', required: true, group: 'Identity' },
+    { key: 'phone', label: 'Phone', group: 'Identity' },
+    { key: 'role', label: 'Role (cleaner / manager / office / admin)', group: 'Identity' },
+    { key: 'color', label: 'Color', group: 'Identity' },
+    // Address
+    { key: 'location', label: 'Location', group: 'Address' },
+    { key: 'city', label: 'City', group: 'Address' },
+    { key: 'state', label: 'State', group: 'Address' },
+    { key: 'zipCode', label: 'Zip / Postal Code', group: 'Address' },
+    // Pay / salary
+    { key: 'hourlyRate', label: 'Hourly Rate', group: 'Pay' },
+    { key: 'commission', label: 'Commission %', group: 'Pay' },
+    { key: 'salaryStartDate', label: 'Salary Start Date', group: 'Pay' },
+    { key: 'payoutScheduleType', label: 'Payout Schedule (weekly/biweekly/monthly)', group: 'Pay' },
+    { key: 'payoutDayOfWeek', label: 'Payout Day of Week (0=Sun … 6=Sat)', group: 'Pay' },
+    { key: 'payoutIntervalDays', label: 'Payout Interval (days)', group: 'Pay' },
+    // Status
+    { key: 'status', label: 'Status (active/inactive/archived)', group: 'Status' },
+    { key: 'isActive', label: 'Active (true/false)', group: 'Status' },
+    { key: 'isServiceProvider', label: 'Is Service Provider (true/false)', group: 'Status' },
+    { key: 'skills', label: 'Skills (comma-separated)', group: 'Status' },
   ],
 
   services: [
@@ -106,6 +127,7 @@ export const TARGET_FIELDS = {
     { key: 'duration', label: 'Duration (min or HH:MM)' },
     { key: 'category', label: 'Category' },
     { key: 'isActive', label: 'Active (true/false)' },
+    { key: 'requirePaymentMethod', label: 'Require Payment Method (true/false)' },
   ],
 
   territories: [
@@ -117,6 +139,8 @@ export const TARGET_FIELDS = {
     { key: 'radius', label: 'Radius (miles)' },
     { key: 'timezone', label: 'Timezone' },
     { key: 'zipCodes', label: 'Zip Codes (comma/space separated)' },
+    { key: 'status', label: 'Status (active/inactive)' },
+    { key: 'pricingMultiplier', label: 'Pricing Multiplier (e.g. 1.25)' },
   ],
 };
 
