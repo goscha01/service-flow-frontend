@@ -66,11 +66,13 @@ export default function DataImportPage() {
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0, imported: 0, skipped: 0, errors: 0 });
   const [importResult, setImportResult] = useState(null);
 
-  // Type is DERIVED from the mapping — no manual selector. Picking a
-  // single-target field (e.g. Hourly Rate → team_members) is what tells the
-  // system what kind of data the user is importing.
+  // Type is DERIVED from the mapping — picking a single-target field
+  // (e.g. Hourly Rate → team_members) tells the system what kind of data
+  // the user is importing. The user can override via the small selector
+  // on the mapping page when the auto-inference picks wrong.
   const inference = useMemo(() => inferType(mapping), [mapping]);
-  const type = inference.type;
+  const [typeOverride, setTypeOverride] = useState(null);
+  const type = typeOverride || inference.type;
 
   // Load all presets once on mount
   useEffect(() => {
@@ -111,6 +113,7 @@ export default function DataImportPage() {
     }
     setSelectedFile(file);
     setError('');
+    setTypeOverride(null); // forget any prior override when a new file lands
     parseFile(file);
   };
 
@@ -524,16 +527,24 @@ export default function DataImportPage() {
               )}
             </select>
           </div>
-          {/* Show the inferred type so users can correct their mapping if
-              the system picked a wrong table. The badge is informational —
-              the wizard still derives type automatically from mapped
-              fields. */}
+          {/* Type selector — defaults to the inferred type but the user can
+              override if auto-detection picks the wrong table. Critical for
+              ambiguous mappings (e.g. only `name` + `price` mapped → infers
+              services even when the user wants jobs). */}
           {inference.mappedFields > 0 && (
             <div className="text-sm">
-              <div className="text-[var(--sf-text-muted)] uppercase text-xs tracking-wider mb-1">Will create</div>
-              <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg font-medium text-orange-700 whitespace-nowrap">
-                {TARGET_TYPE_LABELS[type]}
-              </div>
+              <label className="block text-[var(--sf-text-muted)] uppercase text-xs tracking-wider mb-1">
+                Will create {!typeOverride && <span className="normal-case text-[10px] tracking-normal">(auto-detected)</span>}
+              </label>
+              <select
+                value={type}
+                onChange={(e) => setTypeOverride(e.target.value === inference.type ? null : e.target.value)}
+                className="px-3 py-2 border-2 border-orange-300 rounded-lg text-sm font-medium text-orange-700 bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              >
+                {TARGET_TYPES.map((t) => (
+                  <option key={t} value={t}>{TARGET_TYPE_LABELS[t]}</option>
+                ))}
+              </select>
             </div>
           )}
         </div>
