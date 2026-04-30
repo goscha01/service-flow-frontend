@@ -113,7 +113,11 @@ export const UNIFIED_FIELDS = [
   { key: 'finalAmount', label: 'Final Amount', group: 'Pricing', targets: ['jobs'] },
   { key: 'tipAmount', label: 'Tip (total — split across assigned cleaners)', group: 'Pricing', targets: ['jobs'] },
   { key: 'incentiveAmount', label: 'Incentive / Bonus (total)', group: 'Pricing', targets: ['jobs'] },
-  { key: 'cleanerSalaryOverride', label: 'Cleaner Salary (custom $ — overrides hours × rate)', group: 'Pricing', targets: ['jobs'] },
+  // Expenses — minimal: Amount + Type. Backend defaults paid_by=team_member,
+  // status=approved, reimbursable=true. Drop these on a second-line job
+  // and the default flow creates a reimbursable job_expenses row.
+  { key: 'expenseAmount', label: 'Expense / Reimbursement Amount', group: 'Pricing', targets: ['jobs'] },
+  { key: 'expenseType', label: 'Expense Type (supplies / travel / fuel / other)', group: 'Pricing', targets: ['jobs'] },
 
   // ── Payment (Jobs only) ─────────────────────────────────────────
   { key: 'amountPaidByCustomer', label: 'Amount Paid', group: 'Payment', targets: ['jobs'] },
@@ -129,6 +133,9 @@ export const UNIFIED_FIELDS = [
   { key: 'role', label: 'Role (cleaner / manager / office / admin)', group: 'Team Pay', targets: ['team_members'] },
   { key: 'hourlyRate', label: 'Hourly Rate', group: 'Team Pay', targets: ['team_members'] },
   { key: 'commission', label: 'Commission %', group: 'Team Pay', targets: ['team_members'] },
+  // Per-job custom salary override (Jobs context — sits in Team Pay group
+  // so users find it where they expect "salary" fields).
+  { key: 'cleanerSalaryOverride', label: 'Cleaner Salary for this Job (custom $ — overrides hours × rate)', group: 'Team Pay', targets: ['jobs'] },
   { key: 'salaryStartDate', label: 'Salary Start Date', group: 'Team Pay', targets: ['team_members'] },
   { key: 'payoutScheduleType', label: 'Payout Schedule (weekly/biweekly/monthly)', group: 'Team Pay', targets: ['team_members'] },
   { key: 'payoutDayOfWeek', label: 'Payout Day of Week (0=Sun … 6=Sat)', group: 'Team Pay', targets: ['team_members'] },
@@ -163,16 +170,6 @@ export const UNIFIED_FIELDS = [
   { key: 'customerSignature', label: 'Customer Signature (true/false)', group: 'Status', targets: ['jobs'] },
   { key: 'autoInvoice', label: 'Auto-Invoice (true/false)', group: 'Status', targets: ['jobs'] },
   { key: 'autoReminders', label: 'Auto-Reminders (true/false)', group: 'Status', targets: ['jobs'] },
-
-  // ── Expense / Reimbursement (creates a job_expenses row) ─────────
-  { key: 'expenseAmount', label: 'Expense Amount', group: 'Expense', targets: ['jobs'] },
-  { key: 'expenseType', label: 'Expense Type (supplies/travel/equipment/fuel/other)', group: 'Expense', targets: ['jobs'] },
-  { key: 'expenseDescription', label: 'Expense Description', group: 'Expense', targets: ['jobs'] },
-  { key: 'expensePaidBy', label: 'Expense Paid By (team_member/company/customer)', group: 'Expense', targets: ['jobs'] },
-  { key: 'expenseReimbursable', label: 'Expense Reimbursable to Team Member (true/false)', group: 'Expense', targets: ['jobs'] },
-  { key: 'expenseCustomerBillable', label: 'Expense Billable to Customer (true/false)', group: 'Expense', targets: ['jobs'] },
-  { key: 'expenseStatus', label: 'Expense Status (pending/approved/rejected)', group: 'Expense', targets: ['jobs'] },
-  { key: 'expenseTeamMemberEmail', label: 'Expense — Team Member Email (defaults to job assignee)', group: 'Expense', targets: ['jobs'] },
 
   // ── Reviews ──────────────────────────────────────────────────────
   { key: 'rating', label: 'Rating (1–5)', group: 'Review',
