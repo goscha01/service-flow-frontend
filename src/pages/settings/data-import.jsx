@@ -217,19 +217,29 @@ export default function DataImportPage() {
   };
 
   // Strip mapping entries whose CSV header isn't in this file (presets may
-  // reference headers the uploaded file doesn't have). Handles both single-
-  // value mappings AND multi-mappable arrays (e.g. expenseAmount: ['Supplies',
-  // 'Travel'] — drops headers not in the file, keeps the rest).
+  // reference headers the uploaded file doesn't have). Match is forgiving:
+  // case-insensitive, trimmed, Unicode-normalized — so headers like
+  // "Lead Source" / "lead source ", or NFC/NFD variants of Cyrillic strings,
+  // still pair up correctly. Output always uses the FILE's exact header
+  // string (so the dropdown shows it the way the user sees it).
   const filterMappingToHeaders = (presetMapping, headers) => {
-    const headersSet = new Set(headers);
+    const norm = (s) => String(s || '').normalize('NFC').trim().toLowerCase();
+    const byNorm = new Map();
+    for (const h of headers) byNorm.set(norm(h), h);
+
     const out = {};
     for (const [sf, csv] of Object.entries(presetMapping || {})) {
       if (!csv) continue;
       if (Array.isArray(csv)) {
-        const kept = csv.filter((c) => c && headersSet.has(c));
+        const kept = [];
+        for (const c of csv) {
+          const matched = c ? byNorm.get(norm(c)) : null;
+          if (matched) kept.push(matched);
+        }
         if (kept.length > 0) out[sf] = kept;
-      } else if (headersSet.has(csv)) {
-        out[sf] = csv;
+      } else {
+        const matched = byNorm.get(norm(csv));
+        if (matched) out[sf] = matched;
       }
     }
     return out;
@@ -253,9 +263,11 @@ export default function DataImportPage() {
       return;
     }
     try {
-      // Save preset under the inferred type, with only fields valid for it
-      const presetMapping = filterMappingForTarget(mapping, type);
-      const r = await api.post('/import-mapping-presets', { name, target: type, mapping: presetMapping });
+      // Save the FULL mapping. target is metadata for filtering presets in
+      // the dropdown — but the saved fields can span types (a job-import
+      // CSV often carries Lead Source, Lead Date, etc. that the BK route
+      // forwards to the auto-created customer / leads side-table).
+      const r = await api.post('/import-mapping-presets', { name, target: type, mapping });
       const newPreset = r.data?.preset;
       if (newPreset) {
         setAllPresets((prev) => [...prev, newPreset]);
