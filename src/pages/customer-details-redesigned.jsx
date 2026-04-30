@@ -400,10 +400,10 @@ const CustomerDetailsRedesigned = () => {
                         <span className="text-sm text-[var(--sf-text-primary)]">
                           {(() => {
                             // Calculate total revenue from completed jobs and paid invoices
-                            const completedJobs = jobs.filter(job => 
-                              job.status === 'completed' && job.total
+                            const completedJobs = jobs.filter(job =>
+                              ['completed', 'complete', 'paid'].includes(job.status) && job.total
                             )
-                            const paidInvoices = invoices.filter(inv => 
+                            const paidInvoices = invoices.filter(inv =>
                               inv.status === 'paid' && inv.total
                             )
                             
