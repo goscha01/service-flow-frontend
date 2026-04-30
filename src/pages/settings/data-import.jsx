@@ -316,22 +316,24 @@ export default function DataImportPage() {
       const submitMapping = { ...mapping };
 
       // Derive expenseColumns from any multi-mapped expenseAmount entries
-      // in the mapping. Type is auto-classified from the column name.
+      // in the mapping — runs for any type so the BK orchestrator (which
+      // backend now auto-routes to when scheduledDate is mapped) gets the
+      // expense list regardless of the client's inferred type label.
       const submitExpenseColumns = [];
-      if (type === 'jobs') {
-        const classifyExpense = (col) => {
-          const c = col.toLowerCase();
-          if (/suppl|material/.test(c)) return 'supplies';
-          if (/travel|mileage/.test(c)) return 'travel';
-          if (/fuel|gas/.test(c)) return 'fuel';
-          if (/parking|toll/.test(c)) return 'parking';
-          if (/equip|tools/.test(c)) return 'equipment';
-          if (/meal|food/.test(c)) return 'meals';
-          return 'other';
-        };
-        const ea = submitMapping.expenseAmount;
-        const cols = Array.isArray(ea) ? ea : (ea ? [ea] : []);
-        for (const col of cols) submitExpenseColumns.push({ column: col, type: classifyExpense(col) });
+      const classifyExpense = (col) => {
+        const c = col.toLowerCase();
+        if (/suppl|material/.test(c)) return 'supplies';
+        if (/travel|mileage/.test(c)) return 'travel';
+        if (/fuel|gas|бензин/.test(c)) return 'fuel';
+        if (/parking|toll/.test(c)) return 'parking';
+        if (/equip|tools/.test(c)) return 'equipment';
+        if (/meal|food/.test(c)) return 'meals';
+        return 'other';
+      };
+      const ea = submitMapping.expenseAmount;
+      const cols = Array.isArray(ea) ? ea : (ea ? [ea] : []);
+      for (const col of cols) submitExpenseColumns.push({ column: col, type: classifyExpense(col) });
+      if (cols.length > 0) {
         // Strip expenseAmount from the row mapping — it's expressed in
         // expenseColumns now and shouldn't go through applyMapping.
         delete submitMapping.expenseAmount;
