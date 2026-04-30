@@ -221,26 +221,40 @@ export const UNIFIED_FIELDS = [
  *     mapped (so we can show a hint)
  */
 export function inferType(mapping, unifiedFields = UNIFIED_FIELDS) {
-  const votes = { customers: 0, jobs: 0, team_members: 0, services: 0, territories: 0 };
-  let strongSignal = null; // first single-target field mapped
+  const votes = { customers: 0, jobs: 0, team_members: 0, services: 0, territories: 0, leads: 0, reviews: 0 };
+  const strongSignals = new Set(); // every type with a single-target mapped field
 
   const mappedKeys = Object.keys(mapping || {}).filter((k) => mapping[k]);
   if (mappedKeys.length === 0) return { type: 'customers', votes, ambiguous: false, mappedFields: 0 };
+
+  // scheduledDate is the gate to the BK jobs orchestrator (creates customer +
+  // job + team + territory + service + expenses + reviews from one row). If
+  // it's mapped, the user wants Jobs regardless of any other signal.
+  if (mapping.scheduledDate) {
+    return { type: 'jobs', votes, ambiguous: false, mappedFields: mappedKeys.length };
+  }
 
   for (const k of mappedKeys) {
     const f = unifiedFields.find((x) => x.key === k);
     if (!f) continue;
     const targets = f.targets || [];
-    if (targets.length === 1 && !strongSignal) strongSignal = targets[0];
+    if (targets.length === 1) strongSignals.add(targets[0]);
     for (const t of targets) {
       votes[t] = (votes[t] || 0) + (targets.length === 1 ? 5 : 1);
     }
   }
 
-  // If a single-target field was mapped, that type wins
-  if (strongSignal) return { type: strongSignal, votes, ambiguous: false, mappedFields: mappedKeys.length };
+  // When multiple types have single-target signals, prefer in this order so
+  // the result aligns with intent (jobs is multi-table orchestrator first;
+  // customers last since most paths create them as a side effect).
+  const STRONG_PRIORITY = ['jobs', 'leads', 'reviews', 'team_members', 'services', 'territories', 'customers'];
+  for (const t of STRONG_PRIORITY) {
+    if (strongSignals.has(t)) {
+      return { type: t, votes, ambiguous: strongSignals.size > 1, mappedFields: mappedKeys.length };
+    }
+  }
 
-  // Otherwise pick highest vote, tiebreak by priority
+  // No single-target field — pick highest vote, tiebreak by general priority
   let best = null;
   let bestScore = -1;
   for (const t of TYPE_PRIORITY) {
