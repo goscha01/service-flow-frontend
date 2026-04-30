@@ -524,10 +524,18 @@ export default function DataImportPage() {
               )}
             </select>
           </div>
-          {/* "Detected as" badge intentionally removed — type is internal,
-              the system handles multi-table writes from a single CSV
-              automatically (jobs row → customer + job + team + territory +
-              service + expense rows in one shot). */}
+          {/* Show the inferred type so users can correct their mapping if
+              the system picked a wrong table. The badge is informational —
+              the wizard still derives type automatically from mapped
+              fields. */}
+          {inference.mappedFields > 0 && (
+            <div className="text-sm">
+              <div className="text-[var(--sf-text-muted)] uppercase text-xs tracking-wider mb-1">Will create</div>
+              <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg font-medium text-orange-700 whitespace-nowrap">
+                {TARGET_TYPE_LABELS[type]}
+              </div>
+            </div>
+          )}
         </div>
 
         <FieldMappingTable
