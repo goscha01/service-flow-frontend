@@ -144,7 +144,11 @@ export default function DataImportPage() {
           // format them as ISO yyyy-mm-dd for downstream parsers.
           const wb = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          const arr = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, dateNF: 'yyyy-mm-dd' });
+          // raw: true (default) so cellDates: true Date objects survive to
+          // our formatCell helper, which writes them as yyyy-mm-dd. With
+          // raw: false, XLSX would honor each cell's source format
+          // (e.g. m/d/yy) → 2-digit year strings the backend then mis-parses.
+          const arr = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
           if (arr.length === 0) {
             setError('Excel file appears to be empty');
             return;
