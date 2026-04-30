@@ -29,10 +29,14 @@ const ALL = TARGET_TYPES;
 
 export const UNIFIED_FIELDS = [
   // ── Identity (shared across people-like types) ──────────────────
+  // First/Last name target 'jobs' too — BK route uses these to find or
+  // create the linked customer per job row.
   { key: 'firstName', label: 'First Name', group: 'Identity',
-    targets: ['customers', 'leads', 'team_members'], requiredFor: ['customers', 'team_members'] },
+    targets: ['customers', 'leads', 'team_members', 'jobs'],
+    requiredFor: ['customers', 'team_members', 'jobs'] },
   { key: 'lastName', label: 'Last Name', group: 'Identity',
-    targets: ['customers', 'leads', 'team_members'], requiredFor: ['customers', 'team_members'] },
+    targets: ['customers', 'leads', 'team_members', 'jobs'],
+    requiredFor: ['customers', 'team_members'] },
   { key: 'email', label: 'Email', group: 'Identity',
     targets: ['customers', 'leads', 'team_members', 'jobs'], requiredFor: ['team_members'] },
   { key: 'phone', label: 'Phone', group: 'Identity',
