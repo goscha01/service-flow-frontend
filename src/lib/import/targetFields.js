@@ -19,7 +19,11 @@ export const TARGET_TYPE_LABELS = {
 export const TARGET_TYPES = ['customers', 'leads', 'jobs', 'team_members', 'services', 'territories', 'reviews'];
 
 // Default tiebreaker when multiple types are equally likely from the mapping.
-const TYPE_PRIORITY = ['reviews', 'leads', 'customers', 'jobs', 'team_members', 'services', 'territories'];
+// Customers beats leads on ties because mapping just First Name / Email / Phone
+// is ambiguous between the two, and customers has no required setup (leads
+// needs a pipeline + stage). Leads still wins when a lead-only field is
+// mapped (Lead Cost, Lead Value, …) via the strong-signal rule in inferType.
+const TYPE_PRIORITY = ['customers', 'reviews', 'jobs', 'team_members', 'services', 'territories', 'leads'];
 
 const ALL = TARGET_TYPES;
 
