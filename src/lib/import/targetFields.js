@@ -113,6 +113,7 @@ export const UNIFIED_FIELDS = [
   { key: 'finalAmount', label: 'Final Amount', group: 'Pricing', targets: ['jobs'] },
   { key: 'tipAmount', label: 'Tip (total — split across assigned cleaners)', group: 'Pricing', targets: ['jobs'] },
   { key: 'incentiveAmount', label: 'Incentive / Bonus (total)', group: 'Pricing', targets: ['jobs'] },
+  { key: 'cleanerSalaryOverride', label: 'Cleaner Salary (custom $ — overrides hours × rate)', group: 'Pricing', targets: ['jobs'] },
 
   // ── Payment (Jobs only) ─────────────────────────────────────────
   { key: 'amountPaidByCustomer', label: 'Amount Paid', group: 'Payment', targets: ['jobs'] },
@@ -162,6 +163,16 @@ export const UNIFIED_FIELDS = [
   { key: 'customerSignature', label: 'Customer Signature (true/false)', group: 'Status', targets: ['jobs'] },
   { key: 'autoInvoice', label: 'Auto-Invoice (true/false)', group: 'Status', targets: ['jobs'] },
   { key: 'autoReminders', label: 'Auto-Reminders (true/false)', group: 'Status', targets: ['jobs'] },
+
+  // ── Expense / Reimbursement (creates a job_expenses row) ─────────
+  { key: 'expenseAmount', label: 'Expense Amount', group: 'Expense', targets: ['jobs'] },
+  { key: 'expenseType', label: 'Expense Type (supplies/travel/equipment/fuel/other)', group: 'Expense', targets: ['jobs'] },
+  { key: 'expenseDescription', label: 'Expense Description', group: 'Expense', targets: ['jobs'] },
+  { key: 'expensePaidBy', label: 'Expense Paid By (team_member/company/customer)', group: 'Expense', targets: ['jobs'] },
+  { key: 'expenseReimbursable', label: 'Expense Reimbursable to Team Member (true/false)', group: 'Expense', targets: ['jobs'] },
+  { key: 'expenseCustomerBillable', label: 'Expense Billable to Customer (true/false)', group: 'Expense', targets: ['jobs'] },
+  { key: 'expenseStatus', label: 'Expense Status (pending/approved/rejected)', group: 'Expense', targets: ['jobs'] },
+  { key: 'expenseTeamMemberEmail', label: 'Expense — Team Member Email (defaults to job assignee)', group: 'Expense', targets: ['jobs'] },
 
   // ── Reviews ──────────────────────────────────────────────────────
   { key: 'rating', label: 'Rating (1–5)', group: 'Review',
