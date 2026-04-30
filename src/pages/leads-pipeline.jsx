@@ -1295,7 +1295,7 @@ const LeadsPipeline = () => {
       <div
         ref={pipelineScrollRef}
         onMouseDown={handlePipelinePanStart}
-        className="hidden sm:block w-full px-3 lg:px-6 py-5 pb-32 lg:pb-20 overflow-x-auto flex-1 cursor-grab"
+        className="hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-32 lg:pb-20 overflow-x-auto flex-1 cursor-grab"
       >
         <div className="flex gap-4 pb-4" style={{ minHeight: '400px' }}>
           {pipeline.stages && pipeline.stages.map((stage) => {
