@@ -527,26 +527,10 @@ export default function DataImportPage() {
               )}
             </select>
           </div>
-          {/* Type selector — defaults to the inferred type but the user can
-              override if auto-detection picks the wrong table. Critical for
-              ambiguous mappings (e.g. only `name` + `price` mapped → infers
-              services even when the user wants jobs). */}
-          {inference.mappedFields > 0 && (
-            <div className="text-sm">
-              <label className="block text-[var(--sf-text-muted)] uppercase text-xs tracking-wider mb-1">
-                Will create {!typeOverride && <span className="normal-case text-[10px] tracking-normal">(auto-detected)</span>}
-              </label>
-              <select
-                value={type}
-                onChange={(e) => setTypeOverride(e.target.value === inference.type ? null : e.target.value)}
-                className="px-3 py-2 border-2 border-orange-300 rounded-lg text-sm font-medium text-orange-700 bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-400"
-              >
-                {TARGET_TYPES.map((t) => (
-                  <option key={t} value={t}>{TARGET_TYPE_LABELS[t]}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Type is fully internal now — the system dispatches to the BK
+              jobs orchestrator when scheduledDate is mapped, which writes
+              to customer + job + team + territory + service + expense +
+              review tables in one shot. No user-facing type concept. */}
         </div>
 
         <FieldMappingTable
