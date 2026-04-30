@@ -113,11 +113,11 @@ export const UNIFIED_FIELDS = [
   { key: 'finalAmount', label: 'Final Amount', group: 'Pricing', targets: ['jobs'] },
   { key: 'tipAmount', label: 'Tip (total — split across assigned cleaners)', group: 'Pricing', targets: ['jobs'] },
   { key: 'incentiveAmount', label: 'Incentive / Bonus (total)', group: 'Pricing', targets: ['jobs'] },
-  // Expenses — minimal: Amount + Type. Backend defaults paid_by=team_member,
-  // status=approved, reimbursable=true. Drop these on a second-line job
-  // and the default flow creates a reimbursable job_expenses row.
-  { key: 'expenseAmount', label: 'Expense / Reimbursement Amount', group: 'Pricing', targets: ['jobs'] },
-  { key: 'expenseType', label: 'Expense Type (supplies / travel / fuel / other)', group: 'Pricing', targets: ['jobs'] },
+  // Expenses are NOT mapped via the regular field dropdown anymore. They
+  // use a dedicated "Per-job expenses" section on the mapping page —
+  // each picked CSV column becomes its own job_expenses row per job.
+  // See expenseColumns state in data-import.jsx + req.body.expenseColumns
+  // dispatch in server.js BK route.
 
   // ── Payment (Jobs only) ─────────────────────────────────────────
   { key: 'amountPaidByCustomer', label: 'Amount Paid', group: 'Payment', targets: ['jobs'] },

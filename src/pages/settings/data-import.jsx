@@ -62,6 +62,9 @@ export default function DataImportPage() {
   const [error, setError] = useState('');
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0, imported: 0, skipped: 0, errors: 0 });
   const [importResult, setImportResult] = useState(null);
+  // Per-job expense columns. Each entry → one job_expenses row per job.
+  // Shape: [{ column: 'CSV header', type: 'supplies' }, ...]
+  const [expenseColumns, setExpenseColumns] = useState([]);
 
   // Type is DERIVED from the mapping — no manual selector. Picking a
   // single-target field (e.g. Hourly Rate → team_members) is what tells the
@@ -186,6 +189,24 @@ export default function DataImportPage() {
           setMapping(suggestMapping(headers, UNIFIED_FIELDS));
         }
 
+        // Auto-suggest expense columns: header names that look like an
+        // expense category. Each gets its own job_expenses row per job.
+        const expenseHints = [
+          { match: /supplies|materials/i, type: 'supplies' },
+          { match: /travel|mileage/i, type: 'travel' },
+          { match: /fuel|gas/i, type: 'fuel' },
+          { match: /parking|toll/i, type: 'parking' },
+          { match: /equipment|tools/i, type: 'equipment' },
+          { match: /meals|food/i, type: 'meals' },
+        ];
+        const detectedExpenses = headers
+          .map((h) => {
+            for (const hint of expenseHints) if (hint.match.test(h)) return { column: h, type: hint.type };
+            return null;
+          })
+          .filter(Boolean);
+        if (detectedExpenses.length > 0) setExpenseColumns(detectedExpenses);
+
         setStep(2);
       } catch (err) {
         console.error('Parse error:', err);
@@ -260,10 +281,21 @@ export default function DataImportPage() {
       // multi-type import yet; this guards against stale state.)
       const submitMapping = filterMappingForTarget(mapping, type);
 
+      // expenseColumns only meaningful for jobs imports.
+      const submitExpenseColumns = type === 'jobs'
+        ? expenseColumns.filter((ec) => ec.column && ec.type)
+        : [];
+
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ type, rows: parsedRows, mapping: submitMapping, importSettings }),
+        body: JSON.stringify({
+          type,
+          rows: parsedRows,
+          mapping: submitMapping,
+          expenseColumns: submitExpenseColumns,
+          importSettings,
+        }),
       });
 
       if (!response.ok) {
@@ -461,6 +493,74 @@ export default function DataImportPage() {
           mapping={mapping}
           onChange={setMapping}
         />
+
+        {type === 'jobs' && (
+          <div className="mt-4 bg-white rounded-lg border border-[var(--sf-border-light)] p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">
+                  Per-job expenses
+                </h3>
+                <p className="text-xs text-[var(--sf-text-muted)]">
+                  Each mapped column becomes one expense row per job (auto-creates a reimbursable <code>job_expenses</code> entry).
+                </p>
+              </div>
+              <button
+                onClick={() => setExpenseColumns([...expenseColumns, { column: '', type: 'other' }])}
+                className="px-3 py-1.5 text-sm bg-[var(--sf-blue-50)] text-[var(--sf-blue-600)] border border-blue-200 rounded-lg hover:bg-blue-100"
+              >
+                + Add expense column
+              </button>
+            </div>
+
+            {expenseColumns.length === 0 ? (
+              <p className="text-sm text-[var(--sf-text-muted)] italic py-2">
+                No expense columns mapped. Click "Add expense column" if your CSV has columns like <em>Supplies</em>, <em>Travel</em>, <em>Fuel</em>, etc.
+              </p>
+            ) : (
+              <div className="space-y-2 mt-2">
+                {expenseColumns.map((ec, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                    <select
+                      value={ec.column}
+                      onChange={(e) => {
+                        const next = [...expenseColumns];
+                        next[idx] = { ...next[idx], column: e.target.value };
+                        setExpenseColumns(next);
+                      }}
+                      className="col-span-6 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm"
+                    >
+                      <option value="">— Pick a CSV column —</option>
+                      {csvHeaders.map((h) => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={ec.type}
+                      onChange={(e) => {
+                        const next = [...expenseColumns];
+                        next[idx] = { ...next[idx], type: e.target.value };
+                        setExpenseColumns(next);
+                      }}
+                      className="col-span-5 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm"
+                    >
+                      {['supplies','travel','fuel','parking','equipment','tools','meals','tolls','other'].map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => setExpenseColumns(expenseColumns.filter((_, i) => i !== idx))}
+                      className="col-span-1 text-[var(--sf-text-muted)] hover:text-red-600 text-sm"
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 bg-white rounded-lg border border-[var(--sf-border-light)] p-4 flex items-end space-x-2">
           <div className="flex-1">
