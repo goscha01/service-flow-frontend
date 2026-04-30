@@ -57,7 +57,10 @@ export default function DataImportPage() {
   const [savePresetName, setSavePresetName] = useState('');
   const [importSettings, setImportSettings] = useState({
     skipDuplicates: true,
-    updateExisting: false,
+    updateExisting: true, // re-imports of the same row should merge new
+                          // fields into existing records by default
+                          // (otherwise mapped-but-newly-added fields are
+                          // silently dropped on dedup match).
   });
   const [error, setError] = useState('');
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0, imported: 0, skipped: 0, errors: 0 });
@@ -677,7 +680,8 @@ export default function DataImportPage() {
             <div>
               <span className="font-medium">Skip Duplicates</span>
               <p className="text-sm text-[var(--sf-text-secondary)]">
-                Skip records that already exist
+                Match existing records by email (customers) or external ID (jobs).
+                Without this, every row creates a new record even if it's the same person/job.
               </p>
             </div>
           </label>
@@ -690,9 +694,11 @@ export default function DataImportPage() {
               className="mt-1"
             />
             <div>
-              <span className="font-medium">Update Existing Records</span>
+              <span className="font-medium">Update Existing Records <span className="text-xs text-orange-600 font-normal">(recommended)</span></span>
               <p className="text-sm text-[var(--sf-text-secondary)]">
-                Update existing records with new data instead of skipping
+                When a duplicate is found, merge the CSV's new fields into the existing record
+                instead of skipping. Re-uploading the same file with extra columns mapped will
+                fill them in on the existing rows.
               </p>
             </div>
           </label>
