@@ -1297,7 +1297,7 @@ const LeadsPipeline = () => {
         onMouseDown={handlePipelinePanStart}
         className="hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-32 lg:pb-20 overflow-x-auto flex-1 cursor-grab"
       >
-        <div className="flex gap-4 pb-4" style={{ minHeight: '400px' }}>
+        <div className="flex gap-4 pb-4" style={{ minHeight: '400px', width: 'max-content', minWidth: '100%' }}>
           {pipeline.stages && pipeline.stages.map((stage) => {
             const stageLeads = getLeadsForStage(stage.id);
             const totalValue = getStageTotalValue(stageLeads);
