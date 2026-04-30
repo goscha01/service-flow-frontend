@@ -133,13 +133,15 @@ export default function DataImportPage() {
             const trimmed = h.replace(/^"|"$/g, '').trim();
             return trimmed || `Column ${i + 1}`;
           });
-          rows = parsed.slice(1).map((r) => {
-            const obj = {};
-            headers.forEach((h, i) => {
-              obj[h] = (r[i] || '').replace(/^"|"$/g, '').trim();
-            });
-            return obj;
-          });
+          rows = parsed.slice(1)
+            .map((r) => {
+              const obj = {};
+              headers.forEach((h, i) => {
+                obj[h] = (r[i] || '').replace(/^"|"$/g, '').trim();
+              });
+              return obj;
+            })
+            .filter((obj) => Object.values(obj).some((v) => v !== '' && v != null));
         } else {
           // Read Excel as a 2D array (header: 1) so empty columns aren't
           // silently dropped. cellDates: true so date cells come back as
@@ -169,11 +171,15 @@ export default function DataImportPage() {
             }
             return String(v).trim();
           };
-          rows = arr.slice(1).map((r) => {
-            const obj = {};
-            headers.forEach((h, i) => { obj[h] = formatCell(r[i]); });
-            return obj;
-          });
+          rows = arr.slice(1)
+            .map((r) => {
+              const obj = {};
+              headers.forEach((h, i) => { obj[h] = formatCell(r[i]); });
+              return obj;
+            })
+            // Drop rows where every cell is blank — Excel files commonly
+            // have thousands of trailing empty rows that XLSX exposes.
+            .filter((obj) => Object.values(obj).some((v) => v !== '' && v != null));
         }
 
         setCsvHeaders(headers);
