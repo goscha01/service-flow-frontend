@@ -263,10 +263,14 @@ export default function DataImportPage() {
       apiBaseUrl = apiBaseUrl.replace(/\/api$/, '');
       const url = `${apiBaseUrl}/api/data-import/import`;
 
-      // Send only the fields valid for the inferred type — extra mappings
-      // outside this type are silently dropped at submit. (UI doesn't allow
-      // multi-type import yet; this guards against stale state.)
-      const submitMapping = filterMappingForTarget(mapping, type);
+      // Pass the full mapping through. Backend importers each pick the
+      // fields they recognize and ignore the rest, so a single CSV with
+      // customer + job + review fields all mapped will populate all
+      // three tables in one upload (BK jobs path is the orchestrator —
+      // it auto-creates customers + team_members + territories +
+      // services, plus reviews when rating + source are present, plus
+      // job_expenses from expenseColumns).
+      const submitMapping = { ...mapping };
 
       // Derive expenseColumns from any multi-mapped expenseAmount entries
       // in the mapping. Type is auto-classified from the column name.
@@ -480,14 +484,10 @@ export default function DataImportPage() {
               )}
             </select>
           </div>
-          {inference.mappedFields > 0 && (
-            <div className="text-sm">
-              <div className="text-[var(--sf-text-muted)] uppercase text-xs tracking-wider mb-1">Detected as</div>
-              <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg font-medium text-orange-700">
-                {TARGET_TYPE_LABELS[type]}
-              </div>
-            </div>
-          )}
+          {/* "Detected as" badge intentionally removed — type is internal,
+              the system handles multi-table writes from a single CSV
+              automatically (jobs row → customer + job + team + territory +
+              service + expense rows in one shot). */}
         </div>
 
         <FieldMappingTable
