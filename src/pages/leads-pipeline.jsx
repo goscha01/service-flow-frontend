@@ -297,6 +297,53 @@ const LeadsPipeline = () => {
     const max = pane.scrollWidth - pane.clientWidth;
     pane.scrollTo({ left: Math.max(0, Math.min(max, offset)), behavior: 'smooth' });
   };
+
+  // Click-and-drag anywhere on the pipeline (empty space / stage headers) to pan horizontally
+  const handlePipelinePanStart = (e) => {
+    const pane = pipelineScrollRef.current;
+    if (!pane) return;
+    // Skip if clicking on an interactive element — don't interfere with lead cards, buttons, links, inputs
+    const t = e.target;
+    if (
+      t.closest('[draggable="true"]') ||
+      t.closest('button') ||
+      t.closest('a') ||
+      t.closest('input') ||
+      t.closest('select') ||
+      t.closest('textarea')
+    ) {
+      return;
+    }
+    // Only react to primary mouse button
+    if (e.button !== undefined && e.button !== 0) return;
+
+    const startX = e.clientX;
+    const startScrollLeft = pane.scrollLeft;
+    let moved = false;
+
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX;
+      if (!moved && Math.abs(dx) > 3) {
+        moved = true;
+        pane.style.cursor = 'grabbing';
+        pane.style.userSelect = 'none';
+      }
+      if (moved) {
+        ev.preventDefault();
+        pane.scrollLeft = startScrollLeft - dx;
+      }
+    };
+
+    const onUp = () => {
+      pane.style.cursor = '';
+      pane.style.userSelect = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
   
   // Helper function to decode HTML entities
   const decodeHtmlEntities = (text) => {
@@ -1245,7 +1292,11 @@ const LeadsPipeline = () => {
       </div>
       
       {/* Pipeline Board - Desktop & Tablet: horizontal layout */}
-      <div ref={pipelineScrollRef} className="hidden sm:block w-full px-3 lg:px-6 py-5 pb-20 lg:pb-6 overflow-x-auto flex-1">
+      <div
+        ref={pipelineScrollRef}
+        onMouseDown={handlePipelinePanStart}
+        className="hidden sm:block w-full px-3 lg:px-6 py-5 pb-32 lg:pb-20 overflow-x-auto flex-1 cursor-grab"
+      >
         <div className="flex gap-4 pb-4" style={{ minHeight: '400px' }}>
           {pipeline.stages && pipeline.stages.map((stage) => {
             const stageLeads = getLeadsForStage(stage.id);
@@ -1406,7 +1457,7 @@ const LeadsPipeline = () => {
         const thumbLeftPct = (100 - thumbWidthPct) * scrollProgress;
 
         return (
-          <div className="hidden sm:block flex-shrink-0 bg-white border-t border-[var(--sf-border-light)] px-3 lg:px-6 py-3 sticky bottom-0 z-20">
+          <div className="hidden sm:block bg-white border-t border-[var(--sf-border-light)] px-3 lg:px-6 py-3 fixed left-0 right-0 bottom-[88px] lg:bottom-0 z-[101] shadow-lg">
             <div className="flex items-center gap-3">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--sf-text-muted)] flex-shrink-0">
                 Pipeline
