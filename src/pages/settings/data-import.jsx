@@ -139,12 +139,12 @@ export default function DataImportPage() {
           });
         } else {
           // Read Excel as a 2D array (header: 1) so empty columns aren't
-          // silently dropped — sheet_to_json's default mode only returns
-          // keys present in row 1, losing columns that are blank in row 1
-          // but populated later.
-          const wb = XLSX.read(e.target.result, { type: 'binary' });
+          // silently dropped. cellDates: true so date cells come back as
+          // JS Date objects instead of numeric Excel serials — we then
+          // format them as ISO yyyy-mm-dd for downstream parsers.
+          const wb = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          const arr = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          const arr = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, dateNF: 'yyyy-mm-dd' });
           if (arr.length === 0) {
             setError('Excel file appears to be empty');
             return;
@@ -153,11 +153,18 @@ export default function DataImportPage() {
             const trimmed = String(h || '').trim();
             return trimmed || `Column ${i + 1}`;
           });
+          const formatCell = (v) => {
+            if (v === undefined || v === null) return '';
+            if (v instanceof Date) {
+              if (isNaN(v.getTime())) return '';
+              const pad = (n) => String(n).padStart(2, '0');
+              return `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())}`;
+            }
+            return String(v).trim();
+          };
           rows = arr.slice(1).map((r) => {
             const obj = {};
-            headers.forEach((h, i) => {
-              obj[h] = r[i] !== undefined && r[i] !== null ? String(r[i]).trim() : '';
-            });
+            headers.forEach((h, i) => { obj[h] = formatCell(r[i]); });
             return obj;
           });
         }
@@ -206,12 +213,20 @@ export default function DataImportPage() {
   };
 
   // Strip mapping entries whose CSV header isn't in this file (presets may
-  // reference headers the uploaded file doesn't have)
+  // reference headers the uploaded file doesn't have). Handles both single-
+  // value mappings AND multi-mappable arrays (e.g. expenseAmount: ['Supplies',
+  // 'Travel'] — drops headers not in the file, keeps the rest).
   const filterMappingToHeaders = (presetMapping, headers) => {
     const headersSet = new Set(headers);
     const out = {};
     for (const [sf, csv] of Object.entries(presetMapping || {})) {
-      if (csv && headersSet.has(csv)) out[sf] = csv;
+      if (!csv) continue;
+      if (Array.isArray(csv)) {
+        const kept = csv.filter((c) => c && headersSet.has(c));
+        if (kept.length > 0) out[sf] = kept;
+      } else if (headersSet.has(csv)) {
+        out[sf] = csv;
+      }
     }
     return out;
   };
