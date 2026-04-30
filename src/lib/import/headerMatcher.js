@@ -44,6 +44,19 @@ const SYNONYMS = {
   assignedTeamMemberName: ['assigned to', 'assigned team member', 'team member', 'cleaner', 'cleaner name', 'worker', 'pro', 'assigned cleaner', 'crew', 'crew name', 'tech', 'technician', 'staff'],
   assignedTeamMemberEmail: ['team member email', 'cleaner email', 'worker email', 'pro email', 'crew email', 'tech email', 'staff email', 'assigned email'],
 
+  // Cleaner salary override (per-job dollar amount)
+  cleanerSalaryOverride: ['cleaner salary', 'salary', 'cleaner pay', 'pay', 'payout', 'cleaner payout', 'worker pay', 'cleaner amount', 'tech pay'],
+
+  // Job expenses
+  expenseAmount: ['expense', 'expense amount', 'reimbursement', 'reimbursement amount', 'reimburse'],
+  expenseType: ['expense type', 'expense category', 'reimbursement type'],
+  expenseDescription: ['expense description', 'expense note', 'expense details', 'reimbursement description'],
+  expensePaidBy: ['expense paid by', 'paid by', 'expense payer'],
+  expenseReimbursable: ['reimbursable', 'is reimbursable', 'reimburse to cleaner', 'reimburse cleaner'],
+  expenseCustomerBillable: ['billable', 'customer billable', 'bill to customer', 'billable to customer'],
+  expenseStatus: ['expense status', 'reimbursement status'],
+  expenseTeamMemberEmail: ['expense team member email', 'expense cleaner email', 'expense paid by email', 'reimbursee email'],
+
   // Reviews
   rating: ['rating', 'stars', 'star rating', 'score', 'review rating'],
   ratingMax: ['rating max', 'rating scale', 'max rating', 'out of'],
