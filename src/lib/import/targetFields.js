@@ -117,11 +117,11 @@ export const UNIFIED_FIELDS = [
   { key: 'finalAmount', label: 'Final Amount', group: 'Pricing', targets: ['jobs'] },
   { key: 'tipAmount', label: 'Tip (total — split across assigned cleaners)', group: 'Pricing', targets: ['jobs'] },
   { key: 'incentiveAmount', label: 'Incentive / Bonus (total)', group: 'Pricing', targets: ['jobs'] },
-  // Expenses are NOT mapped via the regular field dropdown anymore. They
-  // use a dedicated "Per-job expenses" section on the mapping page —
-  // each picked CSV column becomes its own job_expenses row per job.
-  // See expenseColumns state in data-import.jsx + req.body.expenseColumns
-  // dispatch in server.js BK route.
+  // Multi-mappable: pick this SF field for as many CSV columns as you have
+  // expense categories. Each mapped column becomes one job_expenses row
+  // per job; the type is auto-classified from the column name (Supplies →
+  // supplies, Travel → travel, etc., else "other").
+  { key: 'expenseAmount', label: 'Expense / Reimbursement Amount (map multiple columns for multiple expenses)', group: 'Pricing', targets: ['jobs'], multi: true },
 
   // ── Payment (Jobs only) ─────────────────────────────────────────
   { key: 'amountPaidByCustomer', label: 'Amount Paid', group: 'Payment', targets: ['jobs'] },

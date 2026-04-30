@@ -19,14 +19,18 @@ export default function FieldMappingTable({
   mapping = {},
   onChange,
 }) {
-  // Reverse lookup: csvHeader → sfFieldKey it's currently mapped to.
-  // Helps the UI show "this column is unmapped" warnings.
+  // Reverse lookup: csvHeader → list of sfFieldKeys it's currently mapped to.
+  // mapping values may be a single CSV header (string) OR an array of CSV
+  // headers (multi-mappable fields like Expense Amount). Both are flattened
+  // into the same shape here.
   const headerToField = useMemo(() => {
     const out = {};
     for (const [sfField, csvHeader] of Object.entries(mapping)) {
-      if (csvHeader) {
-        if (!out[csvHeader]) out[csvHeader] = [];
-        out[csvHeader].push(sfField);
+      if (!csvHeader) continue;
+      const headers = Array.isArray(csvHeader) ? csvHeader : [csvHeader];
+      for (const h of headers) {
+        if (!out[h]) out[h] = [];
+        out[h].push(sfField);
       }
     }
     return out;
@@ -47,11 +51,29 @@ export default function FieldMappingTable({
 
   const handleHeaderChange = (csvHeader, newSfField) => {
     const next = { ...mapping };
-    // If header was previously mapped to other fields, remove those bindings
+    // Strip csvHeader from any previous bindings (single OR multi).
     for (const sf of headerToField[csvHeader] || []) {
-      if (sf !== newSfField) delete next[sf];
+      if (sf === newSfField) continue;
+      if (Array.isArray(next[sf])) {
+        next[sf] = next[sf].filter((h) => h !== csvHeader);
+        if (next[sf].length === 0) delete next[sf];
+      } else if (next[sf] === csvHeader) {
+        delete next[sf];
+      }
     }
-    if (newSfField) next[newSfField] = csvHeader;
+    if (newSfField) {
+      const fieldDef = fieldByKey[newSfField];
+      if (fieldDef?.multi) {
+        // Multi-mappable: append (don't overwrite). Same column twice = no-op.
+        const existing = Array.isArray(next[newSfField])
+          ? next[newSfField]
+          : (next[newSfField] ? [next[newSfField]] : []);
+        if (!existing.includes(csvHeader)) existing.push(csvHeader);
+        next[newSfField] = existing;
+      } else {
+        next[newSfField] = csvHeader;
+      }
+    }
     onChange?.(next);
   };
 
