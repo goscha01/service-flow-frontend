@@ -186,12 +186,11 @@ const LeadsPipeline = () => {
   // Drag and drop state
   const [draggedLead, setDraggedLead] = useState(null);
   const [draggedStage, setDraggedStage] = useState(null);
+  // Card has to be clicked once to select before drag-and-drop turns on
+  const [selectedCardId, setSelectedCardId] = useState(null);
 
-  // Pipeline horizontal scroller state — uses native overflow-x scroll
+  // Pipeline kanban — native overflow-x scroll + click-drag pan on empty space
   const pipelineScrollRef = useRef(null);
-  const scrollerTrackRef = useRef(null);
-  const [scrollMetrics, setScrollMetrics] = useState({ scrollLeft: 0, scrollWidth: 0, clientWidth: 0 });
-  const [isScrollerDragging, setIsScrollerDragging] = useState(false);
 
   // Load pipeline, leads, team members, and services
   useEffect(() => {
@@ -201,100 +200,68 @@ const LeadsPipeline = () => {
     loadServices();
   }, []);
 
-  // Track pipeline width metrics for the bottom scroller — driven by native scrollLeft
-  useEffect(() => {
+  // Click-and-drag anywhere on the kanban (empty space, stage headers) to pan horizontally.
+  // Skips draggable cards, buttons, and form inputs so they keep their own interactions.
+  const handleBoardMouseDown = (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    const t = e.target;
+    if (t.closest && (
+      t.closest('[draggable="true"]') ||
+      t.closest('button') ||
+      t.closest('a') ||
+      t.closest('input,select,textarea')
+    )) return;
+
     const wrapper = pipelineScrollRef.current;
     if (!wrapper) return;
+    const scrollable = wrapper.scrollWidth - wrapper.clientWidth;
+    if (scrollable <= 0) return;
 
-    const update = () => {
-      setScrollMetrics({
-        scrollLeft: wrapper.scrollLeft,
-        scrollWidth: wrapper.scrollWidth,
-        clientWidth: wrapper.clientWidth,
-      });
-    };
-
-    update();
-    wrapper.addEventListener('scroll', update, { passive: true });
-
-    let ro;
-    if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(update);
-      ro.observe(wrapper);
-    } else {
-      window.addEventListener('resize', update);
-    }
-
-    return () => {
-      wrapper.removeEventListener('scroll', update);
-      if (ro) ro.disconnect();
-      else window.removeEventListener('resize', update);
-    };
-  }, [pipeline?.stages?.length]);
-
-  // Drag the scroller thumb to scroll the pipeline horizontally
-  const handleScrollerMouseDown = (e) => {
-    const track = scrollerTrackRef.current;
-    const wrapper = pipelineScrollRef.current;
-    if (!track || !wrapper) return;
-    const scrollableWidth = wrapper.scrollWidth - wrapper.clientWidth;
-    if (scrollableWidth <= 0) return;
-
-    e.preventDefault();
-    const trackRect = track.getBoundingClientRect();
-    const visibleRatio = wrapper.clientWidth / wrapper.scrollWidth;
-    const thumbWidthPx = Math.max(24, trackRect.width * visibleRatio);
-    const draggableWidth = trackRect.width - thumbWidthPx;
-    const currentThumbLeft = draggableWidth > 0
-      ? (wrapper.scrollLeft / scrollableWidth) * draggableWidth
-      : 0;
-    const clickXInTrack = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - trackRect.left;
-
-    let offsetWithinThumb;
-    if (clickXInTrack >= currentThumbLeft && clickXInTrack <= currentThumbLeft + thumbWidthPx) {
-      offsetWithinThumb = clickXInTrack - currentThumbLeft;
-    } else {
-      offsetWithinThumb = thumbWidthPx / 2;
-      if (draggableWidth > 0) {
-        const ratio = Math.max(0, Math.min(1, (clickXInTrack - thumbWidthPx / 2) / draggableWidth));
-        wrapper.scrollLeft = ratio * scrollableWidth;
-      }
-    }
-
-    setIsScrollerDragging(true);
+    const startX = e.clientX;
+    const startScroll = wrapper.scrollLeft;
+    let moved = false;
 
     const onMove = (ev) => {
-      const clientX = ev.clientX ?? ev.touches?.[0]?.clientX ?? 0;
-      const x = clientX - trackRect.left - offsetWithinThumb;
-      if (draggableWidth <= 0) return;
-      const ratio = Math.max(0, Math.min(1, x / draggableWidth));
-      wrapper.scrollLeft = ratio * scrollableWidth;
+      const dx = ev.clientX - startX;
+      if (!moved && Math.abs(dx) > 4) {
+        moved = true;
+        wrapper.style.cursor = 'grabbing';
+        wrapper.style.userSelect = 'none';
+      }
+      if (moved) {
+        ev.preventDefault();
+        wrapper.scrollLeft = startScroll - dx;
+      }
     };
 
     const onUp = () => {
-      setIsScrollerDragging(false);
+      if (moved) {
+        wrapper.style.cursor = '';
+        wrapper.style.userSelect = '';
+      }
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('touchend', onUp);
     };
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchmove', onMove, { passive: false });
-    window.addEventListener('touchend', onUp);
   };
 
-  // Smoothly scroll a stage into view when its segment is clicked
-  const scrollStageIntoView = (stageId) => {
-    const wrapper = pipelineScrollRef.current;
-    if (!wrapper) return;
-    const target = wrapper.querySelector(`[data-stage-id="${stageId}"]`);
-    if (!target) return;
-    const offset = target.offsetLeft - (wrapper.clientWidth - target.offsetWidth) / 2;
-    const max = wrapper.scrollWidth - wrapper.clientWidth;
-    wrapper.scrollTo({ left: Math.max(0, Math.min(max, offset)), behavior: 'smooth' });
+  // Click on a card: first click selects (enabling drag), second click opens details
+  const handleCardClick = (lead) => {
+    if (selectedCardId === lead.id) {
+      setSelectedLead(lead);
+      setShowLeadDetailsModal(true);
+      setSelectedCardId(null);
+    } else {
+      setSelectedCardId(lead.id);
+    }
   };
+
+  // Deselect when modal closes or pipeline reloads
+  useEffect(() => {
+    if (!showLeadDetailsModal) setSelectedCardId(null);
+  }, [showLeadDetailsModal]);
   
   // Helper function to decode HTML entities
   const decodeHtmlEntities = (text) => {
@@ -1242,10 +1209,11 @@ const LeadsPipeline = () => {
         </div>
       </div>
       
-      {/* Pipeline Board - Desktop & Tablet: horizontal layout (native scroll) */}
+      {/* Pipeline Board - Desktop & Tablet: horizontal layout (native scroll + drag-to-pan) */}
       <div
         ref={pipelineScrollRef}
-        className="hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-32 lg:pb-20 overflow-x-auto overflow-y-visible flex-1"
+        onMouseDown={handleBoardMouseDown}
+        className="hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-24 lg:pb-6 overflow-x-auto overflow-y-visible flex-1"
       >
         <div
           className="flex gap-4 pb-4"
@@ -1305,16 +1273,23 @@ const LeadsPipeline = () => {
 
                 {/* Leads in Stage */}
                 <div className="flex-1 p-2 space-y-2.5 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
-                  {stageLeads.map((lead) => (
+                  {stageLeads.map((lead) => {
+                    const isSelected = selectedCardId === lead.id;
+                    return (
                     <div
                       key={lead.id}
-                      draggable
-                      onDragStart={() => handleDragStart(lead, stage)}
-                      onClick={() => {
-                        setSelectedLead(lead);
-                        setShowLeadDetailsModal(true);
+                      draggable={isSelected}
+                      onDragStart={(e) => {
+                        if (!isSelected) { e.preventDefault(); return; }
+                        handleDragStart(lead, stage);
                       }}
-                      className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm hover:shadow-md transition-all cursor-move group"
+                      onDragEnd={() => setSelectedCardId(null)}
+                      onClick={(e) => { e.stopPropagation(); handleCardClick(lead); }}
+                      className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-all group ${
+                        isSelected
+                          ? 'border-[var(--sf-blue-500)] ring-2 ring-[var(--sf-blue-500)] cursor-grab'
+                          : 'border-[var(--sf-border-light)] cursor-pointer'
+                      }`}
                     >
                       {/* Card top accent line */}
                       <div className="h-[2px] rounded-t-xl" style={{ backgroundColor: stage.color, opacity: 0.4 }} />
@@ -1381,7 +1356,8 @@ const LeadsPipeline = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
 
                   {stageLeads.length === 0 && (
                     <div className="text-center py-10 text-[var(--sf-text-muted)]">
@@ -1401,79 +1377,6 @@ const LeadsPipeline = () => {
         </div>
       </div>
 
-      {/* Pipeline Horizontal Scroller — drag to navigate stages left/right */}
-      {pipeline.stages && pipeline.stages.length > 0 && (() => {
-        const isOverflowing = scrollMetrics.scrollWidth > scrollMetrics.clientWidth + 1;
-        const visibleRatio = isOverflowing
-          ? scrollMetrics.clientWidth / scrollMetrics.scrollWidth
-          : 1;
-        const scrollableWidth = Math.max(0, scrollMetrics.scrollWidth - scrollMetrics.clientWidth);
-        const scrollProgress = scrollableWidth > 0 ? scrollMetrics.scrollLeft / scrollableWidth : 0;
-        const thumbWidthPct = Math.max(8, visibleRatio * 100);
-        const thumbLeftPct = (100 - thumbWidthPct) * scrollProgress;
-
-        return (
-          <div className="hidden sm:block bg-white border-t border-[var(--sf-border-light)] px-3 lg:px-6 py-3 fixed left-0 right-0 bottom-[88px] lg:bottom-0 z-[101] shadow-lg">
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--sf-text-muted)] flex-shrink-0">
-                Pipeline
-              </span>
-              <div
-                ref={scrollerTrackRef}
-                onMouseDown={handleScrollerMouseDown}
-                onTouchStart={handleScrollerMouseDown}
-                className={`relative flex-1 h-9 bg-[var(--sf-bg-page)] rounded-lg overflow-hidden select-none border border-[var(--sf-border-light)] ${isOverflowing ? 'cursor-pointer' : ''}`}
-              >
-                {/* Stage segments */}
-                <div className="absolute inset-0 flex">
-                  {pipeline.stages.map((stage) => {
-                    const stageLeads = getLeadsForStage(stage.id);
-                    return (
-                      <button
-                        key={stage.id}
-                        type="button"
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        onClick={(e) => { e.stopPropagation(); scrollStageIntoView(stage.id); }}
-                        className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 border-r border-white/40 last:border-r-0 transition-opacity hover:opacity-100 group"
-                        style={{ backgroundColor: stage.color, opacity: 0.55 }}
-                        title={`Jump to ${stage.name}`}
-                      >
-                        <span className="text-[10px] font-semibold text-white truncate drop-shadow-sm">
-                          {stage.name}
-                        </span>
-                        <span className="text-[9px] font-bold text-white/95 bg-black/20 rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0">
-                          {stageLeads.length}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {/* Draggable viewport thumb */}
-                {isOverflowing && (
-                  <div
-                    className={`absolute top-0 bottom-0 border-2 border-[var(--sf-blue-500)] bg-[var(--sf-blue-500)]/15 rounded-md pointer-events-none transition-shadow ${isScrollerDragging ? 'shadow-lg' : ''}`}
-                    style={{
-                      left: `${thumbLeftPct}%`,
-                      width: `${thumbWidthPct}%`,
-                    }}
-                  />
-                )}
-                {/* Grab cursor overlay (only when overflowing) */}
-                {isOverflowing && (
-                  <div
-                    className={`absolute top-0 bottom-0 ${isScrollerDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-                    style={{
-                      left: `${thumbLeftPct}%`,
-                      width: `${thumbWidthPct}%`,
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Mobile: header + search + accordion layout */}
       <div className="sm:hidden flex-shrink-0 bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10 px-4 py-3">
