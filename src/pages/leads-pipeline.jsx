@@ -222,11 +222,13 @@ const LeadsPipeline = () => {
     if (!wrapper || !inner) return;
 
     const update = () => {
-      setScrollMetrics({
+      const m = {
         scrollLeft: panX,
         scrollWidth: inner.scrollWidth,
         clientWidth: wrapper.clientWidth,
-      });
+      };
+      console.log('[PAN-CHECK]', { vw: window.innerWidth, ...m, overflow: m.scrollWidth - m.clientWidth, stages: pipeline?.stages?.length });
+      setScrollMetrics(m);
     };
 
     update();
@@ -1343,7 +1345,7 @@ const LeadsPipeline = () => {
                 key={stage.id}
                 data-stage-id={stage.id}
                 className="flex-shrink-0 flex flex-col bg-[var(--sf-bg-page)] rounded-xl"
-                style={{ width: '300px' }}
+                style={{ width: '400px' }}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(stage.id)}
               >
