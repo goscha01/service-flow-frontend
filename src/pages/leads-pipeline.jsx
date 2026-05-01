@@ -187,11 +187,25 @@ const LeadsPipeline = () => {
   const [draggedLead, setDraggedLead] = useState(null);
   const [draggedStage, setDraggedStage] = useState(null);
 
-  // Pipeline horizontal scroller state
+  // Pipeline horizontal scroller state — pan via CSS transform to bypass overflow quirks
   const pipelineScrollRef = useRef(null);
+  const pipelineInnerRef = useRef(null);
   const scrollerTrackRef = useRef(null);
+  const [panX, setPanX] = useState(0);
   const [scrollMetrics, setScrollMetrics] = useState({ scrollLeft: 0, scrollWidth: 0, clientWidth: 0 });
   const [isScrollerDragging, setIsScrollerDragging] = useState(false);
+
+  const getMaxPan = () => {
+    const inner = pipelineInnerRef.current;
+    const wrapper = pipelineScrollRef.current;
+    if (!inner || !wrapper) return 0;
+    return Math.max(0, inner.scrollWidth - wrapper.clientWidth);
+  };
+
+  const clampPan = (x) => {
+    const max = getMaxPan();
+    return Math.max(0, Math.min(max, x));
+  };
 
   // Load pipeline, leads, team members, and services
   useEffect(() => {
@@ -201,53 +215,59 @@ const LeadsPipeline = () => {
     loadServices();
   }, []);
 
-  // Track pipeline scroll position + width for the bottom scroller
+  // Track pipeline width metrics for the bottom scroller — uses transform-based panX
   useEffect(() => {
-    const el = pipelineScrollRef.current;
-    if (!el) return;
+    const wrapper = pipelineScrollRef.current;
+    const inner = pipelineInnerRef.current;
+    if (!wrapper || !inner) return;
 
     const update = () => {
       setScrollMetrics({
-        scrollLeft: el.scrollLeft,
-        scrollWidth: el.scrollWidth,
-        clientWidth: el.clientWidth,
+        scrollLeft: panX,
+        scrollWidth: inner.scrollWidth,
+        clientWidth: wrapper.clientWidth,
       });
     };
 
     update();
-    el.addEventListener('scroll', update, { passive: true });
 
     let ro;
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver(update);
-      ro.observe(el);
-      Array.from(el.children).forEach((child) => ro.observe(child));
+      ro.observe(wrapper);
+      ro.observe(inner);
     } else {
       window.addEventListener('resize', update);
     }
 
     return () => {
-      el.removeEventListener('scroll', update);
       if (ro) ro.disconnect();
       else window.removeEventListener('resize', update);
     };
-  }, [pipeline?.stages?.length]);
+  }, [pipeline?.stages?.length, panX]);
 
-  // Drag the scroller thumb to scroll the pipeline horizontally
+  // Re-clamp panX if the layout shrinks (e.g. window resize) so we never pan past the end
+  useEffect(() => {
+    setPanX((x) => clampPan(x));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollMetrics.scrollWidth, scrollMetrics.clientWidth]);
+
+  // Drag the scroller thumb to pan the pipeline horizontally (transform-based)
   const handleScrollerMouseDown = (e) => {
     const track = scrollerTrackRef.current;
-    const pane = pipelineScrollRef.current;
-    if (!track || !pane) return;
-    const scrollableWidth = pane.scrollWidth - pane.clientWidth;
+    const wrapper = pipelineScrollRef.current;
+    const inner = pipelineInnerRef.current;
+    if (!track || !wrapper || !inner) return;
+    const scrollableWidth = inner.scrollWidth - wrapper.clientWidth;
     if (scrollableWidth <= 0) return;
 
     e.preventDefault();
     const trackRect = track.getBoundingClientRect();
-    const visibleRatio = pane.clientWidth / pane.scrollWidth;
+    const visibleRatio = wrapper.clientWidth / inner.scrollWidth;
     const thumbWidthPx = Math.max(24, trackRect.width * visibleRatio);
     const draggableWidth = trackRect.width - thumbWidthPx;
     const currentThumbLeft = draggableWidth > 0
-      ? (pane.scrollLeft / scrollableWidth) * draggableWidth
+      ? (panX / scrollableWidth) * draggableWidth
       : 0;
     const clickXInTrack = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - trackRect.left;
 
@@ -256,10 +276,9 @@ const LeadsPipeline = () => {
       offsetWithinThumb = clickXInTrack - currentThumbLeft;
     } else {
       offsetWithinThumb = thumbWidthPx / 2;
-      const newThumbLeft = clickXInTrack - thumbWidthPx / 2;
       if (draggableWidth > 0) {
-        const ratio = Math.max(0, Math.min(1, newThumbLeft / draggableWidth));
-        pane.scrollLeft = ratio * scrollableWidth;
+        const ratio = Math.max(0, Math.min(1, (clickXInTrack - thumbWidthPx / 2) / draggableWidth));
+        setPanX(ratio * scrollableWidth);
       }
     }
 
@@ -270,7 +289,7 @@ const LeadsPipeline = () => {
       const x = clientX - trackRect.left - offsetWithinThumb;
       if (draggableWidth <= 0) return;
       const ratio = Math.max(0, Math.min(1, x / draggableWidth));
-      pane.scrollLeft = ratio * scrollableWidth;
+      setPanX(ratio * scrollableWidth);
     };
 
     const onUp = () => {
@@ -287,21 +306,21 @@ const LeadsPipeline = () => {
     window.addEventListener('touchend', onUp);
   };
 
-  // Scroll a specific stage column into view when its segment is clicked
+  // Pan a specific stage column into view when its segment is clicked
   const scrollStageIntoView = (stageId) => {
-    const pane = pipelineScrollRef.current;
-    if (!pane) return;
-    const target = pane.querySelector(`[data-stage-id="${stageId}"]`);
+    const wrapper = pipelineScrollRef.current;
+    const inner = pipelineInnerRef.current;
+    if (!wrapper || !inner) return;
+    const target = inner.querySelector(`[data-stage-id="${stageId}"]`);
     if (!target) return;
-    const offset = target.offsetLeft - (pane.clientWidth - target.offsetWidth) / 2;
-    const max = pane.scrollWidth - pane.clientWidth;
-    pane.scrollTo({ left: Math.max(0, Math.min(max, offset)), behavior: 'smooth' });
+    const offset = target.offsetLeft - (wrapper.clientWidth - target.offsetWidth) / 2;
+    setPanX(clampPan(offset));
   };
 
   // Click-and-drag anywhere on the pipeline (empty space / stage headers) to pan horizontally
   const handlePipelinePanStart = (e) => {
-    const pane = pipelineScrollRef.current;
-    if (!pane) return;
+    const wrapper = pipelineScrollRef.current;
+    if (!wrapper) return;
     // Skip if clicking on an interactive element — don't interfere with lead cards, buttons, links, inputs
     const t = e.target;
     if (
@@ -318,31 +337,44 @@ const LeadsPipeline = () => {
     if (e.button !== undefined && e.button !== 0) return;
 
     const startX = e.clientX;
-    const startScrollLeft = pane.scrollLeft;
+    const startPan = panX;
     let moved = false;
 
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
       if (!moved && Math.abs(dx) > 3) {
         moved = true;
-        pane.style.cursor = 'grabbing';
-        pane.style.userSelect = 'none';
+        wrapper.style.cursor = 'grabbing';
+        wrapper.style.userSelect = 'none';
       }
       if (moved) {
         ev.preventDefault();
-        pane.scrollLeft = startScrollLeft - dx;
+        setPanX(clampPan(startPan - dx));
       }
     };
 
     const onUp = () => {
-      pane.style.cursor = '';
-      pane.style.userSelect = '';
+      wrapper.style.cursor = '';
+      wrapper.style.userSelect = '';
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+  };
+
+  // Native horizontal mouse-wheel / trackpad support — translate to panX
+  const handlePipelineWheel = (e) => {
+    const wrapper = pipelineScrollRef.current;
+    if (!wrapper) return;
+    const max = getMaxPan();
+    if (max <= 0) return;
+    // Use whichever delta is larger so vertical-wheel users with shift, or trackpad horizontal swipes, both work
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : (e.shiftKey ? e.deltaY : 0);
+    if (delta === 0) return;
+    e.preventDefault();
+    setPanX((x) => clampPan(x + delta));
   };
   
   // Helper function to decode HTML entities
@@ -1291,13 +1323,24 @@ const LeadsPipeline = () => {
         </div>
       </div>
       
-      {/* Pipeline Board - Desktop & Tablet: horizontal layout */}
+      {/* Pipeline Board - Desktop & Tablet: horizontal layout (transform-based pan) */}
       <div
         ref={pipelineScrollRef}
         onMouseDown={handlePipelinePanStart}
-        className="hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-32 lg:pb-20 overflow-x-auto flex-1 cursor-grab"
+        onWheel={handlePipelineWheel}
+        className="hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-32 lg:pb-20 overflow-x-hidden overflow-y-visible flex-1 cursor-grab"
       >
-        <div className="flex gap-4 pb-4" style={{ minHeight: '400px', width: 'max-content', minWidth: '100%' }}>
+        <div
+          ref={pipelineInnerRef}
+          className="flex gap-4 pb-4"
+          style={{
+            minHeight: '400px',
+            width: 'max-content',
+            minWidth: '100%',
+            transform: `translateX(-${panX}px)`,
+            willChange: 'transform',
+          }}
+        >
           {pipeline.stages && pipeline.stages.map((stage) => {
             const stageLeads = getLeadsForStage(stage.id);
             const totalValue = getStageTotalValue(stageLeads);
