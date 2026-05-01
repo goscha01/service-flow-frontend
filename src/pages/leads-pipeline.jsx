@@ -1060,7 +1060,7 @@ const LeadsPipeline = () => {
   }
   
   return (
-    <div className="min-h-screen bg-[var(--sf-bg-page)] flex flex-col">
+    <div className="min-h-screen sm:h-screen sm:overflow-hidden bg-[var(--sf-bg-page)] flex flex-col">
       {/* Mobile Header */}
       <MobileHeader pageTitle="Leads" />
       
@@ -1254,7 +1254,7 @@ const LeadsPipeline = () => {
       <div
         ref={pipelineScrollRef}
         onMouseDown={handleBoardMouseDown}
-        className="pipeline-scrollbar hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-24 lg:pb-6 overflow-x-auto overflow-y-visible flex-1"
+        className="pipeline-scrollbar hidden sm:block w-full max-w-full min-w-0 min-h-0 px-3 lg:px-6 pt-5 pb-3 overflow-x-auto overflow-y-hidden flex-1"
       >
         <div
           className="flex gap-4 pb-4"
