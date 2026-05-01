@@ -36,7 +36,7 @@ const AppLayout = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 md:ml-20 lg:ml-[260px]">
+      <div className="flex-1 min-w-0 md:ml-20 lg:ml-[260px]">
         {/* Page Content */}
         <Outlet />
       </div>
