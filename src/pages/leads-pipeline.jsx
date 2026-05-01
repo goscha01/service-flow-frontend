@@ -1330,7 +1330,6 @@ const LeadsPipeline = () => {
           style={{
             minHeight: '400px',
             width: 'max-content',
-            minWidth: '100%',
             transform: `translateX(-${panX}px)`,
             willChange: 'transform',
           }}
@@ -1344,7 +1343,7 @@ const LeadsPipeline = () => {
                 key={stage.id}
                 data-stage-id={stage.id}
                 className="flex-shrink-0 flex flex-col bg-[var(--sf-bg-page)] rounded-xl"
-                style={{ width: `max(240px, calc((100% - ${(pipeline.stages.length - 1) * 16}px) / ${pipeline.stages.length}))` }}
+                style={{ width: '300px' }}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(stage.id)}
               >
