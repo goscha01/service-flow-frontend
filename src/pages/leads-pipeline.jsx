@@ -192,6 +192,19 @@ const LeadsPipeline = () => {
   // Pipeline kanban — native overflow-x scroll + click-drag pan on empty space
   const pipelineScrollRef = useRef(null);
 
+  // Stage column width — uniform across all stages, persisted in localStorage
+  const STAGE_WIDTH_KEY = 'sf_leads_stage_width';
+  const STAGE_WIDTH_MIN = 180;
+  const STAGE_WIDTH_MAX = 600;
+  const STAGE_WIDTH_DEFAULT = 200;
+  const [stageWidth, setStageWidth] = useState(() => {
+    try {
+      const saved = parseInt(localStorage.getItem(STAGE_WIDTH_KEY), 10);
+      if (Number.isFinite(saved) && saved >= STAGE_WIDTH_MIN && saved <= STAGE_WIDTH_MAX) return saved;
+    } catch {}
+    return STAGE_WIDTH_DEFAULT;
+  });
+
   // Load pipeline, leads, team members, and services
   useEffect(() => {
     loadPipeline();
@@ -262,6 +275,34 @@ const LeadsPipeline = () => {
   useEffect(() => {
     if (!showLeadDetailsModal) setSelectedCardId(null);
   }, [showLeadDetailsModal]);
+
+  // Drag the right edge of any stage column to resize ALL stages uniformly
+  const handleStageResizeStart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = stageWidth;
+    let lastWidth = startWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX;
+      lastWidth = Math.max(STAGE_WIDTH_MIN, Math.min(STAGE_WIDTH_MAX, startWidth + dx));
+      setStageWidth(lastWidth);
+    };
+
+    const onUp = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      try { localStorage.setItem(STAGE_WIDTH_KEY, String(lastWidth)); } catch {}
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
   
   // Helper function to decode HTML entities
   const decodeHtmlEntities = (text) => {
@@ -1213,7 +1254,7 @@ const LeadsPipeline = () => {
       <div
         ref={pipelineScrollRef}
         onMouseDown={handleBoardMouseDown}
-        className="hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-24 lg:pb-6 overflow-x-auto overflow-y-visible flex-1"
+        className="pipeline-scrollbar hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-24 lg:pb-6 overflow-x-auto overflow-y-visible flex-1"
       >
         <div
           className="flex gap-4 pb-4"
@@ -1230,11 +1271,20 @@ const LeadsPipeline = () => {
               <div
                 key={stage.id}
                 data-stage-id={stage.id}
-                className="flex-shrink-0 flex flex-col bg-[var(--sf-bg-page)] rounded-xl"
-                style={{ width: '400px' }}
+                className="relative flex-shrink-0 flex flex-col bg-[var(--sf-bg-page)] rounded-xl"
+                style={{ width: `${stageWidth}px` }}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(stage.id)}
               >
+                {/* Resize handle — drag to resize ALL stages uniformly */}
+                <div
+                  onMouseDown={handleStageResizeStart}
+                  className="group/resize absolute top-0 bottom-0 -right-2 w-4 cursor-col-resize z-20 flex items-center justify-center"
+                  title="Drag to resize all stages"
+                  data-resize-handle
+                >
+                  <div className="w-0.5 h-12 bg-[var(--sf-border)] rounded-full opacity-0 group-hover/resize:opacity-100 group-hover/resize:bg-[var(--sf-blue-500)] transition-opacity" />
+                </div>
                 {/* Stage Header — colored top border accent */}
                 <div
                   className="rounded-t-xl overflow-hidden"

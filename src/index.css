@@ -541,6 +541,13 @@ a[class*="text-blue"]:hover {
 }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 
+/* Chunky always-visible horizontal scrollbar for the leads kanban */
+.pipeline-scrollbar { scrollbar-width: auto; scrollbar-color: #94A3B8 #F1F5F9; }
+.pipeline-scrollbar::-webkit-scrollbar { height: 14px; width: 14px; }
+.pipeline-scrollbar::-webkit-scrollbar-track { background: #F1F5F9; border-radius: 7px; }
+.pipeline-scrollbar::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 7px; border: 3px solid #F1F5F9; }
+.pipeline-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748B; }
+
 @media (max-width: 600px) {
   html { font-size: 14px; }
 }
