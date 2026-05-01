@@ -204,9 +204,7 @@ const LeadsPipeline = () => {
 
   const clampPan = (x) => {
     const max = getMaxPan();
-    const clamped = Math.max(0, Math.min(max, x));
-    console.log('[PAN] clampPan', { input: x, max, clamped });
-    return clamped;
+    return Math.max(0, Math.min(max, x));
   };
 
   // Load pipeline, leads, team members, and services
@@ -221,21 +219,14 @@ const LeadsPipeline = () => {
   useEffect(() => {
     const wrapper = pipelineScrollRef.current;
     const inner = pipelineInnerRef.current;
-    console.log('[PAN] metrics effect mount', {
-      wrapperExists: !!wrapper,
-      innerExists: !!inner,
-      stageCount: pipeline?.stages?.length,
-    });
     if (!wrapper || !inner) return;
 
     const update = () => {
-      const m = {
+      setScrollMetrics({
         scrollLeft: panX,
         scrollWidth: inner.scrollWidth,
         clientWidth: wrapper.clientWidth,
-      };
-      console.log('[PAN] metrics update', m, { wrapperRect: wrapper.getBoundingClientRect(), innerRect: inner.getBoundingClientRect() });
-      setScrollMetrics(m);
+      });
     };
 
     update();
@@ -260,11 +251,6 @@ const LeadsPipeline = () => {
     setPanX((x) => clampPan(x));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollMetrics.scrollWidth, scrollMetrics.clientWidth]);
-
-  // Log every panX commit so we can confirm React is re-rendering with new transform
-  useEffect(() => {
-    console.log('[PAN] panX committed', panX, 'rendered transform:', pipelineInnerRef.current?.style?.transform);
-  }, [panX]);
 
   // Drag the scroller thumb to pan the pipeline horizontally (transform-based)
   const handleScrollerMouseDown = (e) => {
@@ -334,40 +320,22 @@ const LeadsPipeline = () => {
   // Click-and-drag anywhere on the pipeline (empty space / stage headers) to pan horizontally
   const handlePipelinePanStart = (e) => {
     const wrapper = pipelineScrollRef.current;
-    console.log('[PAN] mousedown fired', {
-      target: e.target?.tagName,
-      targetClass: typeof e.target?.className === 'string' ? e.target.className.slice(0, 80) : '(non-string)',
-      button: e.button,
-      clientX: e.clientX,
-      wrapperExists: !!wrapper,
-    });
-    if (!wrapper) {
-      console.warn('[PAN] aborted: wrapper ref is null');
-      return;
-    }
+    if (!wrapper) return;
+    if (getMaxPan() <= 0) return; // nothing to pan
     const t = e.target;
-    const draggableMatch = t.closest && t.closest('[draggable="true"]');
-    const buttonMatch = t.closest && t.closest('button');
-    const linkMatch = t.closest && t.closest('a');
-    const inputMatch = t.closest && t.closest('input,select,textarea');
-    if (draggableMatch || buttonMatch || linkMatch || inputMatch) {
-      console.log('[PAN] aborted: clicked interactive element', {
-        draggable: !!draggableMatch,
-        button: !!buttonMatch,
-        link: !!linkMatch,
-        input: !!inputMatch,
-      });
+    if (
+      (t.closest && t.closest('[draggable="true"]')) ||
+      (t.closest && t.closest('button')) ||
+      (t.closest && t.closest('a')) ||
+      (t.closest && t.closest('input,select,textarea'))
+    ) {
       return;
     }
-    if (e.button !== undefined && e.button !== 0) {
-      console.log('[PAN] aborted: non-primary button', e.button);
-      return;
-    }
+    if (e.button !== undefined && e.button !== 0) return;
 
     const startX = e.clientX;
     const startPan = panX;
     let moved = false;
-    console.log('[PAN] drag-start armed', { startX, startPan, currentMaxPan: getMaxPan() });
 
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
@@ -375,18 +343,14 @@ const LeadsPipeline = () => {
         moved = true;
         wrapper.style.cursor = 'grabbing';
         wrapper.style.userSelect = 'none';
-        console.log('[PAN] threshold crossed → drag active', { dx });
       }
       if (moved) {
         ev.preventDefault();
-        const next = clampPan(startPan - dx);
-        console.log('[PAN] mousemove', { dx, startPan, requested: startPan - dx, next });
-        setPanX(next);
+        setPanX(clampPan(startPan - dx));
       }
     };
 
     const onUp = () => {
-      console.log('[PAN] mouseup, releasing', { moved });
       wrapper.style.cursor = '';
       wrapper.style.userSelect = '';
       window.removeEventListener('mousemove', onMove);
@@ -399,12 +363,10 @@ const LeadsPipeline = () => {
 
   // Native horizontal mouse-wheel / trackpad support — translate to panX
   const handlePipelineWheel = (e) => {
-    const wrapper = pipelineScrollRef.current;
-    if (!wrapper) return;
     const max = getMaxPan();
+    if (max <= 0) return;
     const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : (e.shiftKey ? e.deltaY : 0);
-    console.log('[PAN] wheel', { deltaX: e.deltaX, deltaY: e.deltaY, shift: e.shiftKey, chosenDelta: delta, max });
-    if (max <= 0 || delta === 0) return;
+    if (delta === 0) return;
     e.preventDefault();
     setPanX((x) => clampPan(x + delta));
   };
@@ -1360,7 +1322,7 @@ const LeadsPipeline = () => {
         ref={pipelineScrollRef}
         onMouseDown={handlePipelinePanStart}
         onWheel={handlePipelineWheel}
-        className="hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-32 lg:pb-20 overflow-x-hidden overflow-y-visible flex-1 cursor-grab"
+        className={`hidden sm:block w-full max-w-full min-w-0 px-3 lg:px-6 py-5 pb-32 lg:pb-20 overflow-x-hidden overflow-y-visible flex-1 ${scrollMetrics.scrollWidth > scrollMetrics.clientWidth + 1 ? 'cursor-grab' : ''}`}
       >
         <div
           ref={pipelineInnerRef}
