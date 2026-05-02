@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
-import { FileText, Mail, Eye, Trash2, Plus, Loader2, X, AlertCircle, Send, RefreshCw, Users, CheckCircle2 } from "lucide-react"
+import { FileText, Mail, Eye, Trash2, Plus, Loader2, X, AlertCircle, Send, RefreshCw, Users, CheckCircle2, Download } from "lucide-react"
 import { paystubsAPI } from "../services/api"
 import PaystubPreview from "./paystub-preview"
 
@@ -60,6 +60,7 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
   const [previewPaystub, setPreviewPaystub] = useState(null)
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(null)
+  const [downloading, setDownloading] = useState(false)
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -179,6 +180,20 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
       setSendError(e.response?.data?.error || 'Failed to send paystub')
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleDownload = async (paystub) => {
+    if (!paystub) return
+    setDownloading(true); setSendError(null)
+    try {
+      const memberName = getMemberName(paystub.team_member_id).replace(/[^0-9A-Za-z_-]/g, '_')
+      const filename = `paystub_${memberName}_${paystub.period_start}_${paystub.period_end}.pdf`
+      await paystubsAPI.downloadPdf(paystub.id, filename)
+    } catch (e) {
+      setSendError(e.response?.data?.error || 'Failed to download paystub PDF')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -325,6 +340,14 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
                           title="View"
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDownload(p)}
+                          disabled={downloading}
+                          className="p-1.5 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] disabled:opacity-30 rounded"
+                          title="Download PDF"
+                        >
+                          <Download className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleSend(p)}
@@ -533,6 +556,14 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
                   className="px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-gray-50"
                 >
                   Close
+                </button>
+                <button
+                  onClick={() => handleDownload(previewPaystub)}
+                  disabled={downloading}
+                  className="px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  Download PDF
                 </button>
                 <button
                   onClick={() => handleSend(previewPaystub)}

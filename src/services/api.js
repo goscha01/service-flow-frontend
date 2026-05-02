@@ -2779,6 +2779,18 @@ export const paystubsAPI = {
   bulkSend: async (data = {}) => { const r = await api.post('/paystubs/bulk/send', data); return r.data; },
   delete: async (id) => { const r = await api.delete(`/paystubs/${id}`); return r.data; },
   htmlUrl: (id) => `/paystubs/${id}/html`,
+  downloadPdf: async (id, filename) => {
+    const r = await api.get(`/paystubs/${id}/pdf`, { responseType: 'blob' });
+    const blob = new Blob([r.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || `paystub_${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 export const jobExpensesAPI = {
