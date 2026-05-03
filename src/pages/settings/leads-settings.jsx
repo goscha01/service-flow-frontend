@@ -264,6 +264,42 @@ const LeadsSettings = () => {
     }
   }
 
+  // Soft-delete handlers — drop a row from a "Needs attention" list.
+  const handleHideAmbiguity = async (ambigId) => {
+    if (!window.confirm('Hide this reconciliation failure? It will be marked abandoned and removed from the queue.')) return
+    try {
+      await identitiesAPI.abandonAmbiguity(ambigId)
+      setIdAmbiguities(prev => prev?.items
+        ? { ...prev, items: prev.items.filter(r => r.id !== ambigId) }
+        : prev)
+    } catch (e) { alert('Hide failed: ' + (e.response?.data?.error || e.message)) }
+  }
+  const handleHideOpContact = async (phone) => {
+    if (!window.confirm(`Hide ${phone} from this list? Won't reappear unless OpenPhone sends a new message.`)) return
+    try {
+      await opContactsAPI.hideByPhone(phone)
+      setIssues(prev => prev?.namedContactsMissingCompany?.sample
+        ? {
+            ...prev,
+            namedContactsMissingCompany: {
+              ...prev.namedContactsMissingCompany,
+              sample: prev.namedContactsMissingCompany.sample.filter(c => c.participant_phone !== phone),
+              count: Math.max(0, (prev.namedContactsMissingCompany.count || 0) - 1),
+            },
+          }
+        : prev)
+    } catch (e) { alert('Hide failed: ' + (e.response?.data?.error || e.message)) }
+  }
+  const handleHideFloating = async (identityId) => {
+    if (!window.confirm('Hide this identity from review? It will stay in the database but won\'t show up here again.')) return
+    try {
+      await identitiesAPI.hide(identityId)
+      setIdUnresolved(prev => prev?.items
+        ? { ...prev, items: prev.items.filter(r => r.id !== identityId) }
+        : prev)
+    } catch (e) { alert('Hide failed: ' + (e.response?.data?.error || e.message)) }
+  }
+
   // Same batch flow, but classifies the identities behind OP-contacts-missing-Company.
   const handleAiClassifyOpContacts = async () => {
     const sample = issues?.namedContactsMissingCompany?.sample || []
@@ -869,13 +905,17 @@ const LeadsSettings = () => {
                                 </div>
                                 <div className="space-y-1 max-h-64 overflow-y-auto">
                                 {idAmbiguities.items.map(row => (
-                                  <button key={row.id} onClick={() => openAmbigModal(row)}
-                                    className="w-full text-left text-[11px] font-mono px-2 py-1 bg-amber-50 hover:bg-amber-100 rounded cursor-pointer border border-transparent hover:border-amber-300">
-                                    <span className="text-amber-900">{row.source}</span>
-                                    {' · '}<span>{row.attempted_name || '(no name)'}</span>
-                                    {' · '}<span className="text-[var(--sf-text-muted)]">{row.attempted_phone || '-'}</span>
-                                    {' · '}<em className="text-[10px]">{row.reason}</em>
-                                  </button>
+                                  <div key={row.id} className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 rounded">
+                                    <button onClick={() => openAmbigModal(row)}
+                                      className="flex-1 text-left text-[11px] font-mono px-2 py-1 cursor-pointer border border-transparent hover:border-amber-300 rounded">
+                                      <span className="text-amber-900">{row.source}</span>
+                                      {' · '}<span>{row.attempted_name || '(no name)'}</span>
+                                      {' · '}<span className="text-[var(--sf-text-muted)]">{row.attempted_phone || '-'}</span>
+                                      {' · '}<em className="text-[10px]">{row.reason}</em>
+                                    </button>
+                                    <button onClick={() => handleHideAmbiguity(row.id)}
+                                      className="px-2 py-1 text-[11px] text-[var(--sf-text-muted)] hover:text-red-600" title="Hide / abandon">×</button>
+                                  </div>
                                 ))}
                                 </div>
                               </div>
@@ -974,6 +1014,8 @@ const LeadsSettings = () => {
                                               Classify
                                             </button>
                                           ) : null}
+                                          <button onClick={() => handleHideOpContact(c.participant_phone)}
+                                            className="text-[var(--sf-text-muted)] hover:text-red-600 text-[12px] leading-none px-1" title="Hide from list">×</button>
                                         </div>
                                         {c.ai_summary && (
                                           <div className="text-[10px] text-[var(--sf-text-muted)] mt-0.5 italic truncate">“{c.ai_summary}”</div>
@@ -1091,6 +1133,8 @@ const LeadsSettings = () => {
                                               Classify
                                             </button>
                                           )}
+                                          <button onClick={() => handleHideFloating(row.id)}
+                                            className="text-[var(--sf-text-muted)] hover:text-red-600 text-[12px] leading-none px-1" title="Hide from list">×</button>
                                         </div>
                                         {row.ai_summary && (
                                           <div className="text-[10px] text-[var(--sf-text-muted)] pl-4 mt-0.5 italic truncate">“{row.ai_summary}”</div>

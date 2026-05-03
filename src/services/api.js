@@ -2820,6 +2820,12 @@ export const opContactsAPI = {
     const r = await api.post('/op-contacts/refresh-from-openphone');
     return r.data;
   },
+  // Soft-delete an OP-missing-Company entry — sets company='(hidden)' on
+  // every conversation for this phone and marks the linked identity hidden.
+  hideByPhone: async (phone) => {
+    const r = await api.post('/op-contacts/hide-by-phone', { phone });
+    return r.data;
+  },
 };
 
 export const zenbookerAPI = {
@@ -2915,6 +2921,10 @@ export const identitiesAPI = {
   classify: async (id) => { const r = await api.post(`/identities/${id}/classify`); return r.data; },
   classifyBatch: async (ids, max = 200) => { const r = await api.post('/identities/classify-batch', { ids, max }); return r.data; },
   classifyBatchProgress: async () => { const r = await api.get('/identities/classify-batch/progress'); return r.data; },
+  // Soft-delete an identity from triage lists (floating + ambig). Sets hidden_at,
+  // abandons related ambigs, marks its OP convs as hidden.
+  hide: async (id) => { const r = await api.post(`/identities/${id}/hide`); return r.data; },
+  abandonAmbiguity: async (id) => { const r = await api.post(`/identities/ambiguities/${id}/abandon`); return r.data; },
 };
 
 // Phase J — unified integrations. One Connect & Sync per source.
