@@ -1609,6 +1609,9 @@ const Payroll = () => {
                             <td className="px-4 py-3 text-center text-[var(--sf-text-secondary)]">{b.job_count || 0}</td>
                             <td className={`px-4 py-3 text-right font-semibold ${b.current_balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {formatCurrency(b.current_balance)}
+                              {(b.prior_debt || 0) < 0 && (
+                                <div className="text-[10px] font-normal text-orange-400">incl. prior {formatCurrency(b.prior_debt)}</div>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-right hidden sm:table-cell text-[var(--sf-text-secondary)]">{formatCurrency(b.unpaid_earnings)}</td>
                             <td className="px-4 py-3 text-right hidden sm:table-cell text-[var(--sf-text-secondary)]">{formatCurrency(b.unpaid_tips)}</td>
