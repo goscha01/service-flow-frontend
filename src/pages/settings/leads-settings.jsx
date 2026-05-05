@@ -68,6 +68,11 @@ const LeadsSettings = () => {
   const [syncProgress, setSyncProgress] = useState(null)
   const [syncResult, setSyncResult] = useState(null)
 
+  // Combined OpenPhone refresh+sync (Sigcore /contacts/sync → SF /communications/sync)
+  const [opSyncRunning, setOpSyncRunning] = useState(false)
+  const [opSyncProgress, setOpSyncProgress] = useState(null) // { phase, started_at, finished_at, error, counts, sigcore_result }
+  const [opSyncResult, setOpSyncResult] = useState(null)
+
   // Source issues (post-sync manual resolution)
   const [issues, setIssues] = useState(null)
   const [issuesLoading, setIssuesLoading] = useState(false)
@@ -586,6 +591,43 @@ const LeadsSettings = () => {
     }
   }
 
+  // Combined OpenPhone refresh + SF sync. Runs Sigcore /contacts/sync to
+  // completion, then SF /communications/sync, then surfaces touched-row counts.
+  const handleSyncOpenPhone = async () => {
+    setOpSyncRunning(true); setOpSyncResult(null); setOpSyncProgress({ phase: 'starting' })
+    try {
+      try { await opContactsAPI.refreshAndSync() }
+      catch (e) {
+        if (e?.response?.status !== 409) throw e
+        // 409 → job already running; continue to poll the existing one.
+      }
+      // Poll progress until terminal. Cap at ~25 min (matches backend timeout).
+      let last = null
+      for (let i = 0; i < 500; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        try {
+          const p = await opContactsAPI.refreshAndSyncProgress()
+          last = p
+          setOpSyncProgress(p)
+          if (p?.phase === 'done' || p?.phase === 'error') break
+        } catch { /* transient — keep polling */ }
+      }
+      if (last?.phase === 'error') {
+        setOpSyncResult({ error: last.error || 'Sync failed' })
+      } else if (last?.phase === 'done') {
+        setOpSyncResult({ ok: true, counts: last.counts, sigcore_result: last.sigcore_result })
+      } else {
+        setOpSyncResult({ error: 'Timed out waiting for sync to complete' })
+      }
+      // Refresh issues panel so user immediately sees fewer "missing company" rows
+      await Promise.all([loadIssues(), loadMappings(), loadIdentityReport()])
+    } catch (e) {
+      setOpSyncResult({ error: e?.response?.data?.error || e.message })
+    } finally {
+      setOpSyncRunning(false)
+    }
+  }
+
   const isLoading = sourcesLoading || mappingsLoading
   const unmappedCount = unmapped.length
 
@@ -955,18 +997,57 @@ const LeadsSettings = () => {
                                       {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
                                       Classify all with AI
                                     </button>
-                                    <button onClick={async () => {
-                                      try {
-                                        const r = await opContactsAPI.refreshFromOpenPhone()
-                                        alert(r?.message || 'Refresh started in Sigcore. Wait ~2-5 minutes then click Sync All.')
-                                      } catch (e) { alert('Refresh failed: ' + (e.response?.data?.error || e.message)) }
-                                    }}
-                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1"
-                                      title="Pull fresh contact data (incl. Company tags) from OpenPhone via Sigcore. Then run Sync All.">
-                                      ↻ Refresh from OpenPhone
+                                    <button onClick={handleSyncOpenPhone} disabled={opSyncRunning}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-blue-500)] bg-[var(--sf-blue-500)] text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
+                                      title="One-click: refresh contacts from OpenPhone via Sigcore, then sync into Service Flow.">
+                                      {opSyncRunning ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                                      {opSyncRunning ? 'Syncing OpenPhone…' : 'Sync OpenPhone'}
                                     </button>
                                   </div>
                                 </div>
+
+                                {/* Live progress for combined OpenPhone refresh + SF sync */}
+                                {(opSyncRunning || opSyncResult) && (() => {
+                                  const phase = opSyncProgress?.phase || (opSyncResult?.error ? 'error' : 'done')
+                                  const PHASES = [
+                                    { key: 'sigcore_sync_starting', label: 'Pulling OpenPhone contacts (Sigcore)' },
+                                    { key: 'sigcore_sync_running',  label: 'Pulling OpenPhone contacts (Sigcore)' },
+                                    { key: 'sf_sync_starting',      label: 'Syncing into Service Flow' },
+                                    { key: 'sf_sync_running',       label: 'Syncing into Service Flow' },
+                                    { key: 'done',                  label: 'Done' },
+                                  ]
+                                  const order = ['starting', 'sigcore_sync_starting', 'sigcore_sync_running', 'sf_sync_starting', 'sf_sync_running', 'done']
+                                  const idx = Math.max(0, order.indexOf(phase))
+                                  const pct = phase === 'error' ? 100 : Math.round((idx / (order.length - 1)) * 100)
+                                  const currentLabel = phase === 'error' ? 'Error'
+                                    : phase === 'starting' ? 'Starting…'
+                                    : (PHASES.find(p => p.key === phase)?.label || phase)
+                                  const c = opSyncResult?.counts || opSyncProgress?.counts
+                                  const sr = opSyncResult?.sigcore_result || opSyncProgress?.sigcore_result
+                                  const isError = !!opSyncResult?.error || phase === 'error'
+                                  return (
+                                    <div className={`mt-2 mb-2 rounded-lg p-2 text-[11px] ${isError ? 'bg-red-50 text-red-700' : phase === 'done' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
+                                      <div className="flex items-center gap-2 font-medium mb-1">
+                                        {opSyncRunning ? <Loader2 size={11} className="animate-spin" /> : null}
+                                        <span>{currentLabel}</span>
+                                      </div>
+                                      <div className="h-1 w-full bg-white/50 rounded overflow-hidden">
+                                        <div className={`h-full transition-all ${isError ? 'bg-red-500' : phase === 'done' ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
+                                      </div>
+                                      {isError && (
+                                        <div className="mt-1 text-[10px]">{opSyncResult?.error || opSyncProgress?.error}</div>
+                                      )}
+                                      {phase === 'done' && c && (
+                                        <div className="mt-1 text-[10px] flex flex-wrap gap-x-3 gap-y-0.5">
+                                          <span><strong>{c.rows_touched}</strong> rows touched</span>
+                                          <span>{c.with_company} with company · {c.cleared_company} cleared</span>
+                                          <span>{c.with_name} with name · {c.cleared_name} cleared</span>
+                                          {sr?.processed != null && <span className="text-[var(--sf-text-muted)]">Sigcore processed {sr.processed} contacts</span>}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })()}
                                 {aiBatchProgress && (() => {
                                   const done = aiBatchProgress.done || 0
                                   const total = aiBatchProgress.total || 0
