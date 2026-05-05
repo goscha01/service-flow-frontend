@@ -2820,6 +2820,16 @@ export const opContactsAPI = {
     const r = await api.post('/op-contacts/refresh-from-openphone');
     return r.data;
   },
+  // One-shot: kick off Sigcore /contacts/sync, await completion, then run SF sync.
+  // Returns { started, started_at }. Poll refreshAndSyncProgress for live state.
+  refreshAndSync: async () => {
+    const r = await api.post('/op-contacts/refresh-and-sync');
+    return r.data;
+  },
+  refreshAndSyncProgress: async () => {
+    const r = await api.get('/op-contacts/refresh-and-sync/progress');
+    return r.data;
+  },
   // Soft-delete an OP-missing-Company entry — sets company='(hidden)' on
   // every conversation for this phone and marks the linked identity hidden.
   hideByPhone: async (phone) => {
