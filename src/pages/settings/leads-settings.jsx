@@ -1042,6 +1042,7 @@ const LeadsSettings = () => {
                                           <span><strong>{c.rows_touched}</strong> rows touched</span>
                                           <span>{c.with_company} with company · {c.cleared_company} cleared</span>
                                           <span>{c.with_name} with name · {c.cleared_name} cleared</span>
+                                          {c.phantoms_archived > 0 && <span><strong>{c.phantoms_archived}</strong> phantom{c.phantoms_archived === 1 ? '' : 's'} archived</span>}
                                           {sr?.processed != null && <span className="text-[var(--sf-text-muted)]">Sigcore processed {sr.processed} contacts</span>}
                                         </div>
                                       )}
