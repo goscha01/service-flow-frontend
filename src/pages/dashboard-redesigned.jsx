@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import Sidebar from "../components/sidebar"
 import CustomerModal from "../components/customer-modal"
 import CalendarPicker from "../components/CalendarPicker"
@@ -19,7 +20,13 @@ import {
   BookAlert,
   Book,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Briefcase,
+  DollarSign,
+  RefreshCw,
+  CreditCard,
+  Clock,
+  TrendingUp
 } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
@@ -99,6 +106,7 @@ const DashboardRedesigned = () => {
 
   // Store today's jobs for the map
   const [todayJobsList, setTodayJobsList] = useState([])
+  const [teamMembersList, setTeamMembersList] = useState([])
   const [mapView, setMapView] = useState('map')
 
   // Setup section state
@@ -507,6 +515,7 @@ const DashboardRedesigned = () => {
       } catch (teamError) {
         teamMembers = []
       }
+      setTeamMembersList(teamMembers)
 
       // Fetch territories data
       let territoriesList = []
@@ -561,7 +570,7 @@ const DashboardRedesigned = () => {
         
         // Check if job is incomplete (not completed or cancelled)
         const status = (job.status || 'pending')?.toLowerCase().trim()
-        const isCompleted = status === 'completed' || status === 'complete' || status === 'done' || status === 'finished'
+        const isCompleted = status === 'completed' || status === 'complete' || status === 'done' || status === 'finished' || status === 'paid'
         const isCancelled = status === 'cancelled' || status === 'canceled' || status === 'cancel'
         
         // Return true if job is from the past AND NOT completed and NOT cancelled
@@ -936,50 +945,52 @@ const DashboardRedesigned = () => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile Header */}
-          <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white">
+          <div className="lg:hidden fixed top-0 left-0 right-0 z-30">
             <MobileHeader />
           </div>
 
           {/* Desktop Header */}
-          <div className="hidden lg:block px-5 lg:px-40 xl:px-44 2xl:px-48 py-5">
+          <div className="hidden lg:block sf-header px-5 lg:px-40 xl:px-44 2xl:px-48 py-5">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div>
-                <h1 className="text-xl sm:text-xl font-display font-bold text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 700}}>{getGreeting()}, {getUserDisplayName()}.</h1>
-                <p className="text-sm text-gray-600 mt-1 ">Here's how {getUserDisplayName()} is doing today.</p>
+                <p className="text-xs text-[var(--sf-text-muted)] uppercase tracking-wide mb-0.5">Dashboard</p>
+                <h1 className="text-xl font-bold text-[var(--sf-text-primary)]">{getGreeting()}, {getUserDisplayName()}.</h1>
               </div>
-              <div className="relative" ref={newMenuRef}>
-                <button
-                  onClick={() => setShowNewMenu(!showNewMenu)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 hover:bg-blue-700 transition-colors duration-200"
-                >
-                  <span>NEW</span>
-                  <Plus className="w-4 h-4" />
-                </button>
-                {showNewMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    {newOptions.map((option, index) => (
-                      <div
-                        key={index}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleNewOptionClick(option)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleNewOptionClick(option)}
-                        className="w-full px-4 py-3 hover:bg-gray-50 cursor-pointer select-none active:bg-gray-100 border-b border-gray-100 last:border-0"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <option.icon className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-700">{option.title}</span>
+              <div className="flex items-center gap-3">
+                <div className="relative" ref={newMenuRef}>
+                  <button
+                    onClick={() => setShowNewMenu(!showNewMenu)}
+                    className="sf-btn-primary flex items-center gap-2 px-5 py-2.5"
+                  >
+                    <span>NEW</span>
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  {showNewMenu && (
+                    <div className="absolute right-0 mt-2 w-52 sf-card py-1 z-50 shadow-lg">
+                      {newOptions.map((option, index) => (
+                        <div
+                          key={index}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleNewOptionClick(option)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleNewOptionClick(option)}
+                          className="w-full px-4 py-3 hover:bg-[var(--sf-bg-hover)] cursor-pointer select-none active:bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)] last:border-0"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <option.icon className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                            <span className="text-sm text-[var(--sf-text-primary)] font-medium">{option.title}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 bg-gray-50">
+          <div className="flex-1 bg-[var(--sf-bg-page)]">
             <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8 pb-28 lg:pb-8" style={{ paddingTop: 'calc(73px + 1rem)' }}>
               <div className="max-w-7xl mx-auto space-y-4 min-w-0">
 
@@ -992,7 +1003,7 @@ const DashboardRedesigned = () => {
                       </div>
                       <div className="ml-3 flex-1">
                         <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                        <p className="mt-1 text-sm text-red-700">
+                        <p className="mt-1 text-sm text-red-600">
                           Please check your connection and try refreshing the page.
                         </p>
                       </div>
@@ -1011,12 +1022,12 @@ const DashboardRedesigned = () => {
 
                 {/* Setup Section */}
                 {setupCheckCompleted && showSetupSection && !setupSectionDismissed && (
-                  <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                  <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 sm:p-6">
                     <div className="flex items-center justify-between mb-4 sm:mb-6">
-                      <h2 className="text-sm sm:text-base font-semibold text-gray-900">Finish setting up your account</h2>
+                      <h2 className="text-sm sm:text-base font-semibold text-[var(--sf-text-primary)]">Finish setting up your account</h2>
                       <button
                         onClick={dismissSetupSection}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                         title="Dismiss"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1028,25 +1039,25 @@ const DashboardRedesigned = () => {
                     <div className="space-y-0">
                       {setupTasks.map((task, index) => (
                         <Link to={task.link} key={index}>
-                          <div className="flex items-start p-4 hover:bg-gray-50 transition-colors duration-150 group border-b border-gray-100 last:border-0">
+                          <div className="flex items-start p-4 hover:bg-[var(--sf-bg-page)] transition-colors duration-150 group border-b border-[var(--sf-border-light)] last:border-0">
                             <div className="flex items-start space-x-3 flex-1 min-w-0">
                               <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
                                 task.completed
                                   ? 'bg-green-500'
-                                  : 'bg-white border-2 border-gray-300'
+                                  : 'bg-white border-2 border-[var(--sf-border-light)]'
                               }`}>
                                 {task.completed ? (
                                   <Check className="w-4 h-4 text-white" />
                                 ) : (
-                                  <span className="text-xs font-medium text-gray-600">{task.number}</span>
+                                  <span className="text-xs font-medium text-[var(--sf-text-secondary)]">{task.number}</span>
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h3 className="text-sm font-medium text-gray-900 mb-0.5">{task.title}</h3>
-                                <p className="text-sm text-gray-600">{task.description}</p>
+                                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-0.5">{task.title}</h3>
+                                <p className="text-sm text-[var(--sf-text-secondary)]">{task.description}</p>
                               </div>
                             </div>
-                            <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5 ml-2" />
+                            <ArrowRight className="w-5 h-5 text-[var(--sf-text-muted)] group-hover:text-[var(--sf-text-secondary)] transition-colors flex-shrink-0 mt-0.5 ml-2" />
                           </div>
                         </Link>
                       ))}
@@ -1057,58 +1068,72 @@ const DashboardRedesigned = () => {
                 {dashboardData.incompleteJobsToday && dashboardData.incompleteJobsToday > 0 ? (
                   <div 
                     onClick={() => navigate('/jobs?tab=incomplete')}
-                    className="bg-white flex items-center justify-between rounded-lg border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="sf-card flex items-center justify-between px-4 sm:px-5 py-3 sm:py-3.5 cursor-pointer hover:shadow-md transition-all duration-200"
                   >
-                    <h2 className="text-sm sm:text-base font-medium text-gray-600 flex items-center gap-2">
+                    <h2 className="text-sm sm:text-base font-medium text-[var(--sf-text-secondary)] flex items-center gap-2">
                       <BookAlert className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       <span className="truncate">{dashboardData.incompleteJobsToday} {dashboardData.incompleteJobsToday === 1 ? 'Incomplete Job' : 'Incomplete Jobs'}</span>
                     </h2>
-                    <button className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 ml-2">
+                    <button className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors flex-shrink-0 ml-2">
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 ) : null}
                 
                 {/* Today Section */}
-                <div className="bg-white rounded-lg border border-gray-200 py-4 sm:py-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-6 py-3 border-b border-gray-200 pb-3 gap-3 sm:gap-0">
-                    <div className="flex items-center gap-3">
-                      <h2 className="text-base font-semibold text-gray-900">Today</h2>
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowDatePicker(!showDatePicker)}
-                          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                        >
-                          <Calendar className="w-4 h-4" />
-                        </button>
+                <div className="sf-card py-4 sm:py-6">
+                  <div className="flex items-center gap-3 px-4 sm:px-6 pb-4">
+                    <h2 className="text-lg sm:text-xl font-bold" style={{ color: 'var(--sf-text-primary)' }}>Today</h2>
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowDatePicker(!showDatePicker)}
+                        className="flex items-center gap-2 text-sm hover:text-[var(--sf-text-primary)] transition-colors" style={{ color: 'var(--sf-text-secondary)' }}
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </button>
 
-                        <CalendarPicker
-                          selectedDate={parseLocalDate(selectedDate)}
-                          onDateSelect={(date) => {
-                            const dateString = date.toISOString().split('T')[0];
-                            setSelectedDate(dateString);
-                            setShowDatePicker(false);
-                            // Refresh dashboard data with new date
-                            fetchDashboardData();
-                          }}
-                          isOpen={showDatePicker}
-                          onClose={() => setShowDatePicker(false)}
-                          position="bottom-left"
-                        />
+                      <CalendarPicker
+                        selectedDate={parseLocalDate(selectedDate)}
+                        onDateSelect={(date) => {
+                          const dateString = date.toISOString().split('T')[0];
+                          setSelectedDate(dateString);
+                          setShowDatePicker(false);
+                          // Refresh dashboard data with new date
+                          fetchDashboardData();
+                        }}
+                        isOpen={showDatePicker}
+                        onClose={() => setShowDatePicker(false)}
+                        position="bottom-left"
+                      />
+                    </div>
+                  </div>
+                  {/* Today stat mini-cards */}
+                  <div className="grid grid-cols-3 gap-3 sm:gap-4 px-4 sm:px-6 pb-4 sm:pb-5">
+                    <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl p-2.5 sm:p-3.5" style={{ background: 'var(--sf-blue-50)', border: '1px solid var(--sf-border-light)' }}>
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--sf-blue-500)' }}>
+                        <Briefcase className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-base sm:text-lg font-semibold" style={{ color: 'var(--sf-text-primary)' }}>{dashboardData.todayJobs}</div>
+                        <div className="text-[10px] sm:text-xs" style={{ color: 'var(--sf-text-muted)' }}>Jobs scheduled</div>
                       </div>
                     </div>
-                    <div className="flex gap-3 sm:gap-4 items-center justify-between sm:justify-end">
-                      <div className="items-center justify-center text-center sm:text-left">
-                        <div className="text-base sm:text-lg font-medium text-gray-900">{dashboardData.todayJobs} jobs</div>
-                        <div className="text-xs text-gray-400">On the schedule</div>
+                    <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl p-2.5 sm:p-3.5" style={{ background: 'var(--sf-orange-50)', border: '1px solid var(--sf-border-light)' }}>
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--sf-orange-500)' }}>
+                        <Clock className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-white" />
                       </div>
-                      <div className="items-center justify-center text-center sm:text-left">
-                        <div className="text-base sm:text-lg font-medium text-gray-900">{Math.floor(dashboardData.todayDuration / 60)}h {dashboardData.todayDuration % 60}m</div>
-                        <div className="text-xs text-gray-400">Est. duration</div>
+                      <div className="min-w-0">
+                        <div className="text-base sm:text-lg font-semibold" style={{ color: 'var(--sf-text-primary)' }}>{Math.floor(dashboardData.todayDuration / 60)}h {dashboardData.todayDuration % 60}m</div>
+                        <div className="text-[10px] sm:text-xs" style={{ color: 'var(--sf-text-muted)' }}>Est. duration</div>
                       </div>
-                      <div className="items-center justify-center text-center sm:text-left">
-                        <div className="text-base sm:text-lg font-medium text-gray-900">${dashboardData.todayEarnings}</div>
-                        <div className="text-xs text-gray-400">Est. earnings</div>
+                    </div>
+                    <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl p-2.5 sm:p-3.5" style={{ background: 'var(--sf-green-50)', border: '1px solid var(--sf-border-light)' }}>
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--sf-green-500)' }}>
+                        <DollarSign className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-base sm:text-lg font-semibold" style={{ color: 'var(--sf-text-primary)' }}>${dashboardData.todayEarnings}</div>
+                        <div className="text-[10px] sm:text-xs" style={{ color: 'var(--sf-text-muted)' }}>Est. earnings</div>
                       </div>
                     </div>
                   </div>
@@ -1116,30 +1141,13 @@ const DashboardRedesigned = () => {
                  
 
                   {/* Today's Jobs Map */}
-                  <div className="border border-gray-200 flex flex-col md:flex-row overflow-hidden">
+                  <div className="flex flex-col md:flex-row overflow-hidden rounded-xl mx-4 sm:mx-6" style={{ border: '1px solid var(--sf-border-light)' }}>
                    
                   {dashboardData.todayJobs > 0 && todayJobsList.length > 0 ? (
-                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-gray-50 overflow-y-auto">
+                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-[var(--sf-bg-page)] overflow-y-auto">
                       <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
                         {todayJobsList.map((job) => {
-                          const formatTime = (dateString) => {
-                            if (!dateString) return 'Time not set'
-                            let timePart = ''
-                            if (dateString.includes('T')) {
-                              timePart = dateString.split('T')[1]
-                            } else {
-                              timePart = dateString.split(' ')[1]
-                            }
-                            if (!timePart) return 'Time not set'
-                            const [hours, minutes] = timePart.split(':')
-                            const hour = parseInt(hours, 10)
-                            const minute = parseInt(minutes, 10)
-                            if (isNaN(hour) || isNaN(minute)) return 'Time not set'
-                            const ampm = hour >= 12 ? 'PM' : 'AM'
-                            const displayHour = hour % 12 || 12
-                            const displayMinute = minute.toString().padStart(2, '0')
-                            return `${displayHour}:${displayMinute} ${ampm}`
-                          }
+                          const formatTime = (dateString) => formatTimeShared(dateString) || 'Time not set'
                           
                           const formatDate = (dateString) => {
                             if (!dateString) return ''
@@ -1158,30 +1166,31 @@ const DashboardRedesigned = () => {
                             <div
                               key={job.id}
                               onClick={() => navigate(`/job/${job.id}`)}
-                              className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-3 cursor-pointer hover:shadow-md transition-shadow"
+                              className="bg-white rounded-lg border border-[var(--sf-border-light)] p-2.5 sm:p-3 cursor-pointer hover:shadow-md transition-shadow"
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
-                                    <span className="text-xs font-medium text-gray-500">Job #{job.id}</span>
+                                    <span className="text-xs font-medium text-[var(--sf-text-muted)]">Job #{job.id}</span>
                                     <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded ${
+                                      job.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
                                       job.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                      job.status === 'in_progress' || job.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                      job.status === 'in_progress' || job.status === 'in-progress' ? 'bg-blue-100 text-[var(--sf-blue-500)]' :
                                       job.status === 'confirmed' ? 'bg-purple-100 text-purple-700' :
-                                      'bg-gray-100 text-gray-700'
+                                      'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
                                     }`}>
                                       {job.status?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Pending'}
                                     </span>
                                   </div>
-                                  <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
+                                  <h4 className="text-xs sm:text-sm font-semibold text-[var(--sf-text-primary)] truncate">
                                     {decodeHtmlEntities(job.service_name || 'Service')}
                                   </h4>
-                                  <p className="text-xs text-gray-600 truncate">
+                                  <p className="text-xs text-[var(--sf-text-secondary)] truncate">
                                     {job.customer_first_name && job.customer_last_name
                                       ? `${job.customer_first_name} ${job.customer_last_name}`
                                       : job.customer_email || 'Customer'}
                                   </p>
-                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 text-xs text-gray-500">
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 text-xs text-[var(--sf-text-muted)]">
                                     <span>{formatTime(job.scheduled_date)}</span>
                                     {(job.service_address || job.service_address_street || job.customer_address || job.address) && (
                                       <span className="truncate max-w-full sm:max-w-[150px]">
@@ -1197,47 +1206,48 @@ const DashboardRedesigned = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-gray-50 flex flex-col items-center justify-center">
-                      <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3 items-center justify-center">
-                        <Calendar className="w-6 h-6 text-gray-400" />
+                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-[var(--sf-bg-page)] flex flex-col items-center justify-center">
+                      <div className="flex items-center justify-center w-12 h-12 bg-[var(--sf-bg-page)] rounded-lg mb-3 items-center justify-center">
+                        <Calendar className="w-6 h-6 text-[var(--sf-text-muted)]" />
                       </div>
-                      <h4 className="text-sm font-semibold text-gray-900 mb-1">No scheduled jobs</h4>
-                      <p className="text-xs text-gray-600">Looks like you don't have anything to do today.</p>
+                      <h4 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-1">No scheduled jobs</h4>
+                      <p className="text-xs text-[var(--sf-text-secondary)]">Looks like you don't have anything to do today.</p>
                     </div>
                   )}
-                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-gray-50">
-                    <div className="flex absolute mt-2 md:mt-7 right-2 md:right-4 bg-white rounded-md shadow-sm border border-gray-200 z-10">
+                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-[var(--sf-bg-page)]">
+                    <div className="flex absolute mt-2 md:mt-7 right-2 md:right-4 bg-white rounded-md shadow-sm border border-[var(--sf-border-light)] z-10">
                         <button
                           onClick={() => setMapView('map')}
                           className={`px-3 py-1.5 text-md font-medium transition-colors ${
                             mapView === 'map'
-                              ? 'bg-gray-100 text-gray-900'
-                              : 'text-gray-600 hover:text-gray-900'
+                              ? 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
+                              : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
                           }`}
                         >
                           Map
                         </button>
                         <button
                           onClick={() => setMapView('satellite')}
-                          className={`px-3 py-1.5 text-md font-medium transition-colors border-l border-gray-200 ${
+                          className={`px-3 py-1.5 text-md font-medium transition-colors border-l border-[var(--sf-border-light)] ${
                             mapView === 'satellite'
-                              ? 'bg-gray-100 text-gray-900'
-                              : 'text-gray-600 hover:text-gray-900'
+                              ? 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
+                              : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
                           }`}
                         >
                           Satellite
                         </button>
                       </div>
                       {dashboardData.todayJobs > 0 ? (
-                        <JobsMap 
-                          jobs={todayJobsList} 
-                          mapType={mapView === 'map' ? 'roadmap' : 'satellite'} 
+                        <JobsMap
+                          jobs={todayJobsList}
+                          teamMembers={teamMembersList}
+                          mapType={mapView === 'map' ? 'roadmap' : 'satellite'}
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                        <div className="w-full h-full flex items-center justify-center bg-[var(--sf-bg-page)]">
                           <div className="text-center">
                             <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                            <p className="text-gray-500 text-sm">No jobs to display on map</p>
+                            <p className="text-[var(--sf-text-muted)] text-sm">No jobs to display on map</p>
                           </div>
                         </div>
                       )}
@@ -1248,8 +1258,8 @@ const DashboardRedesigned = () => {
                 {/* Overview Section */}
                 <div className="">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
-                    <h2 className="text-sm sm:text-md font-semibold text-gray-600">
-                      <span className="text-gray-900 font-bold text-xl sm:text-2xl">Overview </span>
+                    <h2 className="text-sm sm:text-md font-semibold text-[var(--sf-text-secondary)]">
+                      <span className="text-[var(--sf-text-primary)] font-bold text-xl sm:text-2xl">Overview </span>
                       <span className="hidden sm:inline">
                         {(() => {
                           const daysAgo = parseInt(dateRange) - 1;
@@ -1265,7 +1275,7 @@ const DashboardRedesigned = () => {
                       <button
                         type="button"
                         onClick={() => setShowDateRangeDropdown(!showDateRangeDropdown)}
-                        className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors duration-200 min-w-[120px] sm:min-w-[140px]"
+                        className="flex items-center justify-between bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-md px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] transition-colors duration-200 min-w-[120px] sm:min-w-[140px]"
                       >
                         <span>
                           {dateRange === '7' && 'Last 7 days'}
@@ -1273,12 +1283,12 @@ const DashboardRedesigned = () => {
                           {dateRange === '90' && 'Last 3 months'}
                           {dateRange === '365' && 'Last 12 months'}
                         </span>
-                        <ChevronDown className={`w-4 h-4 text-gray-500 ml-2 transition-transform duration-200 ${showDateRangeDropdown ? 'transform rotate-180' : ''}`} />
+                        <ChevronDown className={`w-4 h-4 text-[var(--sf-text-muted)] ml-2 transition-transform duration-200 ${showDateRangeDropdown ? 'transform rotate-180' : ''}`} />
                       </button>
 
                       {/* Dropdown Menu */}
                       {showDateRangeDropdown && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 z-50">
                           <button
                             type="button"
                             onClick={() => {
@@ -1287,12 +1297,12 @@ const DashboardRedesigned = () => {
                             }}
                             className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
                               dateRange === '7' 
-                                ? 'text-blue-600 font-medium' 
-                                : 'text-gray-700 hover:bg-gray-50'
+                                ? 'text-[var(--sf-blue-500)] font-medium' 
+                                : 'text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]'
                             }`}
                           >
                             <span>Last 7 days</span>
-                            {dateRange === '7' && <Check className="w-4 h-4 text-blue-600" />}
+                            {dateRange === '7' && <Check className="w-4 h-4 text-[var(--sf-blue-500)]" />}
                           </button>
                           
                           <button
@@ -1303,12 +1313,12 @@ const DashboardRedesigned = () => {
                             }}
                             className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
                               dateRange === '30' 
-                                ? 'text-blue-600 font-medium' 
-                                : 'text-gray-700 hover:bg-gray-50'
+                                ? 'text-[var(--sf-blue-500)] font-medium' 
+                                : 'text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]'
                             }`}
                           >
                             <span>Last 4 weeks</span>
-                            {dateRange === '30' && <Check className="w-4 h-4 text-blue-600" />}
+                            {dateRange === '30' && <Check className="w-4 h-4 text-[var(--sf-blue-500)]" />}
                           </button>
                           
                           <button
@@ -1319,12 +1329,12 @@ const DashboardRedesigned = () => {
                             }}
                             className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
                               dateRange === '90' 
-                                ? 'text-blue-600 font-medium' 
-                                : 'text-gray-700 hover:bg-gray-50'
+                                ? 'text-[var(--sf-blue-500)] font-medium' 
+                                : 'text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]'
                             }`}
                           >
                             <span>Last 3 months</span>
-                            {dateRange === '90' && <Check className="w-4 h-4 text-blue-600" />}
+                            {dateRange === '90' && <Check className="w-4 h-4 text-[var(--sf-blue-500)]" />}
                           </button>
                           
                           <button
@@ -1335,161 +1345,205 @@ const DashboardRedesigned = () => {
                             }}
                             className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
                               dateRange === '365' 
-                                ? 'text-blue-600 font-medium' 
-                                : 'text-gray-700 hover:bg-gray-50'
+                                ? 'text-[var(--sf-blue-500)] font-medium' 
+                                : 'text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]'
                             }`}
                           >
                             <span>Last 12 months</span>
-                            {dateRange === '365' && <Check className="w-4 h-4 text-blue-600" />}
+                            {dateRange === '365' && <Check className="w-4 h-4 text-[var(--sf-blue-500)]" />}
                           </button>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {/* New jobs */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex items-center justify-between mb-2 sm:mb-3">
-                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">New jobs</h3>
-                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                    <div className="sf-card p-4 sm:p-5 hover:shadow-md transition-shadow duration-200" style={{ border: '1px solid var(--sf-border-light)' }}>
+                      <div className="flex items-start gap-3 mb-3 sm:mb-4">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--sf-blue-50)' }}>
+                          <Plus className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--sf-blue-500)' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>New jobs</h3>
+                            <Info className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" style={{ color: 'var(--sf-text-muted)' }} />
+                          </div>
+                          <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>{dashboardData.newJobs}</div>
+                        </div>
                       </div>
-                      <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">{dashboardData.newJobs}</div>
                       <MiniChart data={chartData.newJobs} color="blue" />
                     </div>
 
                     {/* Jobs */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex items-center justify-between mb-2 sm:mb-3">
-                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Jobs</h3>
-                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-                      </div>
-                      {dashboardData.totalJobs > 0 ? (
-                        <>
-                          <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">{dashboardData.totalJobs}</div>
-                          <MiniChart data={chartData.totalJobs} color="blue" />
-                        </>
-                      ) : (
-                        <div className="py-6 sm:py-8">
-                          <p className="text-xs sm:text-sm font-medium text-gray-900">No data to display</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Try changing the date range filter at the top of the page
-                          </p>
+                    <div className="sf-card p-4 sm:p-5 hover:shadow-md transition-shadow duration-200" style={{ border: '1px solid var(--sf-border-light)' }}>
+                      <div className="flex items-start gap-3 mb-3 sm:mb-4">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--sf-blue-50)' }}>
+                          <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--sf-blue-500)' }} />
                         </div>
-                      )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>Jobs</h3>
+                            <Info className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" style={{ color: 'var(--sf-text-muted)' }} />
+                          </div>
+                          {dashboardData.totalJobs > 0 ? (
+                            <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>{dashboardData.totalJobs}</div>
+                          ) : (
+                            <div className="mt-1">
+                              <p className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-primary)' }}>No data to display</p>
+                              <p className="text-xs mt-0.5" style={{ color: 'var(--sf-text-muted)' }}>Try changing the date range</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {dashboardData.totalJobs > 0 && <MiniChart data={chartData.totalJobs} color="blue" />}
                     </div>
 
                     {/* New recurring bookings */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex items-center justify-between mb-2 sm:mb-3">
-                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">New recurring bookings</h3>
-                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                    <div className="sf-card p-4 sm:p-5 hover:shadow-md transition-shadow duration-200" style={{ border: '1px solid var(--sf-border-light)' }}>
+                      <div className="flex items-start gap-3 mb-3 sm:mb-4">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#F3E8FF' }}>
+                          <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>New recurring bookings</h3>
+                            <Info className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" style={{ color: 'var(--sf-text-muted)' }} />
+                          </div>
+                          <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>{dashboardData.newRecurringBookings}</div>
+                        </div>
                       </div>
-                      <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">{dashboardData.newRecurringBookings}</div>
                       <MiniChart data={chartData.newRecurringBookings} color="purple" />
                     </div>
 
                     {/* Recurring bookings */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex items-center justify-between mb-2 sm:mb-3">
-                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Recurring bookings</h3>
-                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-                      </div>
-                      {dashboardData.recurringBookings > 0 ? (
-                        <>
-                          <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">{dashboardData.recurringBookings}</div>
-                          <MiniChart data={chartData.recurringBookings} color="purple" />
-                        </>
-                      ) : (
-                        <div className="py-6 sm:py-8">
-                          <p className="text-xs sm:text-sm font-medium text-gray-900">No data to display</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Try changing the date range filter at the top of the page
-                          </p>
+                    <div className="sf-card p-4 sm:p-5 hover:shadow-md transition-shadow duration-200" style={{ border: '1px solid var(--sf-border-light)' }}>
+                      <div className="flex items-start gap-3 mb-3 sm:mb-4">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#F3E8FF' }}>
+                          <Book className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
                         </div>
-                      )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>Recurring bookings</h3>
+                            <Info className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" style={{ color: 'var(--sf-text-muted)' }} />
+                          </div>
+                          {dashboardData.recurringBookings > 0 ? (
+                            <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>{dashboardData.recurringBookings}</div>
+                          ) : (
+                            <div className="mt-1">
+                              <p className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-primary)' }}>No data to display</p>
+                              <p className="text-xs mt-0.5" style={{ color: 'var(--sf-text-muted)' }}>Try changing the date range</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {dashboardData.recurringBookings > 0 && <MiniChart data={chartData.recurringBookings} color="purple" />}
                     </div>
 
                     {/* Job value */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex items-center justify-between mb-2 sm:mb-3">
-                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Job value</h3>
-                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                    <div className="sf-card p-4 sm:p-5 hover:shadow-md transition-shadow duration-200" style={{ border: '1px solid var(--sf-border-light)' }}>
+                      <div className="flex items-start gap-3 mb-3 sm:mb-4">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--sf-green-50)' }}>
+                          <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: 'var(--sf-green-500)' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>Job value</h3>
+                            <Info className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" style={{ color: 'var(--sf-text-muted)' }} />
+                          </div>
+                          <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>${Number(dashboardData.jobValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        </div>
                       </div>
-                      <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">${dashboardData.jobValue}</div>
                       <MiniChart data={chartData.jobValue} color="green" />
                     </div>
 
                     {/* Payments collected */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex items-center justify-between mb-2 sm:mb-3">
-                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Payments collected</h3>
-                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                    <div className="sf-card p-4 sm:p-5 hover:shadow-md transition-shadow duration-200" style={{ border: '1px solid var(--sf-border-light)' }}>
+                      <div className="flex items-start gap-3 mb-3 sm:mb-4">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#EEF2FF' }}>
+                          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>Payments collected</h3>
+                            <Info className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" style={{ color: 'var(--sf-text-muted)' }} />
+                          </div>
+                          <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>${Number(dashboardData.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        </div>
                       </div>
-                      <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">${dashboardData.totalRevenue}</div>
                       <MiniChart data={chartData.totalRevenue} color="indigo" />
                     </div>
                   </div>
 
                   {/* Rating Section */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 mt-5 sm:mt-6 pt-5 sm:pt-6" style={{ borderTop: '1px solid var(--sf-border-light)' }}>
                     {/* Left Card - Average feedback rating */}
-                    <div className="bg-white border border-gray-200 rounded-lg">
+                    <div className="sf-card overflow-hidden hover:shadow-md transition-shadow duration-200">
                       {/* Top Section - Average feedback rating */}
-                      <div className="p-3 sm:p-4 border-b border-gray-200">
+                      <div className="p-4 sm:p-5" style={{ borderBottom: '1px solid var(--sf-border-light)' }}>
                         <div className="flex items-center justify-between mb-3 sm:mb-4">
-                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Average feedback rating</h3>
-                          <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
-                            <Info className="h-3 w-3 text-gray-500" />
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--sf-orange-50)' }}>
+                              <Star className="w-4 h-4" style={{ color: 'var(--sf-orange-500)' }} />
+                            </div>
+                            <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>Average feedback rating</h3>
                           </div>
-                      </div>
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <span className="text-3xl sm:text-4xl font-semibold text-gray-900">0.0</span>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'var(--sf-bg-hover)' }}>
+                            <Info className="h-3 w-3" style={{ color: 'var(--sf-text-muted)' }} />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                          <span className="text-3xl sm:text-4xl font-bold" style={{ color: 'var(--sf-text-primary)' }}>0.0</span>
                           <div className="flex space-x-0.5">
-                          {[1, 2, 3, 4, 5].map((star) => (
+                            {[1, 2, 3, 4, 5].map((star) => (
                               <Star key={star} className="w-4 h-4 sm:w-5 sm:h-5 text-gray-300 fill-none stroke-2" />
-                          ))}
+                            ))}
                           </div>
                         </div>
                       </div>
 
                       {/* Bottom Section - Total ratings */}
-                      <div className="p-3 sm:p-4">
+                      <div className="p-4 sm:p-5">
                         <div className="flex items-center justify-between mb-3 sm:mb-4">
-                          <span className="text-xs sm:text-sm font-medium text-gray-900">Total ratings</span>
-                          <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
-                            <Info className="h-3 w-3 text-gray-500" />
+                          <span className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>Total ratings</span>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'var(--sf-bg-hover)' }}>
+                            <Info className="h-3 w-3" style={{ color: 'var(--sf-text-muted)' }} />
+                          </div>
                         </div>
-                      </div>
-                        <span className="text-3xl sm:text-4xl font-semibold text-gray-900">0</span>
+                        <span className="text-3xl sm:text-4xl font-bold" style={{ color: 'var(--sf-text-primary)' }}>0</span>
                       </div>
                     </div>
 
                     {/* Right Card - Rating breakdown */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex items-center justify-between mb-4 sm:mb-6">
-                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Rating breakdown</h3>
-                        <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
-                          <Info className="h-3 w-3 text-gray-500" />
+                    <div className="sf-card p-4 sm:p-5 hover:shadow-md transition-shadow duration-200">
+                      <div className="flex items-center justify-between mb-5 sm:mb-6">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--sf-blue-50)' }}>
+                            <BarChart2 className="w-4 h-4" style={{ color: 'var(--sf-blue-500)' }} />
+                          </div>
+                          <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>Rating breakdown</h3>
+                        </div>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'var(--sf-bg-hover)' }}>
+                          <Info className="h-3 w-3" style={{ color: 'var(--sf-text-muted)' }} />
+                        </div>
                       </div>
-                            </div>
                       <div className="space-y-3 sm:space-y-4">
                         {ratingBreakdown.map((rating) => {
                           const maxCount = Math.max(...ratingBreakdown.map(r => r.count), 1)
                           const percentage = maxCount > 0 ? (rating.count / maxCount) * 100 : 0
                           return (
                             <div key={rating.stars} className="flex items-center gap-2 sm:gap-3">
-                              <span className="text-xs sm:text-sm font-medium text-gray-900 w-12 sm:w-16 flex-shrink-0">{rating.stars} star</span>
-                            <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden min-w-0">
+                              <span className="text-xs sm:text-sm font-medium w-12 sm:w-16 flex-shrink-0" style={{ color: 'var(--sf-text-primary)' }}>{rating.stars} star</span>
+                              <div className="flex-1 rounded-full h-2 overflow-hidden min-w-0" style={{ background: 'var(--sf-bg-hover)' }}>
                                 {rating.count > 0 && (
-                                  <div 
-                                    className="bg-gray-400 h-2 rounded-full" 
-                                    style={{ width: `${percentage}%` }}
+                                  <div
+                                    className="h-2 rounded-full transition-all duration-300"
+                                    style={{ width: `${percentage}%`, background: 'var(--sf-orange-500)' }}
                                   ></div>
                                 )}
+                              </div>
+                              <span className="text-xs sm:text-sm font-medium w-6 sm:w-8 text-right flex-shrink-0" style={{ color: 'var(--sf-text-primary)' }}>{rating.count}</span>
                             </div>
-                            <span className="text-xs sm:text-sm font-medium text-gray-900 w-6 sm:w-8 text-right flex-shrink-0">{rating.count}</span>
-                          </div>
                           )
                         })}
                       </div>
@@ -1497,12 +1551,12 @@ const DashboardRedesigned = () => {
                   </div>
 
                   {/* Service territory performance */}
-                  <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
+                  <div className="mt-5 sm:mt-6 pt-5 sm:pt-6" style={{ borderTop: '1px solid var(--sf-border-light)' }}>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Service territory performance</h3>
-                        <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
-                          <Info className="h-3 w-3 text-gray-500" />
+                        <h3 className="text-xs sm:text-sm font-medium text-[var(--sf-text-primary)]">Service territory performance</h3>
+                        <div className="w-4 h-4 rounded-full bg-[var(--sf-bg-page)] flex items-center justify-center">
+                          <Info className="h-3 w-3 text-[var(--sf-text-muted)]" />
                       </div>
                       </div>
                       <div className="flex items-center gap-2 text-xs sm:text-sm">
@@ -1511,8 +1565,8 @@ const DashboardRedesigned = () => {
                           onClick={() => setTerritoryViewMode('jobs')}
                           className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
                             territoryViewMode === 'jobs'
-                              ? 'bg-blue-600 text-white'
-                              : 'text-gray-500 hover:text-gray-700'
+                              ? 'bg-[var(--sf-blue-500)] text-white'
+                              : 'text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]'
                           }`}
                         >
                           Number of jobs
@@ -1522,8 +1576,8 @@ const DashboardRedesigned = () => {
                           onClick={() => setTerritoryViewMode('value')}
                           className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
                             territoryViewMode === 'value'
-                              ? 'bg-blue-600 text-white'
-                              : 'text-gray-500 hover:text-gray-700'
+                              ? 'bg-[var(--sf-blue-500)] text-white'
+                              : 'text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]'
                           }`}
                         >
                           Job value
@@ -1532,7 +1586,7 @@ const DashboardRedesigned = () => {
                     </div>
                     
                     {territoryPerformance.length > 0 ? (
-                      <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="sf-card p-4 sm:p-5">
                         <div className="space-y-3 sm:space-y-4">
                           {territoryPerformance.map((territory) => {
                             const percentage = territoryViewMode === 'jobs' 
@@ -1545,22 +1599,22 @@ const DashboardRedesigned = () => {
                             return (
                               <div key={territory.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                                 <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                                  <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                  <span className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                                  <MapPin className="w-4 h-4 text-[var(--sf-text-muted)] flex-shrink-0" />
+                                  <span className="text-xs sm:text-sm font-medium text-[var(--sf-text-primary)] truncate">
                                     {territory.name}
                                   </span>
-                                  <span className="text-xs sm:text-sm text-gray-600 flex-shrink-0">
+                                  <span className="text-xs sm:text-sm text-[var(--sf-text-secondary)] flex-shrink-0">
                                     {displayValue}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                                   <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden min-w-0">
                                     <div 
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                      className="bg-[var(--sf-blue-500)] h-2 rounded-full transition-all duration-300" 
                                       style={{ width: `${percentage}%` }}
                                     ></div>
                                   </div>
-                                  <span className="text-xs sm:text-sm font-medium text-gray-900 flex-shrink-0 min-w-[50px] sm:min-w-[60px] text-right">
+                                  <span className="text-xs sm:text-sm font-medium text-[var(--sf-text-primary)] flex-shrink-0 min-w-[50px] sm:min-w-[60px] text-right">
                                     {percentage.toFixed(1)}%
                                   </span>
                                 </div>
@@ -1570,15 +1624,15 @@ const DashboardRedesigned = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-white border border-gray-200 rounded-lg p-8 sm:p-12 text-center">
-                      <p className="text-xs sm:text-sm font-medium text-gray-900">No data to display</p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <div className="sf-card p-8 sm:p-12 text-center">
+                      <p className="text-xs sm:text-sm font-medium text-[var(--sf-text-primary)]">No data to display</p>
+                      <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                           {territories.length === 0 ? (
                             <>
                               Enable <button 
                                 type="button"
                                 onClick={() => navigate('/territories')}
-                                className="text-blue-600 underline hover:text-blue-700"
+                                className="text-[var(--sf-blue-500)] underline hover:text-[var(--sf-blue-500)]"
                               >
                                 service territories
                               </button> to see a breakdown of job data by location

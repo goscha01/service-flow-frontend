@@ -33,7 +33,7 @@ export const ResponsiveCard = ({
 }) => {
   return (
     <div className={`
-      bg-white rounded-lg border border-gray-200 shadow-sm
+      bg-white rounded-lg border border-[var(--sf-border-light)] shadow-sm
       ${hover ? 'hover:shadow-md' : ''}
       transition-shadow duration-200
       ${padding}
@@ -71,10 +71,10 @@ export const ResponsiveSection = ({
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
               {title && (
-                <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+                <h2 className="text-2xl font-bold text-[var(--sf-text-primary)]">{title}</h2>
               )}
               {subtitle && (
-                <p className="mt-1 text-sm text-gray-600">{subtitle}</p>
+                <p className="mt-1 text-sm text-[var(--sf-text-secondary)]">{subtitle}</p>
               )}
             </div>
             {actions && (

@@ -37,7 +37,7 @@ const DropdownMultiselectTest = () => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 text-left border border-gray-300 rounded-lg bg-white hover:bg-gray-50"
+        className="w-full px-3 py-2 text-left border border-[var(--sf-border-light)] rounded-lg bg-white hover:bg-[var(--sf-bg-page)]"
       >
         {selectedValues.length > 0 
           ? `${selectedValues.length} selected` 
@@ -46,7 +46,7 @@ const DropdownMultiselectTest = () => {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg">
           {options.map((option) => {
             const isSelected = selectedValues.includes(option.value);
             return (
@@ -54,8 +54,8 @@ const DropdownMultiselectTest = () => {
                 key={option.value}
                 type="button"
                 onClick={() => handleToggleOption(option.value)}
-                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 ${
-                  isSelected ? 'bg-blue-600 text-white' : 'text-gray-900'
+                className={`w-full px-3 py-2 text-left text-sm hover:bg-[var(--sf-bg-hover)] ${
+                  isSelected ? 'bg-[var(--sf-blue-500)] text-white' : 'text-[var(--sf-text-primary)]'
                 }`}
               >
                 {option.label}

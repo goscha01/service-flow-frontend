@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, UserPlus, Edit, Calendar, DollarSign, Tag, MapPin, Search, CheckCircle, AlertCircle } from "lucide-react"
+import { X, UserPlus, Edit, Calendar, DollarSign, Tag, MapPin, Search, CheckCircle, AlertCircle, Plus, Trash2, Clock } from "lucide-react"
 import { teamAPI, territoriesAPI } from "../services/api"
 import AddressValidation from "./address-validation"
 import AddressAutocomplete from "./address-autocomplete"
@@ -24,6 +24,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
     territories: [],
     hourlyRate: null,
     commissionPercentage: null,
+    salaryStartDate: new Date().toISOString().split('T')[0],
     availability: {
       monday: { start: "09:00", end: "17:00", available: true },
       tuesday: { start: "09:00", end: "17:00", available: true },
@@ -53,6 +54,20 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
   const [territories, setTerritories] = useState([])
   const [loadingTerritories, setLoadingTerritories] = useState(false)
   const [fullNameInput, setFullNameInput] = useState("") // Local state for full name input to preserve spaces
+  const [payRates, setPayRates] = useState([])
+  const [showAddRate, setShowAddRate] = useState(false)
+  const [newRate, setNewRate] = useState({ hourlyRate: '', commissionPercentage: '', effectiveFrom: '', note: '' })
+
+  // Load pay rate history when editing
+  useEffect(() => {
+    if (isOpen && member && isEditing && member.id) {
+      teamAPI.getPayRates(member.id).then(data => {
+        setPayRates(data.payRates || [])
+      }).catch(err => console.error('Error loading pay rates:', err))
+    } else if (isOpen && !isEditing) {
+      setPayRates([])
+    }
+  }, [isOpen, isEditing, member?.id])
 
   useEffect(() => {
     if (isOpen && member && isEditing) {
@@ -115,6 +130,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         territories: parsedTerritories,
         hourlyRate: member.hourly_rate || null,
         commissionPercentage: member.commission_percentage || null,
+        salaryStartDate: member.salary_start_date ? member.salary_start_date.split('T')[0] : null,
         availability: parsedAvailability,
         permissions: (() => {
           // When editing, use ONLY the saved permissions - no defaults
@@ -159,6 +175,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         territories: [],
         hourlyRate: null,
         commissionPercentage: null,
+        salaryStartDate: new Date().toISOString().split('T')[0],
         availability: {
           monday: { start: "09:00", end: "17:00", available: true },
           tuesday: { start: "09:00", end: "17:00", available: true },
@@ -414,6 +431,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         territories: formData.territories,
         hourlyRate: formData.hourlyRate || null,
         commissionPercentage: formData.commissionPercentage || null,
+        salaryStartDate: formData.salaryStartDate || null,
         permissions: typeof formData.permissions === 'string' 
           ? formData.permissions 
           : JSON.stringify(formData.permissions || {}),
@@ -457,14 +475,14 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
       <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-xl w-full max-w-2xl sm:max-w-md relative my-4 sm:my-6 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden flex flex-col">
         {/* Header - Fixed */}
-        <div className="flex items-center justify-center p-4 sm:p-6 border-b border-gray-200">
+        <div className="flex items-center justify-center p-4 sm:p-6 border-b border-[var(--sf-border-light)]">
           <div className="flex items-center">
             {/* {isEditing ? (
-              <Edit className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 mr-2" />
+              <Edit className="h-5 w-5 sm:h-6 sm:w-6 text-[var(--sf-blue-500)] mr-2" />
             ) : (
-              <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 mr-2" />
+              <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-[var(--sf-blue-500)] mr-2" />
             )} */}
-            <h3 className="text-md sm:text-md font-semibold text-gray-900">
+            <h3 className="text-md sm:text-md font-semibold text-[var(--sf-text-primary)]">
               {isEditing ? "Edit Team Member" : "Add Team Member"}
             </h3>
           </div>
@@ -472,7 +490,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         </div>
         <button
             onClick={onClose}
-            className="text-black cursor-pointer bg-gray-100 rounded-sm hover:bg-gray-200 p-1 absolute top-4 right-4"
+            className="text-black cursor-pointer bg-[var(--sf-bg-page)] rounded-sm hover:bg-gray-200 p-1 absolute top-4 right-4"
           >
             <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
@@ -482,7 +500,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
           <form id="team-member-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             {/* Basic Information */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Full Name
               </label>
               <input
@@ -505,46 +523,46 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                   handleInputChange('firstName', names[0] || '')
                   handleInputChange('lastName', names.slice(1).join(' ') || '')
                 }}
-                className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full text-xs px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Full Name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Email *
               </label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
-                className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full text-xs px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Email Address"
                 required
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-[var(--sf-text-muted)]">
                 An email will be sent with instructions to log into their Zenbooker account.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Mobile Phone Number
               </label>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={handlePhoneChange}
-                className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full text-xs px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Optional"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-[var(--sf-text-muted)]">
               Service providers can be notified via SMS when new jobs are assigned to them</p>
             </div>
 
             {/* Location Section */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Start Location
               </label>
               <AddressAutocomplete
@@ -564,17 +582,17 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                 showValidationResults={true}
                 className="w-full text-xs"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-[var(--sf-text-muted)]">
                 The location this team member starts work from.
               </p>
             </div>
 
             {/* Service Provider Toggle */}
-            <div className="border border-gray-200 p-2 rounded-lg">
+            <div className="border border-[var(--sf-border-light)] p-2 rounded-lg">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900">Service Provider</h3>
-                  <p className="text-xs text-gray-500">Can this team member be assigned to jobs?</p>
+                  <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Service Provider</h3>
+                  <p className="text-xs text-[var(--sf-text-muted)]">Can this team member be assigned to jobs?</p>
                 </div>
                 <div className="flex items-center">
                   <button
@@ -590,7 +608,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                       }`}
                     />
                   </button>
-                  <span className="ml-2 text-sm font-medium text-gray-900">
+                  <span className="ml-2 text-sm font-medium text-[var(--sf-text-primary)]">
                     {formData.isServiceProvider ? 'YES' : 'NO'}
                   </span>
                 </div>
@@ -598,42 +616,42 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
             </div>
 
             {/* Payment Settings Section */}
-            <div className="border-t border-gray-200 pt-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                <DollarSign className="w-4 h-4 mr-2 text-gray-600" />
+            <div className="border-t border-[var(--sf-border-light)] pt-4">
+              <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-3 flex items-center">
+                <DollarSign className="w-4 h-4 mr-2 text-[var(--sf-text-secondary)]" />
                 Payment Settings
               </h3>
-              <p className="text-xs text-gray-500 mb-3">
+              <p className="text-xs text-[var(--sf-text-muted)] mb-3">
                 Set how this team member gets paid for payroll calculations.
               </p>
               
               <div className="space-y-3">
                 {/* Hourly Rate */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Hourly Rate
                   </label>
                   <div className="flex items-center space-x-2">
-                    <span className="text-gray-500">$</span>
+                    <span className="text-[var(--sf-text-muted)]">$</span>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       value={formData.hourlyRate !== null && formData.hourlyRate !== undefined ? formData.hourlyRate : ''}
                       onChange={(e) => handleInputChange('hourlyRate', e.target.value ? parseFloat(e.target.value) : null)}
-                      className="flex-1 text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      className="flex-1 text-xs px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                       placeholder="0.00"
                     />
-                    <span className="text-xs text-gray-400">/hour</span>
+                    <span className="text-xs text-[var(--sf-text-muted)]">/hour</span>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-[var(--sf-text-muted)]">
                     Salary = Hours Worked × Hourly Rate
                   </p>
                 </div>
 
                 {/* Commission Percentage */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Commission Percentage
                   </label>
                   <div className="flex items-center space-x-2">
@@ -644,20 +662,38 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                       max="100"
                       value={formData.commissionPercentage !== null && formData.commissionPercentage !== undefined ? formData.commissionPercentage : ''}
                       onChange={(e) => handleInputChange('commissionPercentage', e.target.value ? parseFloat(e.target.value) : null)}
-                      className="flex-1 text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      className="flex-1 text-xs px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                       placeholder="0.00"
                     />
-                    <span className="text-gray-500">%</span>
-                    <span className="text-xs text-gray-400">of job revenue</span>
+                    <span className="text-[var(--sf-text-muted)]">%</span>
+                    <span className="text-xs text-[var(--sf-text-muted)]">of job revenue</span>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-[var(--sf-text-muted)]">
                     Commission = Job Revenue × Commission %
+                  </p>
+                </div>
+
+                {/* Salary Start Date - shown for all roles */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                    Salary Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.salaryStartDate || ''}
+                    onChange={(e) => handleInputChange('salaryStartDate', e.target.value || null)}
+                    className="w-full text-xs px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                  <p className="mt-1 text-xs text-[var(--sf-text-muted)]">
+                    {formData.role === 'manager' || formData.role === 'scheduler'
+                      ? 'Scheduled salary will be calculated from this date'
+                      : 'Date from which salary calculations begin'}
                   </p>
                 </div>
 
                 {/* Payment Method Info */}
                 {(formData.hourlyRate || formData.commissionPercentage) && (
-                  <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="p-2 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg">
                     <p className="text-xs text-blue-800">
                       <strong>Payment Method:</strong> {
                         formData.hourlyRate && formData.commissionPercentage
@@ -678,14 +714,170 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                   </div>
                 )}
               </div>
+
+              {/* Pay Rate History - only show when editing */}
+              {isEditing && member?.id && (
+                <div className="mt-4 border-t border-[var(--sf-border-light)] pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-[var(--sf-text-primary)] flex items-center">
+                      <Clock className="w-3.5 h-3.5 mr-1.5 text-[var(--sf-text-muted)]" />
+                      Pay Rate History
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddRate(!showAddRate)}
+                      className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] flex items-center"
+                    >
+                      <Plus className="w-3 h-3 mr-0.5" />
+                      Add Rate Change
+                    </button>
+                  </div>
+
+                  {showAddRate && (
+                    <div className="p-3 bg-[var(--sf-bg-page)] rounded-lg mb-2 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-[var(--sf-text-secondary)] mb-0.5">Hourly Rate</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={newRate.hourlyRate}
+                            onChange={(e) => setNewRate(prev => ({ ...prev, hourlyRate: e.target.value }))}
+                            className="w-full text-xs px-2 py-1.5 border border-[var(--sf-border-light)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
+                            placeholder="$0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-[var(--sf-text-secondary)] mb-0.5">Commission %</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={newRate.commissionPercentage}
+                            onChange={(e) => setNewRate(prev => ({ ...prev, commissionPercentage: e.target.value }))}
+                            className="w-full text-xs px-2 py-1.5 border border-[var(--sf-border-light)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
+                            placeholder="0%"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-[var(--sf-text-secondary)] mb-0.5">Effective From</label>
+                        <input
+                          type="date"
+                          value={newRate.effectiveFrom}
+                          onChange={(e) => setNewRate(prev => ({ ...prev, effectiveFrom: e.target.value }))}
+                          className="w-full text-xs px-2 py-1.5 border border-[var(--sf-border-light)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-[var(--sf-text-secondary)] mb-0.5">Note (optional)</label>
+                        <input
+                          type="text"
+                          value={newRate.note}
+                          onChange={(e) => setNewRate(prev => ({ ...prev, note: e.target.value }))}
+                          className="w-full text-xs px-2 py-1.5 border border-[var(--sf-border-light)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
+                          placeholder="e.g. Rate increase, promotion"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => { setShowAddRate(false); setNewRate({ hourlyRate: '', commissionPercentage: '', effectiveFrom: '', note: '' }) }}
+                          className="text-xs px-3 py-1 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!newRate.effectiveFrom) return
+                            try {
+                              await teamAPI.addPayRate(member.id, {
+                                hourlyRate: newRate.hourlyRate ? parseFloat(newRate.hourlyRate) : null,
+                                commissionPercentage: newRate.commissionPercentage ? parseFloat(newRate.commissionPercentage) : null,
+                                effectiveFrom: newRate.effectiveFrom,
+                                note: newRate.note || null
+                              })
+                              const data = await teamAPI.getPayRates(member.id)
+                              setPayRates(data.payRates || [])
+                              setShowAddRate(false)
+                              setNewRate({ hourlyRate: '', commissionPercentage: '', effectiveFrom: '', note: '' })
+                              // Update current form values to match latest rate
+                              const latest = (data.payRates || [])[0]
+                              if (latest) {
+                                handleInputChange('hourlyRate', latest.hourly_rate ? parseFloat(latest.hourly_rate) : null)
+                                handleInputChange('commissionPercentage', latest.commission_percentage ? parseFloat(latest.commission_percentage) : null)
+                              }
+                            } catch (err) {
+                              console.error('Error adding pay rate:', err)
+                            }
+                          }}
+                          className="text-xs px-3 py-1 bg-[var(--sf-blue-500)] text-white rounded hover:bg-[var(--sf-blue-600)]"
+                          disabled={!newRate.effectiveFrom}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {payRates.length > 0 ? (
+                    <div className="space-y-1">
+                      {payRates.map((rate, idx) => (
+                        <div key={rate.id} className={`flex items-center justify-between p-2 rounded text-xs ${idx === 0 ? 'bg-[var(--sf-blue-50)] border border-blue-200' : 'bg-[var(--sf-bg-page)]'}`}>
+                          <div>
+                            <span className="font-medium text-[var(--sf-text-primary)]">
+                              {rate.hourly_rate ? `$${parseFloat(rate.hourly_rate).toFixed(2)}/hr` : ''}
+                              {rate.hourly_rate && rate.commission_percentage ? ' + ' : ''}
+                              {rate.commission_percentage ? `${parseFloat(rate.commission_percentage)}%` : ''}
+                              {!rate.hourly_rate && !rate.commission_percentage ? 'No pay' : ''}
+                            </span>
+                            <span className="text-[var(--sf-text-muted)] ml-2">
+                              from {new Date(rate.effective_from + 'T00:00:00').toLocaleDateString()}
+                            </span>
+                            {idx === 0 && <span className="ml-1.5 text-[var(--sf-blue-500)] font-medium">(current)</span>}
+                            {rate.note && <span className="text-[var(--sf-text-muted)] ml-1.5">— {rate.note}</span>}
+                          </div>
+                          {payRates.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await teamAPI.deletePayRate(member.id, rate.id)
+                                  const data = await teamAPI.getPayRates(member.id)
+                                  setPayRates(data.payRates || [])
+                                  const latest = (data.payRates || [])[0]
+                                  if (latest) {
+                                    handleInputChange('hourlyRate', latest.hourly_rate ? parseFloat(latest.hourly_rate) : null)
+                                    handleInputChange('commissionPercentage', latest.commission_percentage ? parseFloat(latest.commission_percentage) : null)
+                                  }
+                                } catch (err) {
+                                  console.error('Error deleting pay rate:', err)
+                                }
+                              }}
+                              className="text-[var(--sf-text-muted)] hover:text-red-500 p-0.5"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[var(--sf-text-muted)]">No rate history yet. Current rate will be used for all periods.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* User Role and Permissions */}
-            <div className="border-t border-gray-200 pt-4 sm:pt-6">
+            <div className="border-t border-[var(--sf-border-light)] pt-4 sm:pt-6">
               <h3 className="text-md font-semibold text-black mb-3">User Role and Permissions</h3>
               <div className="space-y-4 ">
                 {/* Worker Role */}
-                <label className="flex divide-y items-start flex-col border border-gray-200 rounded-lg cursor-pointer">
+                <label className="flex divide-y items-start flex-col border border-[var(--sf-border-light)] rounded-lg cursor-pointer">
                 <div className="flex p-3 space-x-2">  
                   <input
                     type="radio"
@@ -693,11 +885,11 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                     value="worker"
                     checked={formData.role === 'worker'}
                     onChange={(e) => handleInputChange('role', e.target.value)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 mt-0.5"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] mt-0.5"
                   />
                   <div className="flex flex-col">
-                   <span className="text-sm font-medium text-gray-900">Worker</span>
-                    <p className="text-xs text-gray-500 mt-1">
+                   <span className="text-sm font-medium text-[var(--sf-text-primary)]">Worker</span>
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                       Can only view jobs assigned to them. You can customize what job details they can see and edit.
                     </p>
                     </div>
@@ -705,7 +897,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                        
                     {/* Worker-specific permissions - only show when Worker is selected */}
                     {formData.role === 'worker' && (
-                  <div className="p-3 flex w-full bg-gray-50">
+                  <div className="p-3 flex w-full bg-[var(--sf-bg-page)]">
                    
                  
                       <div className="mt-2 space-y-3 pl-0 w-full">
@@ -720,11 +912,11 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                 ...formData.permissions,
                                 editAvailability: e.target.checked
                               })}
-                              className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                             />
-                            <span className="ml-2 text-xs text-gray-800">Edit their own availability</span>
+                            <span className="ml-2 text-xs text-[var(--sf-text-primary)]">Edit their own availability</span>
                           </label>
-                            <p className="text-[10px] font-medium text-gray-400 mb-2">
+                            <p className="text-[10px] font-medium text-[var(--sf-text-muted)] mb-2">
                               For jobs assigned to this team member, allow them to:
                             </p>
                             <div className="flex flex-col">
@@ -736,11 +928,11 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                     ...formData.permissions,
                                     viewCustomerContact: e.target.checked
                                   })}
-                                  className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                  className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                                 />
-                                <span className="ml-2 text-xs text-gray-700">View contact info for customer (phone & email)</span>
+                                <span className="ml-2 text-xs text-[var(--sf-text-primary)]">View contact info for customer (phone & email)</span>
                               </label>
-                              <p className="ml-5 text-[10px] text-gray-500 mt-0.5">Note: Address is always visible for workers by default</p>
+                              <p className="ml-5 text-[10px] text-[var(--sf-text-muted)] mt-0.5">Note: Address is always visible for workers by default</p>
                             </div>
                             <label className="flex items-center">
                               <input
@@ -750,9 +942,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   viewCustomerNotes: e.target.checked
                                 })}
-                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">View customer notes</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">View customer notes</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -762,9 +954,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   markJobStatus: e.target.checked
                                 })}
-                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">Mark jobs as 'en-route', 'in-progress' & 'complete'</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">Mark jobs as 'en-route', 'in-progress' & 'complete'</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -774,9 +966,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   resetJobStatuses: e.target.checked
                                 })}
-                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">Reset job statuses</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">Reset job statuses</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -786,9 +978,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   editJobDetails: e.target.checked
                                 })}
-                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">Edit job details</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">Edit job details</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -798,9 +990,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   viewEditJobPrice: e.target.checked
                                 })}
-                                    className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                    className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">View & edit job price, invoice, and line items</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">View & edit job price, invoice, and line items</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -810,9 +1002,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   processPayments: e.target.checked
                                 })}
-                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">Process payments and mark jobs as paid</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">Process payments and mark jobs as paid</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -822,9 +1014,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   rescheduleJobs: e.target.checked
                                 })}
-                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">Reschedule jobs</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">Reschedule jobs</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -834,9 +1026,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   seeOtherProviders: e.target.checked
                                 })}
-                                  className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                  className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">See other providers assigned</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">See other providers assigned</span>
                             </label>
                           </div>
                       </div>
@@ -846,7 +1038,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                 </label>
 
                 {/* Scheduler Role */}
-                <label className="flex divide-y items-start flex-col border border-gray-200 rounded-lg cursor-pointer">
+                <label className="flex divide-y items-start flex-col border border-[var(--sf-border-light)] rounded-lg cursor-pointer">
                   
                 <div className="flex p-3 space-x-2">  
                   <input
@@ -855,18 +1047,18 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                     value="scheduler"
                     checked={formData.role === 'scheduler'}
                     onChange={(e) => handleInputChange('role', e.target.value)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 mt-0.5"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] mt-0.5"
                   />
                   <div className="ml-3 flex-1">
-                    <span className="text-sm font-medium text-gray-900">Scheduler</span>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">Scheduler</span>
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                       Full access to all job and client details. Schedulers can create, dispatch, reschedule, and edit jobs.
                     </p>
                     </div>
                     </div>
                     {/* Scheduler-specific permissions - only show when Scheduler is selected */}
                     {formData.role === 'scheduler' && (
-                       <div className="p-3 flex w-full bg-gray-50">
+                       <div className="p-3 flex w-full bg-[var(--sf-bg-page)]">
                  
                           <div className="space-y-3 p-3">
                             <label className="flex items-center">
@@ -877,9 +1069,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   editAvailability: e.target.checked
                                 })}
-                                className="h-3 w-3 rounded-sm text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                className="h-3 w-3 rounded-sm text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">Edit their own availability</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">Edit their own availability</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -889,9 +1081,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                   ...formData.permissions,
                                   processPayments: e.target.checked
                                 })}
-                                className="h-3 w-3 rounded-sm text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                className="h-3 w-3 rounded-sm text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
                               />
-                              <span className="ml-2 text-xs text-gray-700">Process payments and mark jobs as paid</span>
+                              <span className="ml-2 text-xs text-[var(--sf-text-primary)]">Process payments and mark jobs as paid</span>
                             </label>
                       </div>
                       </div>
@@ -899,18 +1091,18 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                 </label>
 
                 {/* Manager Role */}
-                <label className="flex items-start cursor-pointer border border-gray-200 rounded-lg p-3">
+                <label className="flex items-start cursor-pointer border border-[var(--sf-border-light)] rounded-lg p-3">
                   <input
                     type="radio"
                     name="role"
                     value="manager"
                     checked={formData.role === 'manager'}
                     onChange={(e) => handleInputChange('role', e.target.value)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 mt-0.5"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-[var(--sf-border-light)] mt-0.5"
                   />
                   <div className="ml-3 flex-1">
-                    <span className="text-sm font-medium text-gray-900">Manager</span>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">Manager</span>
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                       Managers have full access to all areas of the business, including adding or removing users.
                     </p>
                   </div>
@@ -921,11 +1113,11 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         </div>
 
         {/* Footer - Fixed */}
-        <div className="flex items-center justify-end space-x-3 p-4 sm:p-6 border-t border-gray-200">
+        <div className="flex items-center justify-end space-x-3 p-4 sm:p-6 border-t border-[var(--sf-border-light)]">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
             Cancel
           </button>
@@ -936,7 +1128,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
               handleSubmit(e)
             }}
             disabled={loading}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>

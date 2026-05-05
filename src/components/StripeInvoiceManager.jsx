@@ -142,16 +142,16 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
       )}
 
       {/* Create Invoice Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
         <div className="flex items-center space-x-3 mb-4">
           <DollarSign className="w-5 h-5 text-purple-600" />
-          <h3 className="text-lg font-medium text-gray-900">Create Invoice</h3>
+          <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Create Invoice</h3>
         </div>
         
         <form onSubmit={handleCreateInvoice} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Amount ($)
               </label>
               <input
@@ -160,14 +160,14 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
                 name="amount"
                 value={invoiceData.amount}
                 onChange={handleInvoiceInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="100.00"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Due Date
               </label>
               <input
@@ -175,14 +175,14 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
                 name="dueDate"
                 value={invoiceData.dueDate}
                 onChange={handleInvoiceInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Description
             </label>
             <textarea
@@ -190,14 +190,14 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
               value={invoiceData.description}
               onChange={handleInvoiceInputChange}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="Service description..."
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Customer Email
             </label>
             <input
@@ -205,7 +205,7 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
               name="customerEmail"
               value={invoiceData.customerEmail}
               onChange={handleInvoiceInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="customer@example.com"
               required
             />
@@ -223,16 +223,16 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
       </div>
 
       {/* Create Payment Intent Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
         <div className="flex items-center space-x-3 mb-4">
-          <CreditCard className="w-5 h-5 text-blue-600" />
-          <h3 className="text-lg font-medium text-gray-900">Process Direct Payment</h3>
+          <CreditCard className="w-5 h-5 text-[var(--sf-blue-500)]" />
+          <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Process Direct Payment</h3>
         </div>
         
         <form onSubmit={handleCreatePaymentIntent} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Amount ($)
               </label>
               <input
@@ -241,14 +241,14 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
                 name="amount"
                 value={paymentData.amount}
                 onChange={handlePaymentInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                 placeholder="100.00"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Customer Email
               </label>
               <input
@@ -256,7 +256,7 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
                 name="customerEmail"
                 value={paymentData.customerEmail}
                 onChange={handlePaymentInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                 placeholder="customer@example.com"
                 required
               />
@@ -264,7 +264,7 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Description
             </label>
             <input
@@ -272,7 +272,7 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
               name="description"
               value={paymentData.description}
               onChange={handlePaymentInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
               placeholder="Payment description..."
               required
             />
@@ -281,7 +281,7 @@ const StripeInvoiceManager = ({ customerId, onInvoiceCreated, onPaymentProcessed
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <CreditCard className="w-4 h-4" />
             <span>{loading ? 'Creating...' : 'Create Payment Intent'}</span>

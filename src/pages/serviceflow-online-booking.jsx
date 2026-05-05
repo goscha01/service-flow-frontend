@@ -343,11 +343,11 @@ const ServiceFlowOnlineBooking = () => {
           {/* Color Settings */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                 <span>Primary Brand Color</span>
-                <HelpCircle className="w-4 h-4 text-gray-400" />
+                <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
               </label>
-              <div className="flex items-center space-x-2 border border-gray-300 rounded-lg px-3 py-2">
+              <div className="flex items-center space-x-2 border border-[var(--sf-border-light)] rounded-lg px-3 py-2">
                 <div className="w-5 h-5 bg-green-500 rounded-full"></div>
                 <input
                   type="text"
@@ -358,12 +358,12 @@ const ServiceFlowOnlineBooking = () => {
               </div>
             </div>
             <div>
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                 <span>Header Background</span>
-                <HelpCircle className="w-4 h-4 text-gray-400" />
+                <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
               </label>
-              <div className="flex items-center space-x-2 border border-gray-300 rounded-lg px-3 py-2">
-                <div className="w-5 h-5 bg-white border border-gray-300 rounded-full"></div>
+              <div className="flex items-center space-x-2 border border-[var(--sf-border-light)] rounded-lg px-3 py-2">
+                <div className="w-5 h-5 bg-white border border-[var(--sf-border-light)] rounded-full"></div>
                 <input
                   type="text"
                   value={brandingSettings.headerBackground}
@@ -373,11 +373,11 @@ const ServiceFlowOnlineBooking = () => {
               </div>
             </div>
             <div>
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                 <span>Header Icons</span>
-                <HelpCircle className="w-4 h-4 text-gray-400" />
+                <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
               </label>
-              <div className="flex items-center space-x-2 border border-gray-300 rounded-lg px-3 py-2">
+              <div className="flex items-center space-x-2 border border-[var(--sf-border-light)] rounded-lg px-3 py-2">
                 <div className="w-5 h-5 bg-green-500 rounded-full"></div>
                 <input
                   type="text"
@@ -389,14 +389,14 @@ const ServiceFlowOnlineBooking = () => {
             </div>
           </div>
 
-          <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">
+          <button className="bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">
             Customize All Colors
           </button>
 
           {/* Logo Upload */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Logo</h4>
-            <p className="text-sm text-gray-600 mb-3">The logo you'd like displayed on your booking page</p>
+            <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Logo</h4>
+            <p className="text-sm text-[var(--sf-text-secondary)] mb-3">The logo you'd like displayed on your booking page</p>
             {brandingSettings.logo ? (
               <div className="relative">
                 <img 
@@ -406,7 +406,7 @@ const ServiceFlowOnlineBooking = () => {
                   e.target.style.display = 'none';
                 }} 
                   alt="Logo" 
-                  className="w-32 h-16 object-contain border border-gray-300 rounded"
+                  className="w-32 h-16 object-contain border border-[var(--sf-border-light)] rounded"
                 />
                 <button
                   onClick={() => {
@@ -419,7 +419,7 @@ const ServiceFlowOnlineBooking = () => {
                 </button>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center">
                 <input
                   type="file"
                   id="logo-upload"
@@ -428,9 +428,9 @@ const ServiceFlowOnlineBooking = () => {
                   className="hidden"
                 />
                 <label htmlFor="logo-upload" className="cursor-pointer">
-                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-blue-600 hover:text-blue-700 text-sm">Click to upload your logo</p>
-                  <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 2MB</p>
+                  <Upload className="w-8 h-8 text-[var(--sf-text-muted)] mx-auto mb-2" />
+                  <p className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm">Click to upload your logo</p>
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-1">PNG, JPG up to 2MB</p>
                 </label>
               </div>
             )}
@@ -438,14 +438,14 @@ const ServiceFlowOnlineBooking = () => {
 
           {/* Favicon */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Favicon</h4>
-            <p className="text-sm text-gray-600 mb-3">Icon displayed in the address bar of your browser</p>
+            <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Favicon</h4>
+            <p className="text-sm text-[var(--sf-text-secondary)] mb-3">Icon displayed in the address bar of your browser</p>
             {brandingSettings.favicon ? (
               <div className="relative">
                 <img 
                   src={brandingSettings.favicon} 
                   alt="Favicon" 
-                  className="w-12 h-12 object-contain border border-gray-300 rounded"
+                  className="w-12 h-12 object-contain border border-[var(--sf-border-light)] rounded"
                 />
                 <button
                   onClick={() => {
@@ -458,7 +458,7 @@ const ServiceFlowOnlineBooking = () => {
                 </button>
               </div>
             ) : (
-              <div className="w-12 h-12 border-2 border-dashed border-gray-300 rounded flex items-center justify-center">
+              <div className="w-12 h-12 border-2 border-dashed border-[var(--sf-border-light)] rounded flex items-center justify-center">
                 <input
                   type="file"
                   id="favicon-upload"
@@ -467,7 +467,7 @@ const ServiceFlowOnlineBooking = () => {
                   className="hidden"
                 />
                 <label htmlFor="favicon-upload" className="cursor-pointer">
-                  <Upload className="w-4 h-4 text-gray-400" />
+                  <Upload className="w-4 h-4 text-[var(--sf-text-muted)]" />
                 </label>
               </div>
             )}
@@ -476,10 +476,10 @@ const ServiceFlowOnlineBooking = () => {
           {/* Start Page Hero */}
           <div>
             <div className="flex items-center space-x-2 mb-2">
-              <h4 className="text-sm font-medium text-gray-900">Start Page Hero</h4>
-              <HelpCircle className="w-4 h-4 text-gray-400" />
+              <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">Start Page Hero</h4>
+              <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
             </div>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-[var(--sf-text-secondary)] mb-3">
               Express your brand with a photo or illustration displayed at the start of the booking form
             </p>
             {brandingSettings.heroImage ? (
@@ -487,7 +487,7 @@ const ServiceFlowOnlineBooking = () => {
                 <img 
                   src={brandingSettings.heroImage} 
                   alt="Hero Image" 
-                  className="w-full h-32 object-cover border border-gray-300 rounded"
+                  className="w-full h-32 object-cover border border-[var(--sf-border-light)] rounded"
                 />
                 <button
                   onClick={() => {
@@ -500,7 +500,7 @@ const ServiceFlowOnlineBooking = () => {
                 </button>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center">
                 <input
                   type="file"
                   id="hero-upload"
@@ -509,9 +509,9 @@ const ServiceFlowOnlineBooking = () => {
                   className="hidden"
                 />
                 <label htmlFor="hero-upload" className="cursor-pointer">
-                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-blue-600 hover:text-blue-700 text-sm">Upload your custom image</p>
-                  <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB</p>
+                  <Upload className="w-8 h-8 text-[var(--sf-text-muted)] mx-auto mb-2" />
+                  <p className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm">Upload your custom image</p>
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-1">PNG, JPG up to 5MB</p>
                 </label>
               </div>
             )}
@@ -520,8 +520,8 @@ const ServiceFlowOnlineBooking = () => {
           {/* Hide Serviceflow Branding */}
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-medium text-gray-900">Hide Serviceflow branding</h4>
-              <p className="text-sm text-gray-600">Remove the "Powered by Serviceflow" link on your booking page</p>
+              <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">Hide Serviceflow branding</h4>
+              <p className="text-sm text-[var(--sf-text-secondary)]">Remove the "Powered by Serviceflow" link on your booking page</p>
             </div>
             <button
               onClick={() =>
@@ -531,7 +531,7 @@ const ServiceFlowOnlineBooking = () => {
                 })
               }
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                brandingSettings.hideServiceflowBranding ? "bg-blue-600" : "bg-gray-300"
+                brandingSettings.hideServiceflowBranding ? "bg-[var(--sf-blue-500)]" : "bg-gray-300"
               }`}
             >
               <span
@@ -555,33 +555,33 @@ const ServiceFlowOnlineBooking = () => {
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                <div className="w-6 h-6 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center">
                   <span className="text-xs">🎯</span>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900">Start Page</h4>
-                  <p className="text-xs text-gray-600">Welcome section / service area check</p>
+                  <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">Start Page</h4>
+                  <p className="text-xs text-[var(--sf-text-secondary)]">Welcome section / service area check</p>
                 </div>
               </div>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <ChevronDown className="w-4 h-4 text-[var(--sf-text-muted)]" />
             </div>
 
             <div className="space-y-4 pl-8">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Heading</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Heading</label>
                 <input
                   type="text"
                   value={contentSettings.heading}
                   onChange={(e) => setContentSettings({ ...contentSettings, heading: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Text</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Text</label>
                 <textarea
                   value={contentSettings.text}
                   onChange={(e) => setContentSettings({ ...contentSettings, text: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                   rows={3}
                 />
               </div>
@@ -600,18 +600,18 @@ const ServiceFlowOnlineBooking = () => {
           ].map((section, index) => (
             <div
               key={index}
-              className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0"
+              className="flex items-center justify-between py-3 border-b border-[var(--sf-border-light)] last:border-b-0"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                <div className="w-6 h-6 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center">
                   <span className="text-xs">{section.icon}</span>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900">{section.title}</h4>
-                  {section.desc && <p className="text-xs text-gray-600">{section.desc}</p>}
+                  <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">{section.title}</h4>
+                  {section.desc && <p className="text-xs text-[var(--sf-text-secondary)]">{section.desc}</p>}
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-gray-400" />
+              <ChevronRight className="w-4 h-4 text-[var(--sf-text-muted)]" />
             </div>
           ))}
         </div>
@@ -627,8 +627,8 @@ const ServiceFlowOnlineBooking = () => {
         <div className="space-y-6">
           {/* Service Area */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Service area</h4>
-            <p className="text-sm text-gray-600 mb-4">
+            <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">Service area</h4>
+            <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
               How should we check if customers are located within your service area?
             </p>
 
@@ -651,11 +651,11 @@ const ServiceFlowOnlineBooking = () => {
                 },
               ].map((option) => (
                 <div key={option.id} className="text-center">
-                  <div className="w-16 h-12 bg-gray-100 rounded mb-2 mx-auto flex items-center justify-center">
-                    <div className="w-8 h-6 bg-blue-500 rounded"></div>
+                  <div className="w-16 h-12 bg-[var(--sf-bg-page)] rounded mb-2 mx-auto flex items-center justify-center">
+                    <div className="w-8 h-6 bg-[var(--sf-blue-500)] rounded"></div>
                   </div>
-                  <h5 className="text-sm font-medium text-gray-900 mb-1">{option.title}</h5>
-                  <p className="text-xs text-gray-600">{option.desc}</p>
+                  <h5 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">{option.title}</h5>
+                  <p className="text-xs text-[var(--sf-text-secondary)]">{option.desc}</p>
                 </div>
               ))}
             </div>
@@ -663,8 +663,8 @@ const ServiceFlowOnlineBooking = () => {
 
           {/* Service Selection Layout */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Service selection layout</h4>
-            <p className="text-sm text-gray-600 mb-4">How should bookable services be displayed?</p>
+            <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">Service selection layout</h4>
+            <p className="text-sm text-[var(--sf-text-secondary)] mb-4">How should bookable services be displayed?</p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               {[
@@ -685,9 +685,9 @@ const ServiceFlowOnlineBooking = () => {
                 },
               ].map((layout) => (
                 <div key={layout.id} className="text-center">
-                  <div className="w-16 h-12 bg-gray-100 rounded mb-2 mx-auto"></div>
-                  <h5 className="text-sm font-medium text-gray-900 mb-1">{layout.title}</h5>
-                  <p className="text-xs text-gray-600">{layout.desc}</p>
+                  <div className="w-16 h-12 bg-[var(--sf-bg-page)] rounded mb-2 mx-auto"></div>
+                  <h5 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">{layout.title}</h5>
+                  <p className="text-xs text-[var(--sf-text-secondary)]">{layout.desc}</p>
                 </div>
               ))}
             </div>
@@ -695,17 +695,17 @@ const ServiceFlowOnlineBooking = () => {
 
           {/* Date Picker Style */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Date picker style</h4>
+            <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">Date picker style</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="text-center">
-                <div className="w-24 h-16 bg-gray-100 rounded mb-2 mx-auto"></div>
-                <h5 className="text-sm font-medium text-gray-900 mb-1">Available Days</h5>
-                <p className="text-xs text-gray-600">Shows the next dates with available times</p>
+                <div className="w-24 h-16 bg-[var(--sf-bg-page)] rounded mb-2 mx-auto"></div>
+                <h5 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">Available Days</h5>
+                <p className="text-xs text-[var(--sf-text-secondary)]">Shows the next dates with available times</p>
               </div>
               <div className="text-center">
-                <div className="w-24 h-16 bg-gray-100 rounded mb-2 mx-auto"></div>
-                <h5 className="text-sm font-medium text-gray-900 mb-1">Month</h5>
-                <p className="text-xs text-gray-600">Shows all available days in a month calendar</p>
+                <div className="w-24 h-16 bg-[var(--sf-bg-page)] rounded mb-2 mx-auto"></div>
+                <h5 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">Month</h5>
+                <p className="text-xs text-[var(--sf-text-secondary)]">Shows all available days in a month calendar</p>
               </div>
             </div>
           </div>
@@ -713,17 +713,17 @@ const ServiceFlowOnlineBooking = () => {
           {/* Language and Text Size */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
-              <p className="text-xs text-gray-600 mb-2">Change the language your booking form is displayed in</p>
-              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Language</label>
+              <p className="text-xs text-[var(--sf-text-secondary)] mb-2">Change the language your booking form is displayed in</p>
+              <select className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none">
                 <option>English</option>
                 <option>Spanish</option>
                 <option>French</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Text size</label>
-              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Text size</label>
+              <select className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none">
                 <option>Big</option>
                 <option>Medium</option>
                 <option>Small</option>
@@ -762,8 +762,8 @@ const ServiceFlowOnlineBooking = () => {
             ].map((option) => (
               <div key={option.key} className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h5 className="text-sm font-medium text-gray-900">{option.label}</h5>
-                  {option.desc && <p className="text-xs text-gray-600 mt-1">{option.desc}</p>}
+                  <h5 className="text-sm font-medium text-[var(--sf-text-primary)]">{option.label}</h5>
+                  {option.desc && <p className="text-xs text-[var(--sf-text-secondary)] mt-1">{option.desc}</p>}
                 </div>
                 <button
                   onClick={() => setGeneralSettings({ ...generalSettings, [option.key]: !generalSettings[option.key] })}
@@ -782,25 +782,25 @@ const ServiceFlowOnlineBooking = () => {
           </div>
 
           {/* Analytics */}
-          <div className="space-y-4 pt-4 border-t border-gray-200">
+          <div className="space-y-4 pt-4 border-t border-[var(--sf-border-light)]">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Google Analytics Tracking ID</label>
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Google Analytics Tracking ID</label>
               <input
                 type="text"
                 placeholder="Enter your Google Tag ID"
                 value={analyticsSettings.googleAnalytics}
                 onChange={(e) => setAnalyticsSettings({ ...analyticsSettings, googleAnalytics: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Facebook (Meta) Pixel ID</label>
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Facebook (Meta) Pixel ID</label>
               <input
                 type="text"
                 placeholder="Facebook Pixel ID"
                 value={analyticsSettings.facebookPixel}
                 onChange={(e) => setAnalyticsSettings({ ...analyticsSettings, facebookPixel: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               />
             </div>
           </div>
@@ -842,15 +842,15 @@ const ServiceFlowOnlineBooking = () => {
                 code: `// API endpoint: https://service-flow-backend-production-4568.up.railway.app/api/public/business/${bookingUrl.split('/').pop()}`
               }
             ].map((option) => (
-              <div key={option.id} className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">{option.title}</h4>
-                <p className="text-sm text-gray-600 mb-3">{option.description}</p>
-                <div className="bg-gray-50 p-3 rounded border">
-                  <code className="text-xs text-gray-700 break-all">{option.code}</code>
+              <div key={option.id} className="border border-[var(--sf-border-light)] rounded-lg p-4">
+                <h4 className="font-medium text-[var(--sf-text-primary)] mb-2">{option.title}</h4>
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-3">{option.description}</p>
+                <div className="bg-[var(--sf-bg-page)] p-3 rounded border">
+                  <code className="text-xs text-[var(--sf-text-primary)] break-all">{option.code}</code>
                 </div>
                 <button 
                   onClick={() => navigator.clipboard.writeText(option.code)}
-                  className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  className="mt-2 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                 >
                   Copy Code
                 </button>
@@ -859,21 +859,21 @@ const ServiceFlowOnlineBooking = () => {
           </div>
 
           {/* Advanced Embed Settings */}
-          <div className="border-t border-gray-200 pt-4">
-            <h4 className="font-medium text-gray-900 mb-3">Advanced Settings</h4>
+          <div className="border-t border-[var(--sf-border-light)] pt-4">
+            <h4 className="font-medium text-[var(--sf-text-primary)] mb-3">Advanced Settings</h4>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Widget Height</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">Widget Height</label>
                 <input
                   type="number"
                   placeholder="600"
-                  className="w-24 border border-gray-300 rounded px-2 py-1 text-sm"
+                  className="w-24 border border-[var(--sf-border-light)] rounded px-2 py-1 text-sm"
                 />
-                <span className="text-xs text-gray-500 ml-2">pixels</span>
+                <span className="text-xs text-[var(--sf-text-muted)] ml-2">pixels</span>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Widget Width</label>
-                <select className="border border-gray-300 rounded px-2 py-1 text-sm">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">Widget Width</label>
+                <select className="border border-[var(--sf-border-light)] rounded px-2 py-1 text-sm">
                   <option>100%</option>
                   <option>800px</option>
                   <option>600px</option>
@@ -882,7 +882,7 @@ const ServiceFlowOnlineBooking = () => {
               </div>
               <div className="flex items-center space-x-2">
                 <input type="checkbox" id="responsive" className="rounded" />
-                <label htmlFor="responsive" className="text-sm text-gray-700">Make widget responsive</label>
+                <label htmlFor="responsive" className="text-sm text-[var(--sf-text-primary)]">Make widget responsive</label>
               </div>
             </div>
           </div>
@@ -892,7 +892,7 @@ const ServiceFlowOnlineBooking = () => {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       {/* Main Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="online-booking" />
 
@@ -901,16 +901,16 @@ const ServiceFlowOnlineBooking = () => {
         {/* Mobile Header */}
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-4 items-center justify-between">
+        <div className="hidden lg:flex bg-white border-b border-[var(--sf-border-light)] px-6 py-4 items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Online Booking</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Online Booking</h1>
+            <p className="text-[var(--sf-text-secondary)] mt-1">
               Customize, embed, and share the booking page where customers can book your services.
             </p>
           </div>
           <div className="flex items-center space-x-2">
             {isSaving && (
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                 <span>Saving...</span>
               </div>
@@ -920,7 +920,7 @@ const ServiceFlowOnlineBooking = () => {
                 {saveMessage}
               </div>
             )}
-            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+            <select className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none">
               <option>Select a view</option>
               <option>Desktop</option>
               <option>Mobile</option>
@@ -930,9 +930,9 @@ const ServiceFlowOnlineBooking = () => {
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Online Booking</h1>
-          <p className="text-gray-600 text-sm">
+        <div className="lg:hidden bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
+          <h1 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Online Booking</h1>
+          <p className="text-[var(--sf-text-secondary)] text-sm">
             Customize, embed, and share the booking page where customers can book your services.
           </p>
         </div>
@@ -943,88 +943,88 @@ const ServiceFlowOnlineBooking = () => {
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading booking settings...</p>
+                <p className="text-[var(--sf-text-secondary)]">Loading booking settings...</p>
               </div>
             </div>
           ) : (
             <div className="flex flex-col lg:flex-row h-full">
               {/* Left Panel */}
-              <div className="lg:w-1/2 p-6 bg-white border-r border-gray-200">
+              <div className="lg:w-1/2 p-6 bg-white border-r border-[var(--sf-border-light)]">
                 {/* Booking Page URL */}
                 <div className="mb-8">
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  <h3 className="text-sm font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-3">
                     YOUR BOOKING PAGE URL
                   </h3>
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700">
+                    <div className="flex-1 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm text-[var(--sf-text-primary)]">
                       {bookingUrl}
                     </div>
                     <button 
                       onClick={handleCopyUrl}
-                      className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+                      className="flex items-center space-x-2 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium hover:bg-[var(--sf-bg-page)]"
                     >
                       <Copy className="w-4 h-4" />
                       <span>Copy</span>
                     </button>
                     <button 
                       onClick={handleViewPage}
-                      className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+                      className="flex items-center space-x-2 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium hover:bg-[var(--sf-bg-page)]"
                     >
                       <ExternalLink className="w-4 h-4" />
                       <span>View page</span>
                     </button>
                   </div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     You can share this link with customers to let them book your services.
                   </p>
                 </div>
 
                 {/* Quote Request URL */}
                 <div className="mb-8">
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  <h3 className="text-sm font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-3">
                     YOUR QUOTE REQUEST URL
                   </h3>
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700">
+                    <div className="flex-1 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm text-[var(--sf-text-primary)]">
                       {quoteUrl}
                     </div>
                     <button 
                       onClick={handleCopyQuoteUrl}
-                      className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+                      className="flex items-center space-x-2 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium hover:bg-[var(--sf-bg-page)]"
                     >
                       <Copy className="w-4 h-4" />
                       <span>Copy</span>
                     </button>
                     <button 
                       onClick={handleViewQuotePage}
-                      className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+                      className="flex items-center space-x-2 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium hover:bg-[var(--sf-bg-page)]"
                     >
                       <ExternalLink className="w-4 h-4" />
                       <span>View page</span>
                     </button>
                   </div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     Share this link with customers who need custom quotes before booking.
                   </p>
                   
                   {/* Custom URL Input */}
                   <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Custom URL (Optional)
                     </label>
                     <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-sm text-gray-500">widget.service-flow.com/book/</span>
+                      <span className="text-sm text-[var(--sf-text-muted)]">widget.service-flow.com/book/</span>
                       <input
                         type="text"
                         placeholder="your-custom-name"
                         value={customUrl}
                         onChange={(e) => setCustomUrl(e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                       />
                       <button
                         onClick={handleSaveCustomUrl}
                         disabled={isSaving}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
+                        className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-500)] disabled:opacity-50"
                       >
                         {isSaving ? 'Saving...' : 'Save'}
                       </button>
@@ -1034,7 +1034,7 @@ const ServiceFlowOnlineBooking = () => {
                         {saveMessage}
                       </p>
                     )}
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                       Use only letters, numbers, and hyphens. This will update both your booking and quote URLs.
                     </p>
                   </div>
@@ -1046,26 +1046,26 @@ const ServiceFlowOnlineBooking = () => {
                     const Icon = section.icon
                     const isExpanded = expandedSection === section.id
                     return (
-                      <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div key={index} className="border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
                         <div
                           onClick={() => toggleSection(section.id)}
-                          className="flex items-start space-x-4 p-4 hover:bg-gray-50 cursor-pointer"
+                          className="flex items-start space-x-4 p-4 hover:bg-[var(--sf-bg-page)] cursor-pointer"
                         >
-                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Icon className="w-5 h-5 text-gray-600" />
+                          <div className="w-10 h-10 bg-[var(--sf-bg-page)] rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Icon className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                           </div>
                           <div className="flex-1">
-                            <h4 className="font-medium text-gray-900 mb-1">{section.title}</h4>
-                            <p className="text-sm text-gray-600">{section.description}</p>
+                            <h4 className="font-medium text-[var(--sf-text-primary)] mb-1">{section.title}</h4>
+                            <p className="text-sm text-[var(--sf-text-secondary)]">{section.description}</p>
                           </div>
                           <ChevronDown
-                            className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform ${
+                            className={`w-5 h-5 text-[var(--sf-text-muted)] flex-shrink-0 transition-transform ${
                               isExpanded ? "rotate-180" : ""
                             }`}
                           />
                         </div>
 
-                        {isExpanded && <div className="border-t border-gray-200 p-4 bg-gray-50">{section.content}</div>}
+                        {isExpanded && <div className="border-t border-[var(--sf-border-light)] p-4 bg-[var(--sf-bg-page)]">{section.content}</div>}
                       </div>
                     )
                   })}
@@ -1073,7 +1073,7 @@ const ServiceFlowOnlineBooking = () => {
               </div>
 
               {/* Right Panel - Preview */}
-              <div className="lg:w-1/2 p-6 bg-gray-100 flex items-center justify-center">
+              <div className="lg:w-1/2 p-6 bg-[var(--sf-bg-page)] flex items-center justify-center">
                 <div className="max-w-sm w-full">
                   {/* Browser Mockup */}
                   <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -1084,7 +1084,7 @@ const ServiceFlowOnlineBooking = () => {
                         <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                         <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                       </div>
-                      <div className="flex-1 bg-white rounded px-3 py-1 text-xs text-gray-600 flex items-center space-x-2">
+                      <div className="flex-1 bg-white rounded px-3 py-1 text-xs text-[var(--sf-text-secondary)] flex items-center space-x-2">
                         <div className="w-4 h-4 bg-gray-300 rounded"></div>
                         <span>{bookingUrl}</span>
                       </div>
@@ -1092,18 +1092,18 @@ const ServiceFlowOnlineBooking = () => {
 
                     {/* Booking Widget Content */}
                     <div className="p-6 text-center" style={{ backgroundColor: brandingSettings.headerBackground }}>
-                      <h2 className="text-2xl font-bold text-gray-900 mb-4" style={{ color: brandingSettings.primaryColor }}>
+                      <h2 className="text-2xl font-bold text-[var(--sf-text-primary)] mb-4" style={{ color: brandingSettings.primaryColor }}>
                         {contentSettings.heading}
                       </h2>
-                      <p className="text-gray-600 mb-6">{contentSettings.text}</p>
+                      <p className="text-[var(--sf-text-secondary)] mb-6">{contentSettings.text}</p>
 
                       <div className="flex items-center space-x-2 mb-4">
                         <div className="flex-1 relative">
-                          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-5 h-5" />
                           <input
                             type="text"
                             placeholder="Postal Code"
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                            className="w-full pl-10 pr-4 py-3 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                             style={{ '--tw-ring-color': brandingSettings.primaryColor }}
                           />
                         </div>
@@ -1116,9 +1116,9 @@ const ServiceFlowOnlineBooking = () => {
                       </div>
 
                       {!brandingSettings.hideServiceflowBranding && (
-                        <div className="text-xs text-gray-500 flex items-center justify-center space-x-1">
+                        <div className="text-xs text-[var(--sf-text-muted)] flex items-center justify-center space-x-1">
                           <span>Powered by</span>
-                          <div className="w-4 h-4 bg-blue-600 rounded flex items-center justify-center">
+                          <div className="w-4 h-4 bg-[var(--sf-blue-500)] rounded flex items-center justify-center">
                             <span className="text-white font-bold text-xs">Z</span>
                           </div>
                           <span>service-flow</span>

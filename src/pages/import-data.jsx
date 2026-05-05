@@ -53,8 +53,8 @@ const ImportDataPage = () => {
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center py-8">
           <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Import Successful!</h1>
-          <p className="text-gray-600 mb-6">
+          <h1 className="text-2xl font-bold text-[var(--sf-text-primary)] mb-2">Import Successful!</h1>
+          <p className="text-[var(--sf-text-secondary)] mb-6">
             Your data has been successfully imported.
           </p>
           
@@ -74,7 +74,7 @@ const ImportDataPage = () => {
           <div className="flex space-x-4 justify-center">
             <button
               onClick={resetImport}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-6 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
             >
               Import More Data
             </button>
@@ -96,14 +96,14 @@ const ImportDataPage = () => {
         <div className="mb-6">
           <button
             onClick={resetImport}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 mb-4"
+            className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
           >
             <span>← Back to Import Options</span>
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">
             {importOptions.find(opt => opt.id === importType)?.title}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-[var(--sf-text-secondary)]">
             {importOptions.find(opt => opt.id === importType)?.description}
           </p>
         </div>
@@ -146,8 +146,8 @@ const ImportDataPage = () => {
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Import Data</h1>
-        <p className="text-gray-600">
+        <h1 className="text-3xl font-bold text-[var(--sf-text-primary)] mb-2">Import Data</h1>
+        <p className="text-[var(--sf-text-secondary)]">
           Import your existing data from Google Sheets or Google Calendar into Serviceflow.
         </p>
       </div>
@@ -159,39 +159,39 @@ const ImportDataPage = () => {
             <button
               key={option.id}
               onClick={() => setImportType(option.id)}
-              className="p-6 border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-md transition-all text-left"
+              className="p-6 border border-[var(--sf-border-light)] rounded-lg hover:border-[var(--sf-border-light)] hover:shadow-md transition-all text-left"
             >
               <div className="flex items-center space-x-4 mb-4">
                 <div className={`p-3 rounded-lg bg-${option.color}-100`}>
                   <IconComponent className={`w-6 h-6 text-${option.color}-600`} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{option.title}</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">{option.title}</h3>
                 </div>
               </div>
-              <p className="text-gray-600 text-sm">{option.description}</p>
+              <p className="text-[var(--sf-text-secondary)] text-sm">{option.description}</p>
             </button>
           );
         })}
       </div>
 
-      <div className="mt-12 bg-blue-50 border border-blue-200 rounded-lg p-6">
+      <div className="mt-12 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-blue-900 mb-2">How It Works</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-blue-800">
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+            <div className="w-6 h-6 bg-[var(--sf-blue-500)] text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
             <span>Connect your Google account</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+            <div className="w-6 h-6 bg-[var(--sf-blue-500)] text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
             <span>Select your data source</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+            <div className="w-6 h-6 bg-[var(--sf-blue-500)] text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
             <span>Map fields manually</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+            <div className="w-6 h-6 bg-[var(--sf-blue-500)] text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
             <span>Import to Serviceflow</span>
           </div>
         </div>

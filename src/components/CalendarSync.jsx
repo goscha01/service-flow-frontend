@@ -63,7 +63,7 @@ const CalendarSync = ({ jobData, onSuccess, onError }) => {
       <button
         onClick={handleSyncToCalendar}
         disabled={loading || !jobData}
-        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <Calendar className="w-4 h-4" />
         <span>{loading ? 'Syncing...' : 'Sync to Google Calendar'}</span>
@@ -77,7 +77,7 @@ const CalendarSync = ({ jobData, onSuccess, onError }) => {
       )}
 
       {!user?.google_access_token && (
-        <div className="text-sm text-gray-600 bg-yellow-50 p-3 rounded-lg">
+        <div className="text-sm text-[var(--sf-text-secondary)] bg-yellow-50 p-3 rounded-lg">
           <p>⚠️ Google Calendar not connected. Please connect your Google account in settings to sync jobs to your calendar.</p>
         </div>
       )}

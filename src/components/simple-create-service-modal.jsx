@@ -35,24 +35,24 @@ const SimpleCreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWit
       <div className="bg-white rounded-xl w-full max-w-md relative">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Create a service</h2>
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Create a service</h2>
             <button
               onClick={handleClose}
               disabled={loading}
-              className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)] p-1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
           
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
             A service is something your customers can book online. For example, a home cleaning or a junk removal pickup.
           </p>
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="name" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Name
                 </label>
                 <input
@@ -62,10 +62,10 @@ const SimpleCreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWit
                   onChange={(e) => setServiceName(e.target.value)}
                   placeholder="Name"
                   disabled={loading}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed"
                   autoFocus
                 />
-                <p className="mt-2 text-sm text-gray-500">
+                <p className="mt-2 text-sm text-[var(--sf-text-muted)]">
                   Give this service a name which broadly describes it. For example,{" "}
                   <em>Home Cleaning</em> rather than <em>1 Bedroom Home Cleaning</em>. You'll be able to add variations and options next to make it customizable.
                 </p>
@@ -76,14 +76,14 @@ const SimpleCreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWit
                   type="button"
                   onClick={handleClose}
                   disabled={loading}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!serviceName.trim() || loading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -98,8 +98,8 @@ const SimpleCreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWit
             </div>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-600">
+          <div className="mt-6 pt-6 border-t border-[var(--sf-border-light)]">
+            <p className="text-sm text-[var(--sf-text-secondary)]">
               Or{" "}
               <button
                 type="button"
@@ -110,7 +110,7 @@ const SimpleCreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWit
                   }
                 }}
                 disabled={loading}
-                className="text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 start with a template...
               </button>

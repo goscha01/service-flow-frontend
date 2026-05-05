@@ -321,40 +321,40 @@ const EditSingleDateAvailability = () => {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-[var(--sf-text-secondary)]">Loading...</p>
         </div>
       </div>
     )
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
+    <div className="min-h-screen bg-[var(--sf-bg-page)] pb-24 lg:pb-0">
       {/* Mobile Header */}
       <MobileHeader pageTitle="Update Availability" />
       
       {/* Desktop Header */}
-      <div className="hidden lg:block bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="hidden lg:block bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => navigate('/availability')}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
             >
-              <X className="w-5 h-5 text-gray-600" />
+              <X className="w-5 h-5 text-[var(--sf-text-secondary)]" />
             </button>
             
             <div className="flex-1 text-center">
-              <h2 className="text-xl font-semibold text-gray-900 mb-1">Update Availability</h2>
-              <p className="text-sm text-gray-600">{getUserDisplayName()}</p>
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-1">Update Availability</h2>
+              <p className="text-sm text-[var(--sf-text-secondary)]">{getUserDisplayName()}</p>
             </div>
             
             <button
               onClick={handleSave}
               disabled={saving}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-[var(--sf-blue-500)] text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Save'}
             </button>
@@ -375,29 +375,29 @@ const EditSingleDateAvailability = () => {
       <div className="max-w-4xl mx-auto p-4 lg:p-6">
         {/* Dates Section */}
         <div className="mb-8">
-          <h3 className="text-base font-semibold text-gray-900 mb-2">Dates</h3>
-          <p className="text-sm text-gray-600 mb-6">
+          <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Dates</h3>
+          <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
             Select the date(s) you want to assign specific hours
           </p>
           
           {/* Calendar */}
-          <div className="border border-gray-200 rounded-lg p-5 bg-white">
+          <div className="border border-[var(--sf-border-light)] rounded-lg p-5 bg-white">
             {/* Calendar Header */}
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
-                className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded transition-colors"
               >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
+                <ChevronLeft className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
-              <h4 className="text-base font-semibold text-gray-900">
+              <h4 className="text-base font-semibold text-[var(--sf-text-primary)]">
                 {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
               </h4>
               <button
                 onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
-                className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded transition-colors"
               >
-                <ChevronRight className="w-5 h-5 text-gray-600" />
+                <ChevronRight className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
             </div>
             
@@ -405,7 +405,7 @@ const EditSingleDateAvailability = () => {
             <div className="grid grid-cols-7 gap-1">
               {/* Day headers */}
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="p-2 text-center text-xs font-medium text-gray-500">
+                <div key={day} className="p-2 text-center text-xs font-medium text-[var(--sf-text-muted)]">
                   {day}
                 </div>
               ))}
@@ -423,9 +423,9 @@ const EditSingleDateAvailability = () => {
                     className={`
                       p-2 text-sm rounded transition-all
                       ${isSelectedDate
-                        ? 'bg-blue-600 text-white font-semibold'
+                        ? 'bg-[var(--sf-blue-500)] text-white font-semibold'
                         : isCurrentMonthDate
-                          ? 'text-gray-900 hover:bg-gray-100'
+                          ? 'text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                           : 'text-gray-300 cursor-not-allowed'
                       }
                     `}
@@ -439,9 +439,9 @@ const EditSingleDateAvailability = () => {
         </div>
         
         {/* Availability Section */}
-        <div className="border-t border-gray-200 pt-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-2">Availability</h3>
-          <p className="text-sm text-gray-600 mb-6">
+        <div className="border-t border-[var(--sf-border-light)] pt-6">
+          <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Availability</h3>
+          <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
             Edit your available hours for the selected date
           </p>
           
@@ -450,8 +450,8 @@ const EditSingleDateAvailability = () => {
               {/* Unavailable State - Show with Add Hours button */}
               {isUnavailable && timeSlots.length === 0 ? (
                 <div className="space-y-3">
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <span className="text-sm text-gray-600">Unavailable</span>
+                  <div className="p-4 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg">
+                    <span className="text-sm text-[var(--sf-text-secondary)]">Unavailable</span>
                   </div>
                   {/* Add Hours Button for unavailable days */}
                   <button
@@ -460,7 +460,7 @@ const EditSingleDateAvailability = () => {
                       // Add first time slot
                       setTimeSlots([{ start: '09:00', end: '18:00' }])
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] transition-colors"
                     type="button"
                   >
                     <Plus className="w-4 h-4" />
@@ -475,7 +475,7 @@ const EditSingleDateAvailability = () => {
                       {timeSlots.map((slot, index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                          className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg"
                         >
                           <div className="flex items-center gap-2">
                             <input
@@ -487,9 +487,9 @@ const EditSingleDateAvailability = () => {
                                 setTimeSlots(updatedSlots)
                                 setIsUnavailable(false)
                               }}
-                              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                             />
-                            <span className="text-gray-500 text-sm">-</span>
+                            <span className="text-[var(--sf-text-muted)] text-sm">-</span>
                             <input
                               type="time"
                               value={slot.end}
@@ -499,12 +499,12 @@ const EditSingleDateAvailability = () => {
                                 setTimeSlots(updatedSlots)
                                 setIsUnavailable(false)
                               }}
-                              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                             />
                           </div>
                           <button
                             onClick={() => handleRemoveTimeSlot(index)}
-                            className="text-gray-400 hover:text-red-600 transition-colors ml-2"
+                            className="text-[var(--sf-text-muted)] hover:text-red-600 transition-colors ml-2"
                             type="button"
                           >
                             <X className="w-4 h-4" />
@@ -525,7 +525,7 @@ const EditSingleDateAvailability = () => {
                         handleAddTimeSlot()
                       }
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] transition-colors"
                     type="button"
                   >
                     <Plus className="w-4 h-4" />
@@ -535,19 +535,19 @@ const EditSingleDateAvailability = () => {
               )}
               
               {/* Save Button - Always visible when date is selected */}
-              <div className="pt-4 border-t border-gray-200 mt-4">
+              <div className="pt-4 border-t border-[var(--sf-border-light)] mt-4">
                 <button
                   onClick={handleSave}
                   disabled={saving || !selectedDate}
-                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="w-full bg-[var(--sf-blue-500)] text-white px-6 py-3 rounded-lg text-base font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {saving ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </div>
           ) : (
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
-              <span className="text-sm text-gray-500">Please select a date from the calendar above</span>
+            <div className="p-4 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg text-center">
+              <span className="text-sm text-[var(--sf-text-muted)]">Please select a date from the calendar above</span>
             </div>
           )}
         </div>

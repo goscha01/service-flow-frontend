@@ -365,7 +365,7 @@ const AddTeamMember = () => {
   }, [authLoading, user?.id])
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
@@ -378,13 +378,13 @@ const AddTeamMember = () => {
                 <div className="flex items-center space-x-4">
                   <button
                     onClick={() => navigate("/team")}
-                    className="flex items-center text-sm text-gray-500 hover:text-gray-700"
+                    className="flex items-center text-sm text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                   >
                     <ChevronLeft className="w-4 h-4 mr-1" />
                     Back to Team
                   </button>
                   <div className="h-6 w-px bg-gray-300" />
-                  <h1 className="text-2xl font-bold text-gray-900">Add New Team Member</h1>
+                  <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">Add New Team Member</h1>
                 </div>
               </div>
             </div>
@@ -396,7 +396,7 @@ const AddTeamMember = () => {
             )}
 
             {/* Invitation Info */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4 mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
@@ -405,7 +405,7 @@ const AddTeamMember = () => {
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-blue-800">Invitation Process</h3>
-                  <div className="mt-2 text-sm text-blue-700">
+                  <div className="mt-2 text-sm text-[var(--sf-blue-500)]">
                     <p>When you add a team member, they will receive an invitation email with a link to create their account. They'll be able to set their own username and password during the signup process.</p>
                   </div>
                 </div>
@@ -416,13 +416,13 @@ const AddTeamMember = () => {
               {/* Basic Information */}
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center mb-6">
-                  <User className="w-5 h-5 text-blue-600 mr-2" />
-                  <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
+                  <User className="w-5 h-5 text-[var(--sf-blue-500)] mr-2" />
+                  <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Basic Information</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       First Name *
                     </label>
                     <input
@@ -430,12 +430,12 @@ const AddTeamMember = () => {
                       required
                       value={formData.first_name}
                       onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Last Name *
                     </label>
                     <input
@@ -443,12 +443,12 @@ const AddTeamMember = () => {
                       required
                       value={formData.last_name}
                       onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Email *
                     </label>
                     <div className="relative">
@@ -457,8 +457,8 @@ const AddTeamMember = () => {
                       required
                       value={formData.email}
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          emailWarning ? 'border-orange-300 focus:border-orange-500' : 'border-gray-300'
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] ${
+                          emailWarning ? 'border-orange-300 focus:border-orange-500' : 'border-[var(--sf-border-light)]'
                         }`}
                       />
                       {checkingEmail && (
@@ -478,7 +478,7 @@ const AddTeamMember = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Phone *
                     </label>
                     <div className="relative">
@@ -487,8 +487,8 @@ const AddTeamMember = () => {
                       required
                       value={formData.phone}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          phoneWarning ? 'border-orange-300 focus:border-orange-500' : 'border-gray-300'
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] ${
+                          phoneWarning ? 'border-orange-300 focus:border-orange-500' : 'border-[var(--sf-border-light)]'
                         }`}
                       />
                       {checkingPhone && (
@@ -508,14 +508,14 @@ const AddTeamMember = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Role *
                     </label>
                     <select
                       required
                       value={formData.role}
                       onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     >
                       <option value="">Select Role</option>
                       <option value="Manager">Manager</option>
@@ -526,18 +526,18 @@ const AddTeamMember = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Color
                     </label>
                     <div className="flex items-center space-x-3">
                       <div 
-                        className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                        className="w-8 h-8 rounded border border-[var(--sf-border-light)] flex-shrink-0"
                         style={{ backgroundColor: formData.color || '#2563EB' }}
                       />
                       <select
                         value={formData.color || '#2563EB'}
                         onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       >
                         <option value="#2563EB">Blue</option>
                         <option value="#DC2626">Red</option>
@@ -553,11 +553,11 @@ const AddTeamMember = () => {
                         <option value="#14B8A6">Teal</option>
                       </select>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">This color will be used in the calendar and schedule views</p>
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-1">This color will be used in the calendar and schedule views</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Hourly Rate
                     </label>
                     <input
@@ -565,12 +565,12 @@ const AddTeamMember = () => {
                       step="0.01"
                       value={formData.hourly_rate}
                       onChange={(e) => setFormData(prev => ({ ...prev, hourly_rate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Location
                     </label>
                     <AddressAutocomplete
@@ -592,38 +592,38 @@ const AddTeamMember = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       City
                     </label>
                     <input
                       type="text"
                       value={formData.city}
                       onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       State
                     </label>
                     <input
                       type="text"
                       value={formData.state}
                       onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       ZIP Code
                     </label>
                     <input
                       type="text"
                       value={formData.zip_code}
                       onChange={(e) => setFormData(prev => ({ ...prev, zip_code: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
 
@@ -635,13 +635,13 @@ const AddTeamMember = () => {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center">
-                    <MapPin className="w-5 h-5 text-blue-600 mr-2" />
-                    <h2 className="text-lg font-semibold text-gray-900">Territories</h2>
+                    <MapPin className="w-5 h-5 text-[var(--sf-blue-500)] mr-2" />
+                    <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Territories</h2>
                   </div>
                   <button
                     type="button"
                     onClick={handleAddTerritory}
-                    className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="flex items-center px-3 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     Add Territory
@@ -651,16 +651,16 @@ const AddTeamMember = () => {
                 {territoriesLoading ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading territories...</p>
+                    <p className="mt-4 text-[var(--sf-text-secondary)]">Loading territories...</p>
                   </div>
                 ) : territories.length > 0 ? (
                   <div className="space-y-3">
                     {territories.map((territory, index) => (
-                      <div key={territory.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div key={territory.id || index} className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg">
                         <div>
-                          <span className="font-medium text-gray-900">{territory.name}</span>
+                          <span className="font-medium text-[var(--sf-text-primary)]">{territory.name}</span>
                           {territory.description && (
-                            <p className="text-sm text-gray-500 mt-1">{territory.description}</p>
+                            <p className="text-sm text-[var(--sf-text-muted)] mt-1">{territory.description}</p>
                           )}
                         </div>
                         <button
@@ -674,7 +674,7 @@ const AddTeamMember = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-4">No territories assigned yet</p>
+                  <p className="text-[var(--sf-text-muted)] text-center py-4">No territories assigned yet</p>
                 )}
               </div>
 
@@ -683,7 +683,7 @@ const AddTeamMember = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/team')}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  className="px-6 py-3 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                 >
                   Cancel
                 </button>
@@ -693,7 +693,7 @@ const AddTeamMember = () => {
                   className={`px-6 py-3 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center ${
                     emailWarning || phoneWarning
                       ? 'bg-orange-500 hover:bg-orange-600' 
-                      : 'bg-blue-600 hover:bg-blue-700'
+                      : 'bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)]'
                   }`}
                 >
                   {saving ? (
@@ -731,7 +731,7 @@ const AddTeamMember = () => {
             {territoriesLoading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                <p className="text-gray-600">Loading territories...</p>
+                <p className="text-[var(--sf-text-secondary)]">Loading territories...</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-60 overflow-auto">
@@ -740,18 +740,18 @@ const AddTeamMember = () => {
                     <div
                       key={territory.id}
                       onClick={() => handleSaveTerritory(territory.id)}
-                      className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                      className="p-3 border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] cursor-pointer"
                     >
-                      <div className="font-medium text-gray-900">{territory.name}</div>
+                      <div className="font-medium text-[var(--sf-text-primary)]">{territory.name}</div>
                       {territory.description && (
-                        <div className="text-sm text-gray-500 mt-1">{territory.description}</div>
+                        <div className="text-sm text-[var(--sf-text-muted)] mt-1">{territory.description}</div>
                       )}
                     </div>
                   ))
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">No territories available</p>
-                    <p className="text-sm text-gray-400 mt-1">Create territories first in the Territories section</p>
+                    <p className="text-[var(--sf-text-muted)]">No territories available</p>
+                    <p className="text-sm text-[var(--sf-text-muted)] mt-1">Create territories first in the Territories section</p>
                   </div>
                 )}
               </div>
@@ -761,7 +761,7 @@ const AddTeamMember = () => {
               <button
                 type="button"
                 onClick={() => setShowAddTerritoryModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
               >
                 Cancel
               </button>
@@ -780,10 +780,10 @@ const AddTeamMember = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">
                 Team Member Invited Successfully!
               </h3>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
                 An invitation email has been sent to <strong>{formData.email}</strong>. 
                 They will receive instructions to create their account.
               </p>
@@ -793,7 +793,7 @@ const AddTeamMember = () => {
                     setShowSuccessModal(false)
                     navigate('/team')
                   }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2"
                 >
                   Go to Team
                 </button>
@@ -818,7 +818,7 @@ const AddTeamMember = () => {
                     setPhoneWarning('')
                     setError('')
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  className="flex-1 px-4 py-2 bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                 >
                   Add Another
                 </button>

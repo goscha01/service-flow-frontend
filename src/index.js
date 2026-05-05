@@ -1,7 +1,8 @@
 import ReactDOM from "react-dom/client"
 import App from "./App"
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from "react-router-dom"
 import { AuthProvider } from "./context/AuthContext"
+import { TimeFormatProvider } from "./context/TimeFormatContext"
 import ProtectedRoute from "./components/ProtectedRoute"
 import RoleProtectedRoute from "./components/RoleProtectedRoute"
 import SignupForm from "./pages/Signup"
@@ -51,6 +52,9 @@ import PaymentProcessing from "./pages/payment-processing"
 
 // Settings Pages
 import FeedbackReviews from "./pages/settings/feedback-reviews"
+import CommunicationHub from "./pages/settings/communication-hub"
+import LeadsSettings from "./pages/settings/leads-settings"
+import AdminDashboard from "./pages/admin-dashboard"
 import ClientTeamNotifications from "./pages/settings/client-team-notifications"
 import JobAssignment from "./pages/settings/job-assignment"
 import Availability from "./pages/settings/availability"
@@ -58,9 +62,12 @@ import ReschedulingCancellation from "./pages/settings/rescheduling-cancellation
 import Developers from "./pages/settings/developers"
 import CalendarSyncing from "./pages/settings/calendar-syncing"
 import GoogleSheetsSettings from "./pages/settings/google-sheets"
-import BookingKoalaIntegration from "./pages/settings/booking-koala"
+import DataImportPage from "./pages/settings/data-import"
 import TaxesFees from "./pages/settings/taxes-fees"
 import PaymentsSettings from "./pages/settings/payments"
+import PayoutSettings from "./pages/settings/payout-settings"
+import Invoicing from "./pages/settings/invoicing"
+import ZenbookerSettings from "./pages/settings/zenbooker"
 import ServiceAreas from "./pages/settings/service-areas"
 import BookingQuoteRequests from "./pages/settings/booking-quote-requests"
 import FieldApp from "./pages/settings/field-app"
@@ -99,20 +106,32 @@ import TeamMemberFieldApp from "./pages/team-member-field-app"
 import TeamMemberSignup from "./pages/team-member-signup"
 import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
 import ImportDataPage from "./pages/import-data"
-import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
-import UnifiedImportJobsPage from "./pages/import-jobs-unified"
 import LeadsPipeline from "./pages/leads-pipeline"
+import Communications from "./pages/communications"
+import ConnectedInboxes from "./pages/settings/ConnectedInboxes"
 import LandingPageLegacy from "./pages/LandingPage"
 import Notifications from "./pages/notifications"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 import { CategoryProvider } from "./context/CategoryContext"
 import AppLayout from "./components/app-layout"
 
+// Preserve incoming query params when redirecting old import routes
+// (/settings/booking-koala, /import-jobs, /import-customers) to the new
+// generic /settings/data-import flow.
+function RedirectToDataImport({ defaultParams = {} }) {
+  const [search] = useSearchParams()
+  const merged = new URLSearchParams(defaultParams)
+  for (const [k, v] of search.entries()) merged.set(k, v)
+  const qs = merged.toString()
+  return <Navigate to={`/settings/data-import${qs ? `?${qs}` : ''}`} replace />
+}
+
 const root = ReactDOM.createRoot(document.getElementById("root"))
 root.render(
   <BrowserRouter style={{fontFamily: 'Montserrat', fontWeight: 500}}>
     <AuthProvider>
+      <TimeFormatProvider>
       <CategoryProvider>
         <TeamMemberAuthProvider>
         <Routes>
@@ -138,6 +157,7 @@ root.render(
       <Route path="/customers" element={<ServiceFlowCustomers />} />
       <Route path="/customer/:customerId" element={<ProtectedRoute><CustomerDetails /></ProtectedRoute>} />
       <Route path="/leads" element={<ProtectedRoute><LeadsPipeline /></ProtectedRoute>} />
+      <Route path="/communications" element={<ProtectedRoute><Communications /></ProtectedRoute>} />
       <Route path="/invoices/:invoiceId" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
       <Route path="/invoices/:invoiceId/edit" element={<ProtectedRoute><InvoiceEdit /></ProtectedRoute>} />
       <Route path="/team" element={<ServiceFlowTeam />} />
@@ -170,6 +190,10 @@ root.render(
       <Route path="/settings/stripe-connect" element={<StripeConnectSettings />} />
       <Route path="/settings/branding" element={<BrandingSettings />} />
       <Route path="/settings/feedback-reviews" element={<FeedbackReviews />} />
+      <Route path="/settings/communication-hub" element={<CommunicationHub />} />
+      <Route path="/settings/connected-inboxes" element={<ProtectedRoute><ConnectedInboxes /></ProtectedRoute>} />
+      <Route path="/settings/leads" element={<LeadsSettings />} />
+      <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/settings/client-team-notifications" element={<ClientTeamNotifications />} />
       <Route path="/settings/client-team-notifications/notification-testing" element={<NotificationTestingSettings />} />
       <Route path="/settings/client-team-notifications/quote-request-processing" element={<QuoteRequestProcessing />} />
@@ -198,15 +222,19 @@ root.render(
       <Route path="/settings/developers" element={<Developers />} />
       <Route path="/settings/calendar-syncing" element={<CalendarSyncing />} />
       <Route path="/settings/google-sheets" element={<GoogleSheetsSettings />} />
-      <Route path="/settings/booking-koala" element={<BookingKoalaIntegration />} />
+      <Route path="/settings/data-import" element={<DataImportPage />} />
+      <Route path="/settings/booking-koala" element={<RedirectToDataImport defaultParams={{ preset: 'booking-koala' }} />} />
       <Route path="/settings/taxes-fees" element={<TaxesFees />} />
       <Route path="/settings/payments" element={<PaymentsSettings />} />
+      <Route path="/settings/payout-settings" element={<PayoutSettings />} />
+      <Route path="/settings/invoicing" element={<Invoicing />} />
+      <Route path="/settings/zenbooker" element={<ZenbookerSettings />} />
       <Route path="/settings/service-areas" element={<ServiceAreas />} />
       <Route path="/settings/booking-quote-requests" element={<BookingQuoteRequests />} />
       <Route path="/settings/field-app" element={<FieldApp />} />
       <Route path="/import-data" element={<ProtectedRoute><ImportDataPage /></ProtectedRoute>} />
-      <Route path="/import-customers" element={<ProtectedRoute><ImportCustomersPage /></ProtectedRoute>} />
-      <Route path="/import-jobs" element={<ProtectedRoute><UnifiedImportJobsPage /></ProtectedRoute>} />
+      <Route path="/import-customers" element={<RedirectToDataImport defaultParams={{ type: 'customers' }} />} />
+      <Route path="/import-jobs" element={<RedirectToDataImport defaultParams={{ type: 'jobs' }} />} />
       <Route path="/import-jobs-legacy" element={<ProtectedRoute><ImportJobsPage /></ProtectedRoute>} />
       </Route>
       {/* Public Booking Routes - No authentication required */}
@@ -237,6 +265,7 @@ root.render(
       </Routes>
         </TeamMemberAuthProvider>
       </CategoryProvider>
+      </TimeFormatProvider>
     </AuthProvider>
   </BrowserRouter>,
 )

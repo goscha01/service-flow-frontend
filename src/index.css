@@ -2,54 +2,562 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Design System Colors */
+  --sf-bg-page: #F5F7FA;
+  --sf-bg-card: #FFFFFF;
+  --sf-bg-sidebar: #FFFFFF;
+  --sf-bg-header: #FFFFFF;
+  --sf-bg-active: #EBF2FF;
+  --sf-bg-hover: #F0F4FF;
+  --sf-bg-input: #F9FAFB;
+
+  --sf-text-primary: #1A1D26;
+  --sf-text-secondary: #5F6775;
+  --sf-text-muted: #8E95A2;
+  --sf-text-active: #2563EB;
+
+  --sf-border: #D1D5DB;
+  --sf-border-light: #E2E5EA;
+
+  --sf-blue-500: #2563EB;
+  --sf-blue-600: #1D4ED8;
+  --sf-blue-50: #EFF6FF;
+
+  --sf-green-500: #22C55E;
+  --sf-green-50: #F0FDF4;
+  --sf-orange-500: #F59E0B;
+  --sf-orange-50: #FFFBEB;
+  --sf-red-500: #EF4444;
+  --sf-red-50: #FEF2F2;
+
+  --sf-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --sf-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --sf-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  --sf-radius: 10px;
+}
+
+/* ══════════════════════════════════════════════════
+   BASE — Apply to everything
+   ══════════════════════════════════════════════════ */
+
 html {
-  background-color: #ffffff;
+  background-color: var(--sf-bg-page);
 }
 
 body {
   margin: 0;
-  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #ffffff;
-  color: #000000;
+  background-color: var(--sf-bg-page);
+  color: var(--sf-text-primary);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
-/* Hide unimplemented features for MVP */
-.feature-hidden {
-  display: none !important;
+/* ══════════════════════════════════════════════════
+   EVERY BUTTON — Restyle ALL buttons globally
+   ══════════════════════════════════════════════════ */
+
+button, a[role="button"], [type="button"], [type="submit"] {
+  font-family: 'Montserrat', sans-serif !important;
+  border-radius: var(--sf-radius) !important;
+  transition: all 0.2s ease !important;
+  font-weight: 500 !important;
 }
 
-/* Hide scrollbar utility */
+/* ══════════════════════════════════════════════════
+   EVERY INPUT — Restyle ALL inputs globally
+   ══════════════════════════════════════════════════ */
+
+input, textarea, select {
+  font-family: 'Montserrat', sans-serif !important;
+  border-radius: var(--sf-radius) !important;
+  border: 1.5px solid var(--sf-border-light) !important;
+  font-size: 14px !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+  background-color: white !important;
+}
+/* Default padding using :where() — zero specificity so any Tailwind padding
+   class (p-*, px-*, py-*, pl-*, pr-*) overrides it without needing !important */
+:where(input, textarea, select) {
+  padding: 10px 14px;
+}
+/* Search inputs need extra left padding for the search icon */
+input.sf-search-input {
+  padding-left: 38px !important;
+}
+/* Style native date inputs consistently */
+input[type="date"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  position: relative !important;
+  color: var(--sf-text-primary) !important;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0 !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  cursor: pointer !important;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left !important;
+}
+/* Style native time inputs consistently — ensure selected value stays visible */
+input[type="time"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  position: relative !important;
+  color: var(--sf-text-primary) !important;
+  min-width: 130px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left !important;
+  min-width: 0 !important;
+}
+input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0.6 !important;
+  cursor: pointer !important;
+  margin-left: 4px !important;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--sf-blue-500) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
+  outline: none !important;
+}
+input::placeholder, textarea::placeholder {
+  color: var(--sf-text-muted) !important;
+  font-weight: 400 !important;
+}
+/* Don't mess with hidden inputs or checkboxes */
+input[type="hidden"], input[type="checkbox"], input[type="radio"], input[type="color"], input[type="range"] {
+  border-radius: revert !important;
+  border: revert !important;
+  padding: revert !important;
+}
+
+/* ══════════════════════════════════════════════════
+   SIDEBAR
+   ══════════════════════════════════════════════════ */
+
+.sf-sidebar {
+  background: var(--sf-bg-sidebar) !important;
+  border-right: 1px solid var(--sf-border-light) !important;
+  box-shadow: none !important;
+}
+.sf-sidebar-section-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--sf-text-muted) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  padding: 20px 16px 8px !important;
+}
+.sf-sidebar-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 16px !important;
+  border-radius: var(--sf-radius) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: var(--sf-text-secondary) !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  border: none !important;
+}
+.sf-sidebar-item:hover {
+  background: var(--sf-bg-hover) !important;
+  color: var(--sf-text-primary) !important;
+}
+.sf-sidebar-item.active {
+  background: var(--sf-bg-active) !important;
+  color: var(--sf-text-active) !important;
+  font-weight: 600 !important;
+}
+.sf-sidebar-item.active .sf-sidebar-icon {
+  color: var(--sf-text-active) !important;
+}
+
+/* ── Page header ── */
+.sf-header {
+  background: var(--sf-bg-header) !important;
+  border-bottom: 1px solid var(--sf-border-light) !important;
+}
+
+/* ── Cards ── */
+.sf-card {
+  background: var(--sf-bg-card) !important;
+  border: 1px solid var(--sf-border-light) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--sf-shadow-sm) !important;
+}
+
+/* ── Buttons ── */
+.sf-btn-primary {
+  background: var(--sf-blue-500) !important;
+  color: white !important;
+  border-radius: var(--sf-radius) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  padding: 10px 24px !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3) !important;
+}
+.sf-btn-primary:hover {
+  background: var(--sf-blue-600) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   GLOBAL STRUCTURAL OVERRIDES
+   These change SHAPE, SIZE, and SPACING — not just colors
+   ══════════════════════════════════════════════════ */
+
+/* ── ALL white backgrounds get card treatment ── */
+.bg-white {
+  background-color: var(--sf-bg-card) !important;
+}
+
+/* ── ALL rounded corners — more generous ── */
+.rounded-lg { border-radius: 12px !important; }
+.rounded-xl { border-radius: 16px !important; }
+.rounded-2xl { border-radius: 20px !important; }
+.rounded-md { border-radius: var(--sf-radius) !important; }
+
+/* ── ALL shadows — more visible ── */
+.shadow-lg { box-shadow: var(--sf-shadow-lg) !important; }
+.shadow-md { box-shadow: var(--sf-shadow-md) !important; }
+.shadow-sm { box-shadow: var(--sf-shadow-sm) !important; }
+.shadow-xl { box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15) !important; }
+.shadow { box-shadow: var(--sf-shadow-sm) !important; }
+
+/* ── ALL borders — consistent color ── */
+.border-gray-200, .border-gray-300, .border-gray-100 {
+  border-color: var(--sf-border-light) !important;
+}
+.divide-gray-200 > * + *, .divide-y > * + * {
+  border-color: var(--sf-border-light) !important;
+}
+
+/* ── ALL backgrounds ── */
+.bg-gray-50 { background-color: var(--sf-bg-page) !important; }
+.bg-gray-100 { background-color: #EEF1F5 !important; }
+
+/* ── ALL text colors ── */
+.text-gray-900 { color: var(--sf-text-primary) !important; }
+.text-gray-800 { color: var(--sf-text-primary) !important; }
+.text-gray-700 { color: var(--sf-text-secondary) !important; }
+.text-gray-600 { color: var(--sf-text-secondary) !important; }
+.text-gray-500 { color: var(--sf-text-muted) !important; }
+.text-gray-400 { color: var(--sf-text-muted) !important; }
+
+/* ── ALL blue colors ── */
+.bg-blue-600, .bg-blue-500 { background-color: var(--sf-blue-500) !important; }
+.bg-blue-700 { background-color: var(--sf-blue-600) !important; }
+.hover\:bg-blue-700:hover, .hover\:bg-blue-600:hover { background-color: var(--sf-blue-600) !important; }
+.text-blue-600, .text-blue-700, .text-blue-500 { color: var(--sf-blue-500) !important; }
+.bg-blue-50 { background-color: var(--sf-blue-50) !important; }
+.bg-blue-100 { background-color: #DBEAFE !important; }
+
+/* ── Hover states ── */
+.hover\:bg-gray-50:hover { background-color: var(--sf-bg-hover) !important; }
+.hover\:bg-gray-100:hover { background-color: var(--sf-bg-hover) !important; }
+
+/* ── Status badges ── */
+.bg-green-100, .bg-green-50 { background-color: var(--sf-green-50) !important; }
+.bg-yellow-100, .bg-yellow-50, .bg-amber-100 { background-color: var(--sf-orange-50) !important; }
+.bg-red-100, .bg-red-50 { background-color: var(--sf-red-50) !important; }
+
+/* ══════════════════════════════════════════════════
+   FILTER PILLS / DROPDOWN BUTTONS — Major visual change
+   ══════════════════════════════════════════════════ */
+
+/* Target filter pill buttons (the ones with dropdown arrows) */
+button[class*="rounded-full"],
+button[class*="rounded-lg"][class*="border"],
+button[class*="rounded-md"][class*="border"] {
+  border: 1.5px solid var(--sf-border-light) !important;
+  border-radius: var(--sf-radius) !important;
+  padding: 8px 16px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  background: white !important;
+  color: var(--sf-text-secondary) !important;
+  box-shadow: var(--sf-shadow-sm) !important;
+}
+button[class*="rounded-full"]:hover,
+button[class*="rounded-lg"][class*="border"]:hover,
+button[class*="rounded-md"][class*="border"]:hover {
+  background: var(--sf-bg-hover) !important;
+  border-color: var(--sf-border) !important;
+  box-shadow: var(--sf-shadow-md) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   PAGE HEADERS — Clean, prominent
+   ══════════════════════════════════════════════════ */
+
+/* Page title h1/h2 */
+h1 {
+  font-weight: 700 !important;
+  color: var(--sf-text-primary) !important;
+  letter-spacing: -0.01em !important;
+}
+h2 {
+  font-weight: 600 !important;
+  color: var(--sf-text-primary) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   TABLE-LIKE LAYOUTS (div-based)
+   The Jobs page uses divs, not tables
+   ══════════════════════════════════════════════════ */
+
+/* Real tables */
+table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+thead th {
+  background-color: #F8FAFC !important;
+  color: var(--sf-text-muted) !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--sf-border-light) !important;
+  padding: 14px 16px !important;
+}
+tbody td {
+  border-bottom: 1px solid var(--sf-border-light) !important;
+  padding: 14px 16px !important;
+  color: var(--sf-text-primary) !important;
+  font-size: 14px !important;
+}
+tbody tr:hover {
+  background-color: var(--sf-bg-hover) !important;
+}
+tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+/* ══════════════════════════════════════════════════
+   CARDS & CONTAINERS — Elevated, spacious
+   ══════════════════════════════════════════════════ */
+
+/* Any white container with border gets card treatment */
+.bg-white[class*="border"],
+.bg-white[class*="rounded"],
+[class*="bg-white"][class*="shadow"] {
+  border-radius: 12px !important;
+  box-shadow: var(--sf-shadow-sm) !important;
+  border: 1px solid var(--sf-border-light) !important;
+}
+
+/* Grid cards - hover lift */
+.grid > .bg-white,
+.grid > [class*="bg-white"] {
+  border-radius: 12px !important;
+  box-shadow: var(--sf-shadow-sm) !important;
+  border: 1px solid var(--sf-border-light) !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+.grid > .bg-white:hover,
+.grid > [class*="bg-white"]:hover {
+  box-shadow: var(--sf-shadow-md) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── Calendar grid cells — override card treatment ── */
+.calendar-grid > div,
+.calendar-grid > div.bg-white,
+.calendar-grid > div[class*="bg-white"],
+.calendar-grid > div[class*="border"],
+.calendar-grid > .bg-white[class*="border"],
+.grid.calendar-grid > .bg-white,
+.grid.calendar-grid > [class*="bg-white"] {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.calendar-grid > div:hover,
+.grid.calendar-grid > .bg-white:hover,
+.grid.calendar-grid > [class*="bg-white"]:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+.calendar-grid > div.rounded-tl-lg { border-top-left-radius: 8px !important; }
+.calendar-grid > div.rounded-tr-lg { border-top-right-radius: 8px !important; }
+.calendar-grid > div.rounded-bl-lg { border-bottom-left-radius: 8px !important; }
+.calendar-grid > div.rounded-br-lg { border-bottom-right-radius: 8px !important; }
+
+/* ── Calendar event cards inside cells ── */
+.calendar-grid [data-calendar-event] {
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+/* ── Schedule calendar grids (Jobs & Availability month/week views) ── */
+.schedule-grid > div,
+.schedule-grid > div.bg-white,
+.schedule-grid > div[class*="bg-white"],
+.schedule-grid > div[class*="border"],
+.grid.schedule-grid > .bg-white,
+.grid.schedule-grid > [class*="bg-white"] {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.schedule-grid > div:hover,
+.grid.schedule-grid > .bg-white:hover,
+.grid.schedule-grid > [class*="bg-white"]:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+/* Schedule event/job cards inside cells — override global .grid > .bg-white 12px rule */
+.schedule-card,
+.schedule-card.bg-white,
+.schedule-grid .schedule-card,
+.grid .schedule-card,
+.grid > div .schedule-card {
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+/* Schedule nav buttons — override global button border-radius */
+button.schedule-nav-btn {
+  font-family: 'Work Sans', sans-serif !important;
+  font-weight: 500 !important;
+}
+button.schedule-nav-btn.schedule-nav-today {
+  border-radius: 6px !important;
+}
+button.schedule-nav-btn.schedule-nav-month {
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+button.schedule-nav-btn.schedule-nav-arrow {
+  border-radius: 1000px !important;
+  padding: 0 !important;
+}
+
+/* ── Calendar header controls ── */
+.calendar-header button,
+.calendar-header div[class*="w-48"] {
+  box-shadow: none !important;
+}
+.calendar-header .calendar-btn-today {
+  border-radius: 6px !important;
+}
+.calendar-header .calendar-btn-monthly {
+  border-radius: 8px !important;
+}
+.calendar-header .calendar-btn-add {
+  border-radius: 8px !important;
+}
+.calendar-header .calendar-search {
+  border-radius: 8px !important;
+}
+.calendar-header .calendar-month-picker {
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* ── Calendar nav arrows — force circular ── */
+button.calendar-nav-arrow,
+button.calendar-nav-arrow[class*="border"] {
+  border-radius: 9999px !important;
+  padding: 6px !important;
+}
+
+/* ══════════════════════════════════════════════════
+   DROPDOWNS & MODALS
+   ══════════════════════════════════════════════════ */
+
+[class*="absolute"][class*="bg-white"][class*="shadow"],
+[class*="absolute"][class*="bg-white"][class*="border"] {
+  border-radius: 12px !important;
+  box-shadow: var(--sf-shadow-lg) !important;
+  border: 1px solid var(--sf-border-light) !important;
+  overflow: hidden !important;
+}
+
+/* Modal overlays */
+.fixed.inset-0[class*="bg-black"] {
+  backdrop-filter: blur(4px) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   SCROLLBARS — Thin, modern
+   ══════════════════════════════════════════════════ */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background-color: #CBD5E1; border-radius: 3px; }
+*::-webkit-scrollbar-thumb:hover { background-color: #94A3B8; }
+
+/* ══════════════════════════════════════════════════
+   LINKS — Consistent blue
+   ══════════════════════════════════════════════════ */
+
+a[class*="text-blue"] {
+  color: var(--sf-blue-500) !important;
+  text-decoration: none !important;
+}
+a[class*="text-blue"]:hover {
+  color: var(--sf-blue-600) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   UTILITY CLASSES
+   ══════════════════════════════════════════════════ */
+
+.feature-hidden { display: none !important; }
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Chunky always-visible horizontal scrollbar for the leads kanban */
+.pipeline-scrollbar { scrollbar-width: auto; scrollbar-color: #94A3B8 #F1F5F9; }
+.pipeline-scrollbar::-webkit-scrollbar { height: 14px; width: 14px; }
+.pipeline-scrollbar::-webkit-scrollbar-track { background: #F1F5F9; border-radius: 7px; }
+.pipeline-scrollbar::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 7px; border: 3px solid #F1F5F9; }
+.pipeline-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748B; }
+
 @media (max-width: 600px) {
-  html {
-    font-size: 14px; /* ALL text scales down */
-  }
+  html { font-size: 14px; }
 }
 
-/* Safe area insets for iOS devices */
-.safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
+/* Safe area insets for iOS */
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .h-safe-area-inset-bottom {
   height: env(safe-area-inset-bottom, 0px);
   min-height: env(safe-area-inset-bottom, 0px);
 }
-
-/* Ensure bottom navigation stays fixed on iOS */
 .fixed-bottom-nav {
   position: fixed !important;
   bottom: 0 !important;
@@ -60,16 +568,288 @@ code {
   will-change: transform;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  /* Prevent disappearing on scroll */
   -webkit-overflow-scrolling: touch;
 }
-
-/* iOS Safari specific fixes */
 @supports (-webkit-touch-callout: none) {
   .fixed-bottom-nav {
-    /* Force hardware acceleration and prevent disappearing */
     position: fixed !important;
     transform: translate3d(0, 0, 0);
     -webkit-transform: translate3d(0, 0, 0);
   }
+}
+
+/* ══════════════════════════════════════════════════
+   DRAWER ANIMATIONS
+   ══════════════════════════════════════════════════ */
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  transform: translateX(100%);
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+/* ══════════════════════════════════════════════════
+   DATE PICKER — Custom calendar component
+   ══════════════════════════════════════════════════ */
+
+.sf-datepicker-popup {
+  box-sizing: border-box;
+  width: 352px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  background: #FFFFFF;
+  border: 1px solid #EDF1F5;
+  border-radius: 16px !important;
+  box-shadow: 0px 24px 48px -12px rgba(13, 13, 18, 0.12);
+  z-index: 9999;
+  overflow: visible !important;
+}
+
+.sf-datepicker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 320px;
+  height: 48px;
+  gap: 8px;
+}
+
+.sf-datepicker-nav {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  color: #858789 !important;
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  flex-shrink: 0;
+}
+.sf-datepicker-nav:hover {
+  color: var(--sf-text-primary) !important;
+  background: var(--sf-bg-hover) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.sf-datepicker-nav svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.sf-datepicker-month-year {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 248px;
+  justify-content: center;
+}
+
+.sf-datepicker-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 120px !important;
+  height: 32px !important;
+  padding: 6px 16px !important;
+  background: #FFFFFF !important;
+  border: 1px solid #DCE0E4 !important;
+  border-radius: 6px !important;
+  box-shadow: 0px 1px 2px rgba(13, 13, 18, 0.06) !important;
+  font-family: 'Work Sans', 'Montserrat', sans-serif !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  line-height: 20px !important;
+  color: #2D2E2E !important;
+  cursor: pointer !important;
+}
+.sf-datepicker-btn:hover {
+  transform: none !important;
+  box-shadow: 0px 1px 2px rgba(13, 13, 18, 0.06) !important;
+  background: var(--sf-bg-hover) !important;
+}
+.sf-datepicker-btn.active {
+  background: var(--sf-bg-active) !important;
+  border-color: var(--sf-blue-500) !important;
+  color: var(--sf-blue-500) !important;
+}
+
+.sf-datepicker-body {
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+}
+
+.sf-datepicker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  width: 320px;
+}
+
+.sf-datepicker-weekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 45.71px;
+  height: 40px;
+  font-family: 'Work Sans', 'Montserrat', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 20px;
+  color: #2D2E2E;
+}
+
+.sf-datepicker-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  width: 320px;
+}
+
+.sf-datepicker-day-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 45.71px;
+  height: 48px;
+}
+
+.sf-datepicker-day {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  font-family: 'Work Sans', 'Montserrat', sans-serif !important;
+  font-weight: 400 !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+  color: #858789 !important;
+  cursor: pointer !important;
+  border-radius: 1000px !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+.sf-datepicker-day:hover {
+  background: var(--sf-bg-hover) !important;
+  color: var(--sf-text-primary) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.sf-datepicker-day.selected {
+  background: #2970FF !important;
+  color: #FFFFFF !important;
+}
+.sf-datepicker-day.selected:hover {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+}
+
+.sf-datepicker-day.today {
+  border: 1px solid #2970FF !important;
+  color: #2970FF !important;
+}
+
+.sf-datepicker-day.outside {
+  color: #D0D1D2 !important;
+}
+.sf-datepicker-day.outside:hover {
+  color: #858789 !important;
+}
+
+/* Month / Year grid picker */
+.sf-datepicker-grid-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 320px;
+  padding: 8px 0;
+}
+
+.sf-datepicker-grid-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  font-family: 'Work Sans', 'Montserrat', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: #858789 !important;
+  cursor: pointer !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+.sf-datepicker-grid-item:hover {
+  background: var(--sf-bg-hover) !important;
+  color: var(--sf-text-primary) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.sf-datepicker-grid-item.selected {
+  background: #2970FF !important;
+  color: #FFFFFF !important;
+}
+.sf-datepicker-grid-item.selected:hover {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+}
+
+.sf-datepicker-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 320px;
+  padding-top: 12px;
+  border-top: 1px solid #EDF1F5;
+}
+
+.sf-datepicker-action {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 6px 16px !important;
+  border: none !important;
+  background: transparent !important;
+  font-family: 'Work Sans', 'Montserrat', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--sf-blue-500) !important;
+  cursor: pointer !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+.sf-datepicker-action:hover {
+  background: var(--sf-bg-hover) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Filter popup — keep price inputs within bounds ── */
+.sf-filter-input-narrow {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 6px 10px !important;
+  font-size: 13px !important;
 }

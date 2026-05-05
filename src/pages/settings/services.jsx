@@ -101,13 +101,13 @@ const ServicesSettings = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading services settings...</p>
+              <p className="mt-4 text-[var(--sf-text-secondary)]">Loading services settings...</p>
             </div>
           </div>
         </div>
@@ -116,23 +116,23 @@ const ServicesSettings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[var(--sf-bg-page)] flex">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate("/settings")}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span>Back to Settings</span>
             </button>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mt-2">Services Settings</h1>
+          <h1 className="text-2xl font-bold text-[var(--sf-text-primary)] mt-2">Services Settings</h1>
         </div>
 
         {/* Content */}
@@ -150,25 +150,25 @@ const ServicesSettings = () => {
             )}
 
             {/* General Settings */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">General Settings</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] mb-6">
+              <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
+                <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">General Settings</h2>
               </div>
               <div className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Default Duration (minutes)
                     </label>
                     <input
                       type="number"
                       value={settings.defaultDuration}
                       onChange={(e) => handleInputChange('defaultDuration', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Default Price ($)
                     </label>
                     <input
@@ -176,7 +176,7 @@ const ServicesSettings = () => {
                       step="0.01"
                       value={settings.defaultPrice}
                       onChange={(e) => handleInputChange('defaultPrice', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                 </div>
@@ -184,13 +184,13 @@ const ServicesSettings = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900">Require Payment Method</h3>
-                      <p className="text-sm text-gray-500">Require customers to provide payment information when booking</p>
+                      <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Require Payment Method</h3>
+                      <p className="text-sm text-[var(--sf-text-muted)]">Require customers to provide payment information when booking</p>
                     </div>
                     <button
                       onClick={() => handleToggle('requirePaymentMethod')}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        settings.requirePaymentMethod ? 'bg-blue-600' : 'bg-gray-200'
+                        settings.requirePaymentMethod ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
                       }`}
                     >
                       <span
@@ -203,13 +203,13 @@ const ServicesSettings = () => {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900">Allow Online Booking</h3>
-                      <p className="text-sm text-gray-500">Allow customers to book services online</p>
+                      <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Allow Online Booking</h3>
+                      <p className="text-sm text-[var(--sf-text-muted)]">Allow customers to book services online</p>
                     </div>
                     <button
                       onClick={() => handleToggle('allowOnlineBooking')}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        settings.allowOnlineBooking ? 'bg-blue-600' : 'bg-gray-200'
+                        settings.allowOnlineBooking ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
                       }`}
                     >
                       <span
@@ -222,13 +222,13 @@ const ServicesSettings = () => {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900">Show Service Prices</h3>
-                      <p className="text-sm text-gray-500">Display service prices to customers</p>
+                      <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Show Service Prices</h3>
+                      <p className="text-sm text-[var(--sf-text-muted)]">Display service prices to customers</p>
                     </div>
                     <button
                       onClick={() => handleToggle('showServicePrices')}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        settings.showServicePrices ? 'bg-blue-600' : 'bg-gray-200'
+                        settings.showServicePrices ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
                       }`}
                     >
                       <span
@@ -241,13 +241,13 @@ const ServicesSettings = () => {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900">Auto-Assign Team Members</h3>
-                      <p className="text-sm text-gray-500">Automatically assign team members to new jobs</p>
+                      <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Auto-Assign Team Members</h3>
+                      <p className="text-sm text-[var(--sf-text-muted)]">Automatically assign team members to new jobs</p>
                     </div>
                     <button
                       onClick={() => handleToggle('autoAssignTeamMembers')}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        settings.autoAssignTeamMembers ? 'bg-blue-600' : 'bg-gray-200'
+                        settings.autoAssignTeamMembers ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
                       }`}
                     >
                       <span
@@ -262,9 +262,9 @@ const ServicesSettings = () => {
             </div>
 
             {/* Service Categories */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Service Categories</h2>
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] mb-6">
+              <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
+                <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Service Categories</h2>
               </div>
               <div className="p-6">
                 <CategoryManagement onCategoryChange={handleCategoryChange} />
@@ -273,36 +273,36 @@ const ServicesSettings = () => {
 
             {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-6">
                 <div className="flex items-center">
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Settings className="w-5 h-5 text-blue-600" />
+                    <Settings className="w-5 h-5 text-[var(--sf-blue-500)]" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Services</p>
-                    <p className="text-2xl font-bold text-gray-900">{services.length}</p>
+                    <p className="text-sm font-medium text-[var(--sf-text-secondary)]">Total Services</p>
+                    <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{services.length}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-6">
                 <div className="flex items-center">
                   <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                     <Tag className="w-5 h-5 text-green-600" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Categories</p>
-                    <p className="text-2xl font-bold text-gray-900">{serviceCategories.length}</p>
+                    <p className="text-sm font-medium text-[var(--sf-text-secondary)]">Categories</p>
+                    <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{serviceCategories.length}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-6">
                 <div className="flex items-center">
                   <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                     <Clock className="w-5 h-5 text-purple-600" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Avg Duration</p>
-                    <p className="text-2xl font-bold text-gray-900">{settings.defaultDuration}m</p>
+                    <p className="text-sm font-medium text-[var(--sf-text-secondary)]">Avg Duration</p>
+                    <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{settings.defaultDuration}m</p>
                   </div>
                 </div>
               </div>
@@ -313,7 +313,7 @@ const ServicesSettings = () => {
               <button
                 onClick={handleSaveSettings}
                 disabled={saving}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Saving...' : 'Save Settings'}
               </button>

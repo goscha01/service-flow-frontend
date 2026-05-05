@@ -127,13 +127,13 @@ const CreateCouponForm = () => {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-8">Create Coupon</h1>
+      <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)] mb-8">Create Coupon</h1>
 
       <div className="space-y-6">
         {/* Coupon Code Section */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Coupon code
             </label>
             <div className="flex gap-2">
@@ -143,36 +143,36 @@ const CreateCouponForm = () => {
                 value={formData.code}
                 onChange={handleInputChange}
                 placeholder="e.g. SPRINGCLEAN-20-OFF"
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="flex-1 rounded-md border border-[var(--sf-border-light)] px-3 py-2 text-sm focus:border-[var(--sf-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
               />
               <button
                 onClick={generateCode}
                 type="button"
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
               >
                 Autogenerate code
               </button>
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
               Customers will enter this code when booking online
             </p>
           </div>
         </div>
 
         {/* Discount Section */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
           <div className="mb-4">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Discount</h2>
+            <h2 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Discount</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                   Type
                 </label>
                 <select
                   name="discountType"
                   value={formData.discountType}
                   onChange={handleInputChange}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-[var(--sf-border-light)] px-3 py-2 text-sm focus:border-[var(--sf-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
                 >
                   <option value="">Select discount type</option>
                   <option value="percentage">Percentage off</option>
@@ -180,7 +180,7 @@ const CreateCouponForm = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                   Discount amount
                 </label>
                 <input
@@ -189,7 +189,7 @@ const CreateCouponForm = () => {
                   value={formData.discountAmount}
                   onChange={handleInputChange}
                   placeholder="$25"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-[var(--sf-border-light)] px-3 py-2 text-sm focus:border-[var(--sf-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
                 />
               </div>
             </div>
@@ -197,10 +197,10 @@ const CreateCouponForm = () => {
         </div>
 
         {/* Applies To Section */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
           <div className="mb-4">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Applies to</h2>
-            <p className="text-sm text-gray-500 mb-4">
+            <h2 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Applies to</h2>
+            <p className="text-sm text-[var(--sf-text-muted)] mb-4">
               Select the services that this coupon can be applied to
             </p>
             <div className="space-y-3">
@@ -211,9 +211,9 @@ const CreateCouponForm = () => {
                   value="all"
                   checked={formData.applicationType === "all"}
                   onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)]"
                 />
-                <span className="ml-2 text-sm text-gray-900">All services</span>
+                <span className="ml-2 text-sm text-[var(--sf-text-primary)]">All services</span>
               </label>
               <label className="flex items-center">
                 <input
@@ -222,9 +222,9 @@ const CreateCouponForm = () => {
                   value="specific"
                   checked={formData.applicationType === "specific"}
                   onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)]"
                 />
-                <span className="ml-2 text-sm text-gray-900">Specific services</span>
+                <span className="ml-2 text-sm text-[var(--sf-text-primary)]">Specific services</span>
               </label>
             </div>
 
@@ -236,9 +236,9 @@ const CreateCouponForm = () => {
                       type="checkbox"
                       checked={formData.selectedServices.includes(service.id)}
                       onChange={() => handleServiceToggle(service.id)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
                     />
-                    <span className="ml-2 text-sm text-gray-900">{service.name}</span>
+                    <span className="ml-2 text-sm text-[var(--sf-text-primary)]">{service.name}</span>
                   </label>
                 ))}
               </div>
@@ -247,9 +247,9 @@ const CreateCouponForm = () => {
         </div>
 
         {/* Expiration Date Section */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
           <div className="mb-4">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Expiration date</h2>
+            <h2 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Expiration date</h2>
             <div className="space-y-4">
               <label className="flex items-center">
                 <input
@@ -257,14 +257,14 @@ const CreateCouponForm = () => {
                   name="doesntExpire"
                   checked={formData.doesntExpire}
                   onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
                 />
-                <span className="ml-2 text-sm text-gray-900">Doesn't expire</span>
+                <span className="ml-2 text-sm text-[var(--sf-text-primary)]">Doesn't expire</span>
               </label>
 
               {!formData.doesntExpire && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Use by
                   </label>
                   <input
@@ -272,7 +272,7 @@ const CreateCouponForm = () => {
                     name="expirationDate"
                     value={formData.expirationDate}
                     onChange={handleInputChange}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-[var(--sf-border-light)] px-3 py-2 text-sm focus:border-[var(--sf-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
                   />
                 </div>
               )}
@@ -283,9 +283,9 @@ const CreateCouponForm = () => {
                   name="restrictBeforeExpiration"
                   checked={formData.restrictBeforeExpiration}
                   onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
                 />
-                <span className="ml-2 text-sm text-gray-900">
+                <span className="ml-2 text-sm text-[var(--sf-text-primary)]">
                   Restrict coupon to appointments on or before expiration date
                 </span>
               </label>
@@ -294,9 +294,9 @@ const CreateCouponForm = () => {
         </div>
 
         {/* Usage Limits Section */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
           <div className="mb-4">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Usage limits</h2>
+            <h2 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Usage limits</h2>
             <div className="space-y-4">
               <label className="flex items-center">
                 <input
@@ -304,9 +304,9 @@ const CreateCouponForm = () => {
                   name="limitTotalUses"
                   checked={formData.limitTotalUses}
                   onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
                 />
-                <span className="ml-2 text-sm text-gray-900">
+                <span className="ml-2 text-sm text-[var(--sf-text-primary)]">
                   Limit the total number of times this coupon can be redeemed
                 </span>
               </label>
@@ -318,15 +318,15 @@ const CreateCouponForm = () => {
                     name="canCombineWithRecurring"
                     checked={formData.canCombineWithRecurring}
                     onChange={handleInputChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
                   />
-                  <span className="ml-2 text-sm text-gray-900">
+                  <span className="ml-2 text-sm text-[var(--sf-text-primary)]">
                     This coupon can be combined with recurring booking discounts
                   </span>
                 </label>
                 <button
                   type="button"
-                  className="text-gray-400 hover:text-gray-500"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)]"
                   title="Learn more about combining coupons"
                 >
                   <Info className="h-4 w-4" />
@@ -334,14 +334,14 @@ const CreateCouponForm = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                   For recurring bookings, apply coupon to...
                 </label>
                 <select
                   name="recurringApplicationType"
                   value={formData.recurringApplicationType}
                   onChange={handleInputChange}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-md border border-[var(--sf-border-light)] px-3 py-2 text-sm focus:border-[var(--sf-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
                 >
                   <option value="all">All jobs in recurring series</option>
                   <option value="first">First job only</option>
@@ -360,7 +360,7 @@ const CreateCouponForm = () => {
               </div>
             )}
             {isSaving && (
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                 <span>Saving...</span>
               </div>
@@ -370,7 +370,7 @@ const CreateCouponForm = () => {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center space-x-2 bg-[var(--sf-blue-500)] text-white px-6 py-3 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Save className="w-4 h-4" />
             <span>{isSaving ? 'Creating...' : 'Create Coupon'}</span>

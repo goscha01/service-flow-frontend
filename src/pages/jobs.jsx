@@ -13,6 +13,7 @@ import { decodeHtmlEntities } from "../utils/htmlUtils"
 import MobileBottomNav from "../components/mobile-bottom-nav"
 import MobileHeader from "../components/mobile-header"
 import RecurringIndicator from "../components/recurring-indicator"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 
 const ServiceFlowJobs = () => {
   const { user, loading: authLoading } = useAuth()
@@ -39,7 +40,9 @@ const ServiceFlowJobs = () => {
   const [error, setError] = useState("")
   const [page, setPage] = useState(1)
   const [totalJobs, setTotalJobs] = useState(0)
+  const [allJobsCount, setAllJobsCount] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [quickRange, setQuickRange] = useState('')
   const [limit] = useState(50)
   const [showLoadMore, setShowLoadMore] = useState(true)
   const [territories, setTerritories] = useState([])
@@ -54,7 +57,7 @@ const ServiceFlowJobs = () => {
     search: "",
     invoiceStatus: "",
     sortBy: "scheduled_date",
-    sortOrder: "ASC", // Default to "Soonest"
+    sortOrder: "ASC", // Default to "Soonest" (today forward)
     territoryId: "",
     paymentMethod: "",
     tag: "",
@@ -135,6 +138,7 @@ const ServiceFlowJobs = () => {
       case 'sort':
         if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') return 'Sort by: Soonest'
         if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC') return 'Sort by: Recent'
+        if (filters.sortBy === 'created_at' && filters.sortOrder === 'ASC') return 'Sort by: Oldest'
         if (filters.sortBy === 'total_amount' && filters.sortOrder === 'DESC') return 'Sort by: Highest Amount'
         if (filters.sortBy === 'total_amount' && filters.sortOrder === 'ASC') return 'Sort by: Lowest Amount'
         return 'Sort by: Soonest'
@@ -241,7 +245,7 @@ const ServiceFlowJobs = () => {
       navigate('/signin')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, filters, user?.id, authLoading, page])
+  }, [activeTab, filters, user?.id, authLoading, page, quickRange])
 
   const fetchJobs = async () => {
     if (!user?.id) return
@@ -264,46 +268,79 @@ const ServiceFlowJobs = () => {
       let dateRangeForAPI = filters.dateRange
       if (filters.dateFrom || filters.dateTo) {
         // Use the date range picker values
-        dateRangeForAPI = filters.dateFrom && filters.dateTo 
+        dateRangeForAPI = filters.dateFrom && filters.dateTo
           ? `${filters.dateFrom} to ${filters.dateTo}`
           : filters.dateFrom || filters.dateTo
       }
 
-      // If "Soonest" sort is selected on "all" tab, filter for future jobs (today, tomorrow, and so on)
-      // This ensures users see upcoming jobs sorted by soonest, not past jobs
-      if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' && activeTab === 'all' && !dateFilter) {
-        dateFilter = "future" // Show today, tomorrow, and all future jobs
+      // When user is actively searching, bypass all tab/sort filters to show all matching results
+      if (!filters.search) {
+        switch (activeTab) {
+          case "active":
+            statusFilter = "confirmed,scheduled,in_progress,in-progress,started,en-route,completed,complete,pending"
+            break
+          case "upcoming":
+            statusFilter = "confirmed,in_progress"
+            dateFilter = "future"
+            break
+          case "past":
+            statusFilter = ""
+            dateFilter = "past"
+            break
+          case "complete":
+            statusFilter = "completed"
+            break
+          case "incomplete":
+            statusFilter = "confirmed,in_progress"
+            break
+          case "canceled":
+            statusFilter = "cancelled"
+            break
+          case "daterange":
+            statusFilter = ""
+            break
+          case "all":
+          default:
+            statusFilter = ""
+            break
+        }
+      }
+      // else: search is active, statusFilter and dateFilter stay empty to show all matching results
+
+      // "Soonest" sort: force future filter for tabs that show upcoming jobs
+      const futureTabs = ['all', 'active', 'upcoming', 'incomplete']
+      if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' && !dateFilter && !filters.search && !quickRange && futureTabs.includes(activeTab)) {
+        dateFilter = "future"
       }
 
-      switch (activeTab) {
-        case "upcoming":
-          statusFilter = "confirmed,in_progress"
-          dateFilter = "future" // Jobs scheduled for today and future
-          break
-        case "past":
-          // For past tab, don't filter by status - show all past jobs regardless of status
-          statusFilter = ""
-          dateFilter = "past" // Jobs before today (yesterday and earlier)
-          break
-        case "complete":
-          statusFilter = "completed"
-          break
-        case "incomplete":
-          statusFilter = "confirmed,in_progress"
-          break
-        case "canceled":
-          statusFilter = "cancelled"
-          break
-        case "daterange":
-          // Date range will be handled by filters.dateRange (already set above)
-          statusFilter = ""
-          break
-        case "all":
-        default:
-          statusFilter = ""
-          break
+      // Quick range filter overrides dateRange
+      if (quickRange && !dateRangeForAPI) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const fmt = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0')
+        let qStart = '', qEnd = fmt(today)
+        if (quickRange === 'today') {
+          qStart = fmt(today)
+        } else if (quickRange === 'this_week') {
+          const d = new Date(today); d.setDate(d.getDate() - d.getDay() + 1)
+          qStart = fmt(d)
+        } else if (quickRange === 'this_period') {
+          const d = new Date(today); d.setDate(1)
+          qStart = fmt(d)
+        } else if (quickRange === 'last_period') {
+          const d = new Date(today); d.setMonth(d.getMonth() - 1); d.setDate(1)
+          qStart = fmt(d)
+          qEnd = fmt(new Date(today.getFullYear(), today.getMonth(), 0))
+        } else if (quickRange === 'last_month') {
+          const d = new Date(today); d.setDate(d.getDate() - 30)
+          qStart = fmt(d)
+        }
+        if (qStart) {
+          dateRangeForAPI = qStart + ' to ' + qEnd
+          dateFilter = ''
+        }
       }
-      
+
       // Call jobsAPI with individual parameters
       const response = await jobsAPI.getAll(
         user.id,
@@ -334,6 +371,13 @@ const ServiceFlowJobs = () => {
       }
 
       setTotalJobs(total)
+
+      // Fetch total count (all jobs, no filters) on first page load
+      if (page === 1 && allJobsCount === 0) {
+        jobsAPI.getAll(user.id, '', '', 1, 1, '', '', 'scheduled_date', 'ASC').then(r => {
+          setAllJobsCount(r.pagination?.total || r.total || 0)
+        }).catch(() => {})
+      }
       // Fix pagination: check if we have more jobs to load
       const currentTotal = page === 1 ? newJobs.length : jobs.length + newJobs.length
       const hasMoreJobs = currentTotal < total && newJobs.length === limit
@@ -402,7 +446,6 @@ const ServiceFlowJobs = () => {
       const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-      // Calculate weekday using Zeller's congruence to avoid Date object
       const y = parseInt(year, 10)
       const m = parseInt(month, 10)
       const d = parseInt(day, 10)
@@ -412,19 +455,8 @@ const ServiceFlowJobs = () => {
         return { weekday: undefined, monthName: undefined, day: undefined, year: undefined, isValid: false }
       }
 
-      // Adjust month for Zeller's congruence (March = 1, February = 12)
-      let adjustedMonth = m
-      let adjustedYear = y
-      if (m < 3) {
-        adjustedMonth = m + 12
-        adjustedYear = y - 1
-      }
-
-      const k = adjustedYear % 100
-      const j = Math.floor(adjustedYear / 100)
-      const h = (d + Math.floor((13 * (adjustedMonth + 1)) / 5) + k + Math.floor(k / 4) + Math.floor(j / 4) - 2 * j) % 7
-
-      const weekdayIndex = ((h + 5) % 7) // Adjust for Sunday = 0
+      // Use Date with explicit year/month/day to avoid timezone issues
+      const weekdayIndex = new Date(y, m - 1, d).getDay()
       const weekday = weekdays[weekdayIndex]
       const monthName = months[m - 1]
 
@@ -440,83 +472,53 @@ const ServiceFlowJobs = () => {
     }
   }
 
-  const formatTime = (dateString) => {
-    if (!dateString) return 'Time not set'
-
-    try {
-      // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
-      let timePart = ''
-      if (dateString.includes('T')) {
-        // ISO format: 2025-08-20T09:00:00
-        timePart = dateString.split('T')[1]
-      } else {
-        // Space format: 2025-08-20 09:00:00 or 12/20/2025 02:00 PM:00
-        const parts = dateString.split(' ')
-        // Find the time part (usually the second part, but could be later if date has spaces)
-        // Look for pattern like "HH:MM" or "HH:MM:SS" or "HH:MM AM/PM"
-        for (let i = 1; i < parts.length; i++) {
-          if (parts[i].match(/^\d{1,2}:\d{2}/)) {
-            timePart = parts.slice(i).join(' ')
-            break
-          }
-        }
-      }
-
-      if (!timePart) return 'Time not set'
-
-      // Check if time already has AM/PM (incorrectly stored format like "02:00 PM:00")
-      const ampmMatch = timePart.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm|AM|PM)/i)
-      if (ampmMatch) {
-        // Already has AM/PM, just clean it up and return
-        const hour = parseInt(ampmMatch[1], 10)
-        const minute = ampmMatch[2]
-        const ampm = ampmMatch[4].toUpperCase()
-        return `${hour}:${minute} ${ampm}`
-      }
-
-      // Normal format: HH:MM:SS or HH:MM
-      const timeParts = timePart.split(':')
-      if (timeParts.length < 2) return 'Time not set'
-
-      const hour = parseInt(timeParts[0], 10)
-      const minute = parseInt(timeParts[1], 10)
-
-      if (isNaN(hour) || isNaN(minute)) return 'Time not set'
-
-      // Convert to 12-hour format
-      const ampm = hour >= 12 ? 'PM' : 'AM'
-      const displayHour = hour % 12 || 12
-      const displayMinute = minute.toString().padStart(2, '0')
-
-      return `${displayHour}:${displayMinute} ${ampm}`
-    } catch (error) {
-      console.error('Error formatting time:', dateString, error)
-      return 'Time not set'
-    }
-  }
+  const formatTime = (dateString) => formatTimeShared(dateString) || 'Time not set'
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return 'bg-green-50 text-green-700 border-green-200'
-      case 'in_progress': return 'bg-blue-50 text-blue-700 border-blue-200'
-      case 'confirmed': return 'bg-purple-50 text-purple-700 border-purple-200'
+      case 'paid': return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      case 'completed':
+      case 'complete': return 'bg-green-50 text-green-700 border-green-200'
+      case 'in_progress':
+      case 'in-progress':
+      case 'started': return 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border-blue-200'
+      case 'en-route': return 'bg-cyan-50 text-cyan-700 border-cyan-200'
+      case 'confirmed':
+      case 'scheduled': return 'bg-purple-50 text-purple-700 border-purple-200'
+      case 'rescheduled': return 'bg-amber-50 text-amber-700 border-amber-200'
+      case 'late': return 'bg-orange-50 text-orange-700 border-orange-200'
       case 'cancelled': return 'bg-red-50 text-red-700 border-red-200'
-      default: return 'bg-gray-50 text-gray-700 border-gray-200'
+      default: return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] border-[var(--sf-border-light)]'
     }
   }
 
+  // Job is "past" only when the scheduled END time (start + duration) has passed — not when start time has passed.
+  // e.g. 5pm job with 2h duration is late only after 7pm, not at 5:01pm.
   const isJobPast = (job) => {
     if (!job.scheduled_date) return false
-    const scheduledDate = new Date(job.scheduled_date)
+    let startDate
+    if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+      const [datePart, timePart] = job.scheduled_date.split(' ')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes('T')) {
+      const [datePart, timePart] = job.scheduled_date.split('T')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else {
+      startDate = new Date(job.scheduled_date)
+    }
+    let durationMin = parseInt(job.duration || job.service_duration || job.estimated_duration || (job.service && (job.service.duration || job.service.service_duration || job.service.estimated_duration)) || (job.services && (job.services.duration || job.services.service_duration || job.services.estimated_duration)) || 60, 10) || 60
+    if (durationMin >= 1 && durationMin <= 24) durationMin = durationMin * 60
+    const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000)
     const now = new Date()
-    return scheduledDate < now
+    return endDate < now
   }
 
   const getStatusLabel = (status, job = null) => {
-    // If job is past scheduled time and not completed, show "Late"
-    if (job && isJobPast(job) && status !== 'completed' && status !== 'cancelled') {
-      return 'Late'
-    }
+    // Status comes from Zenbooker — show as-is
     return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
@@ -625,14 +627,15 @@ const ServiceFlowJobs = () => {
   // Show loading spinner while auth is loading
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--sf-blue-500)]" />
       </div>
     )
   }
 
   const tabs = [
     { id: "all", label: "All Jobs" },
+    { id: "active", label: "Active" },
     { id: "upcoming", label: "Upcoming" },
     { id: "past", label: "Past" },
     { id: "complete", label: "Complete" },
@@ -652,14 +655,17 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-2 pb-2 items-center justify-between">
-          <h1 className="text-3xl font-semibold text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
+        <div className="sf-header hidden lg:flex px-4 pt-2 pb-2 items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
+            <p className="text-sm text-[var(--sf-text-secondary)] mt-0.5">{allJobsCount || totalJobs} {(allJobsCount || totalJobs) === 1 ? 'job' : 'jobs'}</p>
+          </div>
           <div className="flex items-center gap-2">
             {canCreateJobs(user) && (
               <>
                 <button
                   onClick={handleImportJobs}
-                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] text-sm font-medium rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors flex items-center gap-2"
                   style={{fontFamily: 'Montserrat', fontWeight: 500}}
                 >
                   <Upload className="w-4 h-4" />
@@ -667,7 +673,7 @@ const ServiceFlowJobs = () => {
                 </button>
                 <button
                   onClick={handleExportJobs}
-                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] text-sm font-medium rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors flex items-center gap-2"
                   style={{fontFamily: 'Montserrat', fontWeight: 500}}
                 >
                   <Download className="w-4 h-4" />
@@ -678,7 +684,7 @@ const ServiceFlowJobs = () => {
             {canCreateJobs(user) && (
               <button
                 onClick={handleCreateJob}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                className="sf-btn-primary px-4 py-2 text-sm font-medium"
                 style={{fontFamily: 'Montserrat', fontWeight: 500}}
               >
                 Create Job
@@ -688,10 +694,10 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 fixed top-[73px] left-0 right-0 z-20">
+        <div className="lg:hidden bg-white border-b border-[var(--sf-border-light)] fixed top-[73px] left-0 right-0 z-20">
           <div className="flex items-center justify-between px-4 py-3">
             {/* Title - Centered */}
-            <h1 className="text-xl font-bold text-gray-900 flex-1 text-center" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
+            <h1 className="text-xl font-bold text-[var(--sf-text-primary)] flex-1 text-center" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
             
             {/* Search and Filter Icons */}
             <div className="flex items-center gap-3">
@@ -704,13 +710,13 @@ const ServiceFlowJobs = () => {
                     }
                   }, 100)
                 }}
-                className="p-2 text-gray-600 hover:text-gray-900"
+                className="p-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
               >
                 <Search className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setShowFilterModal(true)}
-                className="p-2 text-gray-600 hover:text-gray-900"
+                className="p-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
               >
                 <SlidersHorizontal className="w-5 h-5" />
               </button>
@@ -738,17 +744,17 @@ const ServiceFlowJobs = () => {
 
         {/* Mobile Search Bar */}
         {showSearch && (
-          <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 sticky top-[73px] z-10">
+          <div className="lg:hidden bg-white border-b border-[var(--sf-border-light)] px-4 py-3 sticky top-[73px] z-10">
             <div className="flex items-center gap-3">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)]" />
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="Search jobs..."
+                  placeholder="Search by job #, customer, or service..."
                   value={filters.search}
                   onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2.5 border border-[var(--sf-border-light)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent transition-colors"
                   style={{fontFamily: 'Montserrat', fontWeight: 400}}
                 />
               </div>
@@ -757,7 +763,7 @@ const ServiceFlowJobs = () => {
                   setShowSearch(false)
                   setFilters(prev => ({ ...prev, search: '' }))
                 }}
-                className="text-sm text-gray-600 font-medium px-2"
+                className="text-sm text-[var(--sf-text-secondary)] font-medium px-2"
                 style={{fontFamily: 'Montserrat', fontWeight: 500}}
               >
                 Cancel
@@ -767,7 +773,7 @@ const ServiceFlowJobs = () => {
         )}
 
         {/* Tabs */}
-        <div className={`bg-white border-b border-gray-200 lg:hidden sticky ${showSearch ? 'top-[133px]' : 'top-[73px]'} z-10 w-full transition-all`} style={{ maxWidth: '100vw', overflowX: 'auto' }}>
+        <div className={`bg-white border-b border-[var(--sf-border-light)] lg:hidden sticky ${showSearch ? 'top-[133px]' : 'top-[73px]'} z-10 w-full transition-all`} style={{ maxWidth: '100vw', overflowX: 'auto' }}>
           <div className="flex space-x-2 overflow-x-auto scrollbar-hide px-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
             {tabs.map((tab) => (
               <button
@@ -775,11 +781,18 @@ const ServiceFlowJobs = () => {
                 onClick={() => {
                   setActiveTab(tab.id)
                   setSearchParams({ tab: tab.id })
+                  setPage(1)
+                  const descTabs = ['past', 'complete', 'canceled']
+                  if (descTabs.includes(tab.id)) {
+                    setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'DESC' }))
+                  } else {
+                    setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'ASC' }))
+                  }
                 }}
                 className={`py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.id
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                    ? "border-blue-600 text-[var(--sf-blue-500)]"
+                    : "border-transparent text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]"
                 }`}
                 style={{fontFamily: 'Montserrat', fontWeight: 700}}
               >
@@ -790,7 +803,7 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Desktop Tabs */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 px-4">
+        <div className="hidden lg:block bg-white border-b border-[var(--sf-border-light)] px-4">
           <div className="flex space-x-2 overflow-x-auto scrollbar-hide -mx-4 px-4">
             {tabs.map((tab) => (
               <button
@@ -798,11 +811,18 @@ const ServiceFlowJobs = () => {
                 onClick={() => {
                   setActiveTab(tab.id)
                   setSearchParams({ tab: tab.id })
+                  setPage(1)
+                  const descTabs = ['past', 'complete', 'canceled']
+                  if (descTabs.includes(tab.id)) {
+                    setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'DESC' }))
+                  } else {
+                    setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'ASC' }))
+                  }
                 }}
                 className={`py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.id
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                    ? "border-blue-600 text-[var(--sf-blue-500)]"
+                    : "border-transparent text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]"
                 }`}
                 style={{fontFamily: 'Montserrat', fontWeight: 700}}
               >
@@ -813,18 +833,18 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Search and Filters - Desktop Only */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 px-4 lg:px-8 py-4">
+        <div className="hidden lg:block bg-white border-b border-[var(--sf-border-light)] px-4 lg:px-8 py-4">
           <div className="flex w-full items-center flex-col justify-between gap-4">
             {/* Search */}
             <div className="flex w-full">
             <div className="flex-1 w-full relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)]" />
               <input
                 type="text"
-                placeholder="Search jobs..."
+                placeholder="Search by job #, customer, or service..."
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2.5 border border-[var(--sf-border-light)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent transition-colors"
               />
             </div>
 
@@ -832,29 +852,29 @@ const ServiceFlowJobs = () => {
             {activeTab === 'daterange' && (
               <div className="mb-4 flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <label className="text-sm font-medium text-gray-700">From:</label>
+                  <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                  <label className="text-sm font-medium text-[var(--sf-text-primary)]">From:</label>
                   <input
                     type="date"
                     value={filters.dateFrom}
                     onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent"
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-700">To:</label>
+                  <label className="text-sm font-medium text-[var(--sf-text-primary)]">To:</label>
                   <input
                     type="date"
                     value={filters.dateTo}
                     min={filters.dateFrom}
                     onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent"
                   />
                 </div>
                 {(filters.dateFrom || filters.dateTo) && (
                   <button
                     onClick={() => setFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }))}
-                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+                    className="px-3 py-2 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                   >
                     Clear
                   </button>
@@ -862,25 +882,50 @@ const ServiceFlowJobs = () => {
               </div>
             )}
             </div>
+            {/* Quick Time Filter */}
+            <div className="w-full flex flex-wrap items-center gap-1.5 pb-2">
+              {[
+                { id: '', label: 'All Time' },
+                { id: 'today', label: 'Today' },
+                { id: 'this_week', label: 'This Week' },
+                { id: 'this_period', label: 'This Period' },
+                { id: 'last_period', label: 'Last Period' },
+                { id: 'last_month', label: 'Last 30 Days' },
+              ].map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => { setQuickRange(r.id); setPage(1) }}
+                  style={{
+                    padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                    border: quickRange === r.id ? '1.5px solid var(--sf-blue-500)' : '1.5px solid var(--sf-border-light)',
+                    background: quickRange === r.id ? 'var(--sf-blue-50)' : 'white',
+                    color: quickRange === r.id ? 'var(--sf-blue-500)' : 'var(--sf-text-secondary)',
+                    boxShadow: 'none',
+                  }}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
             {/* Filter Buttons */}
             <div className="w-full lg:flex flex flex-row flex-wrap items-center gap-2 pb-2 lg:pb-0">
               {/* Tag Filter */}
               <div className="relative" ref={tagDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'tag' ? null : 'tag')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
+                  className="px-4 py-2 bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('tag')}
                   {openDropdown === 'tag' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
                 {openDropdown === 'tag' && (
-                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px] z-50">
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 min-w-[160px] z-50">
                     <button
                       onClick={() => {
                         setFilters(prev => ({ ...prev, tag: '' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.tag ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${!filters.tag ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Tag
                     </button>
@@ -892,19 +937,19 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={paymentMethodDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'paymentMethod' ? null : 'paymentMethod')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
+                  className="px-4 py-2 bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('paymentMethod')}
                   {openDropdown === 'paymentMethod' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
                 {openDropdown === 'paymentMethod' && (
-                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 min-w-[180px] z-50">
                     <button
                       onClick={() => {
                         setFilters(prev => ({ ...prev, paymentMethod: '' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.paymentMethod ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${!filters.paymentMethod ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Payment method
                     </button>
@@ -913,7 +958,7 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, paymentMethod: 'card' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.paymentMethod === 'card' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.paymentMethod === 'card' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Card
                     </button>
@@ -922,7 +967,7 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, paymentMethod: 'cash' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.paymentMethod === 'cash' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.paymentMethod === 'cash' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Cash
                     </button>
@@ -931,7 +976,7 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, paymentMethod: 'check' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.paymentMethod === 'check' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.paymentMethod === 'check' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Check
                     </button>
@@ -943,19 +988,19 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={invoiceStatusDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'invoiceStatus' ? null : 'invoiceStatus')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
+                  className="px-4 py-2 bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('invoiceStatus')}
                   {openDropdown === 'invoiceStatus' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
                 {openDropdown === 'invoiceStatus' && (
-                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[200px] z-50">
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 min-w-[200px] z-50">
                     <button
                       onClick={() => {
                         setFilters(prev => ({ ...prev, invoiceStatus: '' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.invoiceStatus ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${!filters.invoiceStatus ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Any invoice status
                     </button>
@@ -964,7 +1009,7 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, invoiceStatus: 'unpaid' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.invoiceStatus === 'unpaid' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.invoiceStatus === 'unpaid' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Unpaid
                     </button>
@@ -973,7 +1018,7 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, invoiceStatus: 'paid' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.invoiceStatus === 'paid' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.invoiceStatus === 'paid' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Paid
                     </button>
@@ -985,19 +1030,19 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={territoryDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'territory' ? null : 'territory')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
+                  className="px-4 py-2 bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('territory')}
                   {openDropdown === 'territory' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
                 {openDropdown === 'territory' && (
-                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 min-w-[180px] z-50 max-h-60 overflow-y-auto">
                     <button
                       onClick={() => {
                         setFilters(prev => ({ ...prev, territoryId: '' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.territoryId ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${!filters.territoryId ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       All
                     </button>
@@ -1008,7 +1053,7 @@ const ServiceFlowJobs = () => {
                           setFilters(prev => ({ ...prev, territoryId: territory.id.toString() }))
                           setOpenDropdown(null)
                         }}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.territoryId === territory.id.toString() ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.territoryId === territory.id.toString() ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                       >
                         {territory.name || `Territory ${territory.id}`}
                       </button>
@@ -1021,19 +1066,19 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={recurringDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'recurring' ? null : 'recurring')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
+                  className="px-4 py-2 bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('recurring')}
                   {openDropdown === 'recurring' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
                 {openDropdown === 'recurring' && (
-                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 min-w-[180px] z-50">
                     <button
                       onClick={() => {
                         setFilters(prev => ({ ...prev, recurring: '' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.recurring ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${!filters.recurring ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       All Jobs
                     </button>
@@ -1042,7 +1087,7 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, recurring: 'recurring' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.recurring === 'recurring' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.recurring === 'recurring' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Recurring Only
                     </button>
@@ -1051,7 +1096,7 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, recurring: 'one-time' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.recurring === 'one-time' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.recurring === 'one-time' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       One-Time Only
                     </button>
@@ -1063,19 +1108,19 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={assignedDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'assigned' ? null : 'assigned')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
+                  className="px-4 py-2 bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('assigned')}
                   {openDropdown === 'assigned' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
                 {openDropdown === 'assigned' && (
-                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 min-w-[180px] z-50 max-h-60 overflow-y-auto">
                     <button
                       onClick={() => {
                         setFilters(prev => ({ ...prev, teamMember: '' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.teamMember ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${!filters.teamMember ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       All
                     </button>
@@ -1084,7 +1129,7 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, teamMember: 'unassigned' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.teamMember === 'unassigned' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.teamMember === 'unassigned' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Unassigned
                     </button>
@@ -1097,7 +1142,7 @@ const ServiceFlowJobs = () => {
                             setFilters(prev => ({ ...prev, teamMember: member.id.toString() }))
                             setOpenDropdown(null)
                           }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.teamMember === member.id.toString() ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.teamMember === member.id.toString() ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                         >
                           {memberName}
                         </button>
@@ -1111,19 +1156,19 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={sortDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
+                  className="px-4 py-2 bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('sort')}
                   {openDropdown === 'sort' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
                 {openDropdown === 'sort' && (
-                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[200px] z-50">
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 min-w-[200px] z-50">
                     <button
                       onClick={() => {
                         setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'ASC' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Sort by: Soonest
                     </button>
@@ -1132,16 +1177,25 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'DESC' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Sort by: Recent
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, sortBy: 'created_at', sortOrder: 'ASC' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.sortBy === 'created_at' && filters.sortOrder === 'ASC' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
+                    >
+                      Sort by: Oldest
                     </button>
                     <button
                       onClick={() => {
                         setFilters(prev => ({ ...prev, sortBy: 'total_amount', sortOrder: 'DESC' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'total_amount' && filters.sortOrder === 'DESC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.sortBy === 'total_amount' && filters.sortOrder === 'DESC' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Sort by: Highest Amount
                     </button>
@@ -1150,7 +1204,7 @@ const ServiceFlowJobs = () => {
                         setFilters(prev => ({ ...prev, sortBy: 'total_amount', sortOrder: 'ASC' }))
                         setOpenDropdown(null)
                       }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'total_amount' && filters.sortOrder === 'ASC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--sf-bg-page)] transition-colors ${filters.sortBy === 'total_amount' && filters.sortOrder === 'ASC' ? 'text-[var(--sf-blue-500)] font-medium' : 'text-[var(--sf-text-primary)]'}`}
                     >
                       Sort by: Lowest Amount
                     </button>
@@ -1162,44 +1216,44 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Jobs List */}
-        <div className="flex-1 overflow-auto bg-white lg:bg-gray-50 jobs-scroll-container pb-28 lg:pb-0 pt-[140px] lg:pt-0" style={{ maxWidth: '100%', width: '100%' }}>
+        <div className="flex-1 overflow-auto bg-white lg:bg-[var(--sf-bg-page)] jobs-scroll-container pb-28 lg:pb-0 pt-[140px] lg:pt-0" style={{ maxWidth: '100%', width: '100%' }}>
           <div className="" style={{ maxWidth: '100%' }}>
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-gray-600">Loading jobs...</span>
+                <span className="ml-3 text-[var(--sf-text-secondary)]">Loading jobs...</span>
               </div>
             ) : jobs.length === 0 ? (
               <JobsEmptyState activeTab={activeTab} onCreateJob={handleCreateJob} />
             ) : (
               <>
                 {/* Desktop Table View */}
-                <div className="hidden lg:block bg-white border border-gray-200 overflow-hidden">
+                <div className="hidden lg:block sf-card overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
+                    <table className="min-w-full divide-y divide-[var(--sf-border-light)]">
                     <thead style={{fontFamily: 'Montserrat', fontWeight: 700}} className="bg-white">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                           Date
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                           Job
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                           Customer
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                           Assignee(s)
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                           Job Status
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                           Total
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                       {jobs.map((job) => {
                         const dateInfo = formatDate(job.scheduled_date)
                         // Format date string safely
@@ -1210,15 +1264,15 @@ const ServiceFlowJobs = () => {
                         return (
                           <tr
                             key={job.id}
-                            className="hover:bg-gray-50 cursor-pointer transition-colors"
+                            className="hover:bg-[var(--sf-bg-hover)] cursor-pointer transition-colors"
                             onClick={() => handleViewJob(job)}
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm  font-medium text-blue-500">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-medium text-[var(--sf-blue-500)]">
                                   {dateDisplay}
                                 </span>
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-[var(--sf-text-secondary)]">
                                   {job.scheduled_date ? formatTime(job.scheduled_date) : 'Time not set'}
                                 </span>
                               </div>
@@ -1226,7 +1280,7 @@ const ServiceFlowJobs = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
-                                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm capitalize font-medium text-gray-900">
+                                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm capitalize font-medium text-[var(--sf-text-primary)]">
                                     {decodeHtmlEntities(job.service_name || 'Service')}
                                   </span>
                                   <RecurringIndicator
@@ -1237,22 +1291,22 @@ const ServiceFlowJobs = () => {
                                     showText={false}
                                   />
                                 </div>
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-500">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-[var(--sf-text-muted)]">
                                   Job #{job.id}
                                 </span>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-medium text-gray-900">
-                                  {job.customer_first_name && job.customer_last_name
-                                    ? `${job.customer_first_name} ${job.customer_last_name}`
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-medium text-[var(--sf-text-primary)]">
+                                  {job.customer_first_name || job.customer_last_name
+                                    ? `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim()
                                     : job.customer_email
                                     ? job.customer_email
                                     : 'Customer Name'
                                   }
                                 </span>
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-500">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-[var(--sf-text-muted)]">
                                   {job.customer_city && job.customer_state
                                     ? `${job.customer_city}, ${job.customer_state}`
                                     : 'Location not specified'
@@ -1262,8 +1316,8 @@ const ServiceFlowJobs = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-2">
-                                <Users className="w-4 h-4 text-gray-400" />
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600">
+                                <Users className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-[var(--sf-text-secondary)]">
                                   {getAssignedCount(job)} assigned
                                 </span>
                               </div>
@@ -1275,10 +1329,10 @@ const ServiceFlowJobs = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-row space-x-1 items-center">
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-semibold text-gray-900">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-semibold text-[var(--sf-text-primary)]">
                                   {formatCurrency(job.total_amount || job.service_price || 0)}
                                 </span>
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex px-2 text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-sm">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex px-2 text-xs text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] px-2 py-1 rounded-sm">
                                   {job.invoice_status === 'paid' ? 'Paid' :
                                    job.invoice_status === 'unpaid' ? 'Unpaid' :
                                    job.invoice_status === 'invoiced' ? 'Invoiced' :
@@ -1295,7 +1349,7 @@ const ServiceFlowJobs = () => {
                 </div>
 
                 {/* Mobile Card View */}
-                <div className="lg:hidden bg-white pb-28">
+                <div className="lg:hidden bg-[var(--sf-bg-card)] pb-28">
                   {(() => {
                     const groupedJobs = groupJobsByDate(jobs)
                     const dateKeys = Object.keys(groupedJobs).sort((a, b) => {
@@ -1311,8 +1365,8 @@ const ServiceFlowJobs = () => {
                     return dateKeys.map((dateKey) => (
                       <div key={dateKey} className="mb-6">
                         {/* Date Header */}
-                        <div className="px-4 py-2 bg-gray-50">
-                          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
+                        <div className="px-4 py-2 bg-[var(--sf-bg-page)]">
+                          <h3 className="text-xs font-semibold text-[var(--sf-text-secondary)] uppercase tracking-wider" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
                             {dateKey}
                           </h3>
                         </div>
@@ -1348,12 +1402,12 @@ const ServiceFlowJobs = () => {
                               <div
                                 key={job.id}
                                 onClick={() => handleViewJob(job)}
-                                className="px-4 py-4 border-b border-gray-100 active:bg-gray-50 cursor-pointer"
+                                className="px-4 py-4 border-b border-[var(--sf-border-light)] active:bg-[var(--sf-bg-hover)] cursor-pointer"
                               >
                                 {/* Job Header */}
                                 <div className="flex items-start justify-between mb-2">
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <span className="text-xs font-medium text-gray-500" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                                    <span className="text-xs font-medium text-[var(--sf-text-muted)]" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
                                       JOB #{job.id}
                                     </span>
                                     {isLate && (
@@ -1362,14 +1416,14 @@ const ServiceFlowJobs = () => {
                                       </span>
                                     )}
                                   </div>
-                                  <span className="text-sm font-medium text-gray-700 ml-2 whitespace-nowrap" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                                  <span className="text-sm font-medium text-[var(--sf-text-primary)] ml-2 whitespace-nowrap" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
                                     {timeRange}
                                   </span>
                                 </div>
 
                                 {/* Job Title */}
                                 <div className="flex items-center gap-2 mb-3">
-                                  <h4 className="text-base font-semibold text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 600}}>
+                                  <h4 className="text-base font-semibold text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 600}}>
                                     {decodeHtmlEntities(job.service_name || 'Service')}
                                   </h4>
                                   <RecurringIndicator
@@ -1386,8 +1440,8 @@ const ServiceFlowJobs = () => {
                                   {/* Assigned Member */}
                                   {assignedMember && (
                                     <div className="flex items-center gap-2">
-                                      <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                      <span className="text-sm text-gray-700" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                      <User className="w-4 h-4 text-[var(--sf-text-muted)] flex-shrink-0" />
+                                      <span className="text-sm text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
                                         {assignedMember}
                                       </span>
                                     </div>
@@ -1396,8 +1450,8 @@ const ServiceFlowJobs = () => {
                                   {/* Location */}
                                   {(job.service_address_city || job.service_address_state) && (
                                     <div className="flex items-center gap-2">
-                                      <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                      <span className="text-sm text-gray-700 uppercase" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                      <MapPin className="w-4 h-4 text-[var(--sf-text-muted)] flex-shrink-0" />
+                                      <span className="text-sm text-[var(--sf-text-primary)] uppercase" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
                                         {[job.service_address_city, job.service_address_state].filter(Boolean).join(', ')}
                                       </span>
                                     </div>
@@ -1407,8 +1461,8 @@ const ServiceFlowJobs = () => {
                                   <div className="flex items-center gap-4">
                                     {job.service_duration && (
                                       <div className="flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                        <span className="text-sm text-gray-700" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                        <Clock className="w-4 h-4 text-[var(--sf-text-muted)] flex-shrink-0" />
+                                        <span className="text-sm text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
                                           {(() => {
                                             const hours = Math.floor(job.service_duration / 60)
                                             const minutes = job.service_duration % 60
@@ -1429,7 +1483,7 @@ const ServiceFlowJobs = () => {
                                       {job.team_assignments && job.team_assignments.length > 0 ? (
                                         <>
                                           <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-xs text-blue-700 font-semibold uppercase">
+                                            <span className="text-xs text-[var(--sf-blue-500)] font-semibold uppercase">
                                               {(() => {
                                                 const member = job.team_assignments[0]
                                                 if (member.first_name && member.last_name) {
@@ -1448,12 +1502,12 @@ const ServiceFlowJobs = () => {
                                               })()}
                                             </span>
                                           </div>
-                                          <span className="text-sm text-gray-700" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                          <span className="text-sm text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
                                             {assignedCount} assigned
                                           </span>
                                         </>
                                       ) : (
-                                        <span className="text-sm text-gray-700" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                        <span className="text-sm text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
                                           {assignedCount} assigned
                                         </span>
                                       )}
@@ -1471,15 +1525,15 @@ const ServiceFlowJobs = () => {
 
                 {/* Load More Button - Desktop */}
                 {!loadingMore && showLoadMore && hasMore && jobs.length > 0 && (
-                  <div className="hidden lg:block bg-white px-6 py-4 border-t border-gray-200">
+                  <div className="hidden lg:block bg-white px-6 py-4 border-t border-[var(--sf-border-light)]">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="text-center text-sm text-gray-600">
+                      <div className="text-center text-sm text-[var(--sf-text-secondary)]">
                         Showing {jobs.length} of {totalJobs} jobs
                       </div>
                       <button
                         onClick={handleLoadMore}
                         disabled={loadingMore || !hasMore}
-                        className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="sf-btn-primary px-6 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         style={{fontFamily: 'Montserrat', fontWeight: 500}}
                       >
                         Load More Jobs
@@ -1491,15 +1545,15 @@ const ServiceFlowJobs = () => {
 
                 {/* Load More Button - Mobile */}
                 {!loadingMore && showLoadMore && hasMore && jobs.length > 0 && (
-                  <div className="lg:hidden bg-gray-50 px-4 py-4">
+                  <div className="lg:hidden bg-[var(--sf-bg-page)] px-4 py-4">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="text-center text-sm text-gray-600">
+                      <div className="text-center text-sm text-[var(--sf-text-secondary)]">
                         Showing {jobs.length} of {totalJobs} jobs
                       </div>
                       <button
                         onClick={handleLoadMore}
                         disabled={loadingMore || !hasMore}
-                        className="w-full px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="sf-btn-primary w-full px-6 py-3 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         style={{fontFamily: 'Montserrat', fontWeight: 500}}
                       >
                         Load More Jobs
@@ -1511,39 +1565,39 @@ const ServiceFlowJobs = () => {
 
                 {/* Loading More Indicator - Desktop */}
                 {loadingMore && (
-                  <div className="hidden lg:block bg-white px-6 py-4 border-t border-gray-200">
+                  <div className="hidden lg:block bg-white px-6 py-4 border-t border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                      <span className="text-sm text-gray-600">Loading more jobs...</span>
+                      <Loader2 className="w-4 h-4 animate-spin text-[var(--sf-blue-500)]" />
+                      <span className="text-sm text-[var(--sf-text-secondary)]">Loading more jobs...</span>
                     </div>
                   </div>
                 )}
 
                 {/* Loading More Indicator - Mobile */}
                 {loadingMore && (
-                  <div className="lg:hidden bg-gray-50 px-4 py-4">
+                  <div className="lg:hidden bg-[var(--sf-bg-page)] px-4 py-4">
                     <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                      <span className="text-sm text-gray-600">Loading more jobs...</span>
+                      <Loader2 className="w-4 h-4 animate-spin text-[var(--sf-blue-500)]" />
+                      <span className="text-sm text-[var(--sf-text-secondary)]">Loading more jobs...</span>
                     </div>
                   </div>
                 )}
 
                 {/* Show total count when all loaded - Desktop */}
                 {!loadingMore && !hasMore && jobs.length > 0 && (
-                  <div className="hidden lg:block bg-white px-6 py-3 border-t border-gray-200">
-                    <div className="text-center text-sm text-gray-600">
+                  <div className="hidden lg:block bg-white px-6 py-3 border-t border-[var(--sf-border-light)]">
+                    <div className="text-center text-sm text-[var(--sf-text-secondary)]">
                       Showing all {jobs.length} of {totalJobs} jobs
-                      <span className="ml-2 text-gray-500">• All jobs loaded</span>
+                      <span className="ml-2 text-[var(--sf-text-muted)]">• All jobs loaded</span>
                     </div>
                   </div>
                 )}
 
                 {/* Pagination Footer - Mobile */}
                 {!loadingMore && jobs.length > 0 && (
-                  <div className="lg:hidden bg-white border-t border-gray-200 px-4 py-3">
+                  <div className="lg:hidden bg-white border-t border-[var(--sf-border-light)] px-4 py-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-600" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                      <div className="text-sm text-[var(--sf-text-secondary)]" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
                         {(() => {
                           const start = (page - 1) * limit + 1
                           const end = Math.min(page * limit, totalJobs)
@@ -1553,7 +1607,7 @@ const ServiceFlowJobs = () => {
                       <div className="flex items-center gap-2">
                         <button
                           disabled={page === 1}
-                          className="p-2 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                          className="p-2 rounded border border-[var(--sf-border-light)] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--sf-bg-page)] transition-colors"
                           onClick={() => {
                             if (page > 1) {
                               setPage(prev => prev - 1)
@@ -1562,18 +1616,18 @@ const ServiceFlowJobs = () => {
                             }
                           }}
                         >
-                          <ChevronDown className="w-4 h-4 text-gray-600 rotate-90" />
+                          <ChevronDown className="w-4 h-4 text-[var(--sf-text-secondary)] rotate-90" />
                         </button>
                         <button
                           disabled={!hasMore}
-                          className="p-2 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                          className="p-2 rounded border border-[var(--sf-border-light)] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--sf-bg-page)] transition-colors"
                           onClick={() => {
                             if (hasMore) {
                               setPage(prev => prev + 1)
                             }
                           }}
                         >
-                          <ChevronDown className="w-4 h-4 text-gray-600 -rotate-90" />
+                          <ChevronDown className="w-4 h-4 text-[var(--sf-text-secondary)] -rotate-90" />
                         </button>
                       </div>
                     </div>
@@ -1589,7 +1643,7 @@ const ServiceFlowJobs = () => {
       {canCreateJobs(user) && (
         <button
           onClick={handleCreateJob}
-          className="lg:hidden fixed bottom-24 right-4 w-14 h-14 bg-blue-600 rounded-full shadow-lg flex items-center justify-center text-white hover:bg-blue-700 transition-colors z-40"
+          className="lg:hidden fixed bottom-24 right-4 w-14 h-14 bg-[var(--sf-blue-500)] rounded-full shadow-lg flex items-center justify-center text-white hover:bg-[var(--sf-blue-600)] transition-colors z-40"
           aria-label="Create Job"
         >
           <div className="relative">
@@ -1607,11 +1661,11 @@ const ServiceFlowJobs = () => {
         <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center" onClick={() => setShowFilterModal(false)}>
           <div className="bg-white rounded-t-2xl w-full max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Filter Jobs</h2>
+            <div className="sticky top-0 bg-white border-b border-[var(--sf-border-light)] px-4 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Filter Jobs</h2>
               <button
                 onClick={() => setShowFilterModal(false)}
-                className="p-2 -mr-2 text-gray-400 hover:text-gray-600"
+                className="p-2 -mr-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1621,7 +1675,7 @@ const ServiceFlowJobs = () => {
             <div className="px-4 py-6 space-y-6">
               {/* Assignee Section */}
               <div>
-                <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
+                <h3 className="text-xs font-semibold text-[var(--sf-text-secondary)] uppercase tracking-wider mb-4" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
                   ASSIGNEE
                 </h3>
                 <div className="space-y-3">
@@ -1630,21 +1684,21 @@ const ServiceFlowJobs = () => {
                     onClick={() => {
                       setFilters(prev => ({ ...prev, teamMember: '' }))
                     }}
-                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-[var(--sf-bg-page)] rounded-lg transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <Users className="w-5 h-5 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                      <Users className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
                         All Jobs
                       </span>
                     </div>
                     {!filters.teamMember && (
                       <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
-                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                        <div className="w-3 h-3 bg-[var(--sf-blue-500)] rounded-full"></div>
                       </div>
                     )}
                     {filters.teamMember && (
-                      <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                      <div className="w-5 h-5 rounded-full border-2 border-[var(--sf-border-light)]"></div>
                     )}
                   </button>
 
@@ -1653,21 +1707,21 @@ const ServiceFlowJobs = () => {
                     onClick={() => {
                       setFilters(prev => ({ ...prev, teamMember: 'unassigned' }))
                     }}
-                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-[var(--sf-bg-page)] rounded-lg transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <UserX className="w-5 h-5 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                      <UserX className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
                         Unassigned
                       </span>
                     </div>
                     {filters.teamMember === 'unassigned' && (
                       <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
-                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                        <div className="w-3 h-3 bg-[var(--sf-blue-500)] rounded-full"></div>
                       </div>
                     )}
                     {filters.teamMember !== 'unassigned' && (
-                      <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                      <div className="w-5 h-5 rounded-full border-2 border-[var(--sf-border-light)]"></div>
                     )}
                   </button>
 
@@ -1683,23 +1737,23 @@ const ServiceFlowJobs = () => {
                         onClick={() => {
                           setFilters(prev => ({ ...prev, teamMember: member.id.toString() }))
                         }}
-                        className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                        className="w-full flex items-center justify-between py-3 px-2 hover:bg-[var(--sf-bg-page)] rounded-lg transition-colors"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs text-blue-700 font-semibold">{initials}</span>
+                            <span className="text-xs text-[var(--sf-blue-500)] font-semibold">{initials}</span>
                           </div>
-                          <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                          <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
                             {memberName}
                           </span>
                         </div>
                         {isSelected && (
                           <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
-                            <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                            <div className="w-3 h-3 bg-[var(--sf-blue-500)] rounded-full"></div>
                           </div>
                         )}
                         {!isSelected && (
-                          <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                          <div className="w-5 h-5 rounded-full border-2 border-[var(--sf-border-light)]"></div>
                         )}
                       </button>
                     )
@@ -1709,7 +1763,7 @@ const ServiceFlowJobs = () => {
 
               {/* Sort By Section */}
               <div>
-                <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
+                <h3 className="text-xs font-semibold text-[var(--sf-text-secondary)] uppercase tracking-wider mb-4" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
                   SORT BY
                 </h3>
                 <div className="space-y-3">
@@ -1718,18 +1772,18 @@ const ServiceFlowJobs = () => {
                     onClick={() => {
                       setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'DESC' }))
                     }}
-                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-[var(--sf-bg-page)] rounded-lg transition-colors"
                   >
-                    <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
                       Latest
                     </span>
                     {filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC' && (
                       <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
-                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                        <div className="w-3 h-3 bg-[var(--sf-blue-500)] rounded-full"></div>
                       </div>
                     )}
                     {!(filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC') && (
-                      <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                      <div className="w-5 h-5 rounded-full border-2 border-[var(--sf-border-light)]"></div>
                     )}
                   </button>
 
@@ -1738,18 +1792,38 @@ const ServiceFlowJobs = () => {
                     onClick={() => {
                       setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'ASC' }))
                     }}
-                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-[var(--sf-bg-page)] rounded-lg transition-colors"
                   >
-                    <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
                       Soonest
                     </span>
                     {filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' && (
                       <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
-                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                        <div className="w-3 h-3 bg-[var(--sf-blue-500)] rounded-full"></div>
                       </div>
                     )}
                     {!(filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') && (
-                      <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                      <div className="w-5 h-5 rounded-full border-2 border-[var(--sf-border-light)]"></div>
+                    )}
+                  </button>
+
+                  {/* Oldest */}
+                  <button
+                    onClick={() => {
+                      setFilters(prev => ({ ...prev, sortBy: 'created_at', sortOrder: 'ASC' }))
+                    }}
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-[var(--sf-bg-page)] rounded-lg transition-colors"
+                  >
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                      Oldest
+                    </span>
+                    {filters.sortBy === 'created_at' && filters.sortOrder === 'ASC' && (
+                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                        <div className="w-3 h-3 bg-[var(--sf-blue-500)] rounded-full"></div>
+                      </div>
+                    )}
+                    {!(filters.sortBy === 'created_at' && filters.sortOrder === 'ASC') && (
+                      <div className="w-5 h-5 rounded-full border-2 border-[var(--sf-border-light)]"></div>
                     )}
                   </button>
                 </div>

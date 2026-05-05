@@ -27,17 +27,17 @@ const StripeConnectOnboarding = ({ onSuccess, onError }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
       <div className="text-center mb-6">
         <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-          <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-[var(--sf-blue-500)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">
           Connect Your Stripe Account
         </h3>
-        <p className="text-gray-600 text-sm">
+        <p className="text-[var(--sf-text-secondary)] text-sm">
           Connect your Stripe account to start accepting payments and manage your business finances.
         </p>
       </div>
@@ -57,7 +57,7 @@ const StripeConnectOnboarding = ({ onSuccess, onError }) => {
               </svg>
             </div>
           </div>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-[var(--sf-text-secondary)]">
             <p>Accept payments from customers worldwide</p>
           </div>
         </div>
@@ -70,7 +70,7 @@ const StripeConnectOnboarding = ({ onSuccess, onError }) => {
               </svg>
             </div>
           </div>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-[var(--sf-text-secondary)]">
             <p>Manage your business finances in one place</p>
           </div>
         </div>
@@ -83,7 +83,7 @@ const StripeConnectOnboarding = ({ onSuccess, onError }) => {
               </svg>
             </div>
           </div>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-[var(--sf-text-secondary)]">
             <p>Access detailed reporting and analytics</p>
           </div>
         </div>
@@ -93,7 +93,7 @@ const StripeConnectOnboarding = ({ onSuccess, onError }) => {
         <button
           onClick={handleConnectAccount}
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+          className="w-full bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)] disabled:bg-gray-300 text-white font-medium py-3 px-4 rounded-lg transition-colors"
         >
           {loading ? (
             <div className="flex items-center justify-center">
@@ -107,9 +107,9 @@ const StripeConnectOnboarding = ({ onSuccess, onError }) => {
       </div>
 
       <div className="mt-4 text-center">
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-[var(--sf-text-muted)]">
           By connecting your account, you agree to Stripe's{' '}
-          <a href="https://stripe.com/connect-account/legal" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+          <a href="https://stripe.com/connect-account/legal" target="_blank" rel="noopener noreferrer" className="text-[var(--sf-blue-500)] hover:text-blue-800">
             Terms of Service
           </a>
         </p>

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react"
 import Sidebar from "../components/sidebar"
-import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, AlertCircle, MapPin, Loader2, Power, PowerOff, Zap, Settings, ChevronLeft, ChevronRight, HelpCircle, EyeOff } from "lucide-react"
+import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, AlertCircle, MapPin, Loader2, Power, PowerOff, Zap, Settings, ChevronLeft, ChevronRight, HelpCircle, EyeOff, Mail } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { teamAPI } from "../services/api"
 import { isAccountOwner } from "../utils/roleUtils"
 import api from "../services/api"
 import LoadingButton from "../components/loading-button"
 import AddTeamMemberModal from "../components/add-team-member-modal"
+import AssignTerritoriesModal from "../components/assign-territories-modal"
 import { useNavigate } from "react-router-dom"
 import { handleTeamDeletionError, createErrorNotification, createSuccessNotification } from "../utils/errorHandler"
 import { getImageUrl } from "../utils/imageUtils"
@@ -30,6 +31,7 @@ const ServiceFlowTeam = () => {
   const [showResendModal, setShowResendModal] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
   const [memberToResend, setMemberToResend] = useState(null)
+  const [territoriesMember, setTerritoriesMember] = useState(null) // member whose territories are being edited
   const [notification, setNotification] = useState(null)
   const [deleteError, setDeleteError] = useState("")
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
@@ -134,6 +136,10 @@ const ServiceFlowTeam = () => {
       setLoading(true)
       setError("")
 
+      // limit:1000 matches schedule page — listing is filtered client-side, so we
+      // need every row up front. Previous limit:50 dropped null-role rows past the
+      // first page (no stable tiebreaker on the backend's ORDER BY role ASC), making
+      // active members like "Georgiy Team Member" silently disappear from the UI.
       console.log('Calling teamAPI.getAll with params:', {
         userId: user.id,
         status: filters.status,
@@ -141,7 +147,7 @@ const ServiceFlowTeam = () => {
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
         page: 1,
-        limit: 50
+        limit: 1000
       })
 
       const response = await teamAPI.getAll(user.id, {
@@ -150,7 +156,7 @@ const ServiceFlowTeam = () => {
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
         page: 1,
-        limit: 50
+        limit: 1000
       })
 
       console.log('Team API response:', response)
@@ -489,13 +495,13 @@ const ServiceFlowTeam = () => {
       case 'pending':
         return 'bg-yellow-100 text-yellow-700'
       case 'invited':
-        return 'bg-blue-100 text-blue-700'
+        return 'bg-blue-100 text-[var(--sf-blue-500)]'
       case 'inactive':
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
       case 'on_leave':
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
       default:
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
     }
   }
 
@@ -554,7 +560,7 @@ const ServiceFlowTeam = () => {
   const filteredMembers = getFilteredMembers();
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:px-40 xl:px-44 2xl:px-48">
           {/* Mobile Header */}
           <MobileHeader pageTitle="Team" />
@@ -564,8 +570,8 @@ const ServiceFlowTeam = () => {
               {authLoading ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="flex items-center space-x-2">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                    <span className="text-gray-600">Loading...</span>
+                    <Loader2 className="w-6 h-6 animate-spin text-[var(--sf-blue-500)]" />
+                    <span className="text-[var(--sf-text-secondary)]">Loading...</span>
                   </div>
                 </div>
               ) : (
@@ -573,15 +579,15 @@ const ServiceFlowTeam = () => {
                   {/* Header */}
                   <div className="mb-4 sm:mb-6">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                      <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Team Members</h1>
+                      <h1 className="text-xl sm:text-2xl font-semibold text-[var(--sf-text-primary)]">Team Members</h1>
                       <div className="flex items-center gap-2 sm:gap-3">
                         {isAccountOwner(user) && (
                           <button
                             onClick={handleToggleStaffLocations}
                             disabled={updatingLocationSetting}
-                            className={`inline-flex items-center px-3 sm:px-4 py-2 text-sm font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
+                            className={`inline-flex items-center px-3 sm:px-4 py-2 text-sm font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] transition-colors ${
                               staffLocationsEnabled
-                                ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                                ? 'border-[var(--sf-border-light)] text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)]'
                                 : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100'
                             } disabled:opacity-50`}
                             title={staffLocationsEnabled ? 'Hide Staff Locations Globally' : 'Show Staff Locations Globally'}
@@ -603,7 +609,7 @@ const ServiceFlowTeam = () => {
                         )}
                       <button
                         onClick={handleAddMember}
-                        className="w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        className="sf-btn-primary w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-medium"
                       >
                         Add Team Member
                       </button>
@@ -612,16 +618,16 @@ const ServiceFlowTeam = () => {
                   </div>
 
                   {/* Content Card */}
-                  <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                  <div className="sf-card overflow-hidden">
                     {/* Tabs - Scrollable on mobile */}
-                    <div className="border-b border-gray-200 overflow-x-auto">
+                    <div className="border-b border-[var(--sf-border-light)] overflow-x-auto">
                       <nav className="flex min-w-max sm:min-w-0 ">
                         <button
                           onClick={() => setActiveTab("active")}
                           className={`px-4 sm:px-6 py-3 sm:py-4 w-1/3 text-xs sm:text-sm font-medium border-b-[3px] transition-colors whitespace-nowrap ${
                             activeTab === "active"
-                              ? "border-blue-600 text-blue-600"
-                              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                              ? "border-blue-600 text-[var(--sf-blue-500)]"
+                              : "border-transparent text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]"
                           }`}
                         >
                           Active ({teamMembers.filter(m => m.status === 'active').length})
@@ -630,8 +636,8 @@ const ServiceFlowTeam = () => {
                           onClick={() => setActiveTab("invited")}
                           className={`px-4 sm:px-6 py-3 sm:py-4 w-1/3 text-xs sm:text-sm font-medium border-b-[3px] transition-colors whitespace-nowrap ${
                             activeTab === "invited"
-                              ? "border-blue-600 text-blue-600"
-                              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                              ? "border-blue-600 text-[var(--sf-blue-500)]"
+                              : "border-transparent text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]"
                           }`}
                         >
                           Invited ({teamMembers.filter(m => m.status === 'invited' || m.status === 'pending').length})
@@ -640,8 +646,8 @@ const ServiceFlowTeam = () => {
                           onClick={() => setActiveTab("deactivated")}
                           className={`px-4 sm:px-6 py-3 sm:py-4 w-1/3 text-xs sm:text-sm font-medium border-b-[3px] transition-colors whitespace-nowrap ${
                             activeTab === "deactivated"
-                              ? "border-blue-600 text-blue-600"
-                              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                              ? "border-blue-600 text-[var(--sf-blue-500)]"
+                              : "border-transparent text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]"
                           }`}
                         >
                           Deactivated ({teamMembers.filter(m => m.status === 'inactive' || m.status === 'on_leave').length})
@@ -650,13 +656,13 @@ const ServiceFlowTeam = () => {
                     </div>
 
                     {/* Filters */}
-                    <div className="p-4 sm:p-6 border-b border-gray-200">
+                    <div className="p-4 sm:p-6 border-b border-[var(--sf-border-light)]">
                       <div className="flex flex-col gap-3">
                         <div className="w-full">
                           <select
                             value={filters.status}
                             onChange={(e) => handleFilterChange({ status: e.target.value })}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-3 py-2.5 text-sm border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] transition-colors"
                           >
                             <option value="">All team members</option>
                             <option value="active">Active only</option>
@@ -666,13 +672,13 @@ const ServiceFlowTeam = () => {
                         </div>
 
                         <div className="relative w-full">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-4 h-4" />
                           <input
                             type="text"
                             placeholder="Search team members..."
                             value={filters.search}
                             onChange={(e) => handleFilterChange({ search: e.target.value })}
-                            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full pl-10 pr-4 py-2.5 text-sm border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] transition-colors"
                           />
                         </div>
                       </div>
@@ -692,15 +698,15 @@ const ServiceFlowTeam = () => {
                     {loading ? (
                       <div className="flex items-center justify-center py-12 sm:py-16">
                         <div className="flex items-center space-x-2">
-                          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                          <span className="text-sm sm:text-base text-gray-600">Loading team members...</span>
+                          <Loader2 className="w-6 h-6 animate-spin text-[var(--sf-blue-500)]" />
+                          <span className="text-sm sm:text-base text-[var(--sf-text-secondary)]">Loading team members...</span>
                         </div>
                       </div>
                     ) : filteredMembers.length === 0 ? (
                       <div className="text-center py-12 sm:py-16 px-4">
-                        <Users className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
-                        <h3 className="mt-2 text-sm font-medium text-gray-900">No team members found</h3>
-                        <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                        <Users className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-[var(--sf-text-muted)]" />
+                        <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">No team members found</h3>
+                        <p className="mt-1 text-xs sm:text-sm text-[var(--sf-text-secondary)]">
                           {filters.search || filters.status
                             ? "Try adjusting your search or filter criteria."
                             : "Get started by adding your first team member."}
@@ -709,7 +715,7 @@ const ServiceFlowTeam = () => {
                           <div className="mt-6">
                             <button
                               onClick={handleAddMember}
-                              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                              className="sf-btn-primary inline-flex items-center px-4 py-2 text-sm font-medium"
                             >
                               <UserPlus className="w-4 h-4 mr-2" />
                               Add Team Member
@@ -723,29 +729,29 @@ const ServiceFlowTeam = () => {
                         <div className="hidden sm:block overflow-x-auto">
                           <table className="w-full">
                             <thead>
-                              <tr className="border-b border-gray-200">
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <tr className="border-b border-[var(--sf-border-light)]">
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                                   Team Member
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                                   Access Role
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                                   <div className="flex items-center">
                                     Service Provider
-                                    <HelpCircle className="w-3.5 h-3.5 ml-1.5 text-gray-400" />
+                                    <HelpCircle className="w-3.5 h-3.5 ml-1.5 text-[var(--sf-text-muted)]" />
                                   </div>
                                 </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-6 py-3 text-right text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                                   Actions
                                 </th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200">
+                            <tbody className="divide-y divide-[var(--sf-border-light)]">
                               {filteredMembers.map((member) => (
-                                <tr 
-                                  key={member.id} 
-                                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                <tr
+                                  key={member.id}
+                                  className="hover:bg-[var(--sf-bg-hover)] transition-colors cursor-pointer"
                                   onClick={() => handleViewMember(member)}
                                 >
                                   <td className="px-6 py-4">
@@ -770,7 +776,7 @@ const ServiceFlowTeam = () => {
                                       </div>
                                       <div className="ml-4">
                                         <div className="flex items-center space-x-2">
-                                          <div className="text-sm font-medium text-gray-900">
+                                          <div className="text-sm font-medium text-[var(--sf-text-primary)]">
                                             {member.first_name} {member.last_name}
                                           </div>
                                           {member.status === 'active' && (
@@ -779,19 +785,19 @@ const ServiceFlowTeam = () => {
                                             </span>
                                           )}
                                           {member.status === 'invited' && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-[var(--sf-blue-500)]">
                                               {getStatusLabel(member.status)}
                                             </span>
                                           )}
                                         </div>
-                                        <div className="text-sm text-gray-500">
+                                        <div className="text-sm text-[var(--sf-text-secondary)]">
                                           {member.email || member.phone}
                                         </div>
                                       </div>
                                     </div>
                                   </td>
                                   <td className="px-6 py-4">
-                                    <div className="text-sm text-gray-900">
+                                    <div className="text-sm text-[var(--sf-text-primary)]">
                                       {member.role === 'account owner' || member.role === 'owner' || member.role === 'admin' ? 'Account Owner' :
                                        member.role === 'manager' ? 'Manager' :
                                        member.role === 'scheduler' ? 'Scheduler' :
@@ -800,7 +806,7 @@ const ServiceFlowTeam = () => {
                                     </div>
                                   </td>
                                   <td className="px-6 py-4">
-                                    <div className="text-sm text-gray-900">
+                                    <div className="text-sm text-[var(--sf-text-primary)]">
                                       {member.is_service_provider ? 'Yes' : 'No'}
                                     </div>
                                   </td>
@@ -811,7 +817,7 @@ const ServiceFlowTeam = () => {
                                           e.stopPropagation();
                                           handleViewMember(member);
                                         }}
-                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                        className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                                         title="View schedule"
                                       >
                                         <Clock className="w-5 h-5" />
@@ -843,12 +849,36 @@ const ServiceFlowTeam = () => {
                                               <span>Activate</span>
                                             </button>
                                           )}
+                                          {member.email && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleResendInvite(member);
+                                              }}
+                                              className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] transition-colors flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                                              title="Resend invitation"
+                                            >
+                                              <Mail className="w-4 h-4" />
+                                              <span>Invite</span>
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setTerritoriesMember(member);
+                                            }}
+                                            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-600)] transition-colors flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                                            title="Assign territories (multiple supported)"
+                                          >
+                                            <MapPin className="w-4 h-4" />
+                                            <span>Territories</span>
+                                          </button>
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               handleEditMember(member);
                                             }}
-                                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                                            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                                             title="More options"
                                           >
                                             <Settings className="w-5 h-5" />
@@ -856,7 +886,7 @@ const ServiceFlowTeam = () => {
                                         </>
                                       )}
                                       {(member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') && (
-                                        <span className="text-xs text-gray-500 italic">Account Owner</span>
+                                        <span className="text-xs text-[var(--sf-text-muted)] italic">Account Owner</span>
                                       )}
                                     </div>
                                   </td>
@@ -867,12 +897,12 @@ const ServiceFlowTeam = () => {
                         </div>
 
                         {/* Mobile Card View */}
-                        <div className="sm:hidden divide-y divide-gray-200">
+                        <div className="sm:hidden divide-y divide-[var(--sf-border-light)]">
                           {filteredMembers.map((member) => (
-                            <div 
+                            <div
                               key={member.id}
                               onClick={() => handleViewMember(member)}
-                              className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                              className="p-4 hover:bg-[var(--sf-bg-hover)] transition-colors cursor-pointer"
                             >
                               <div className="flex items-start gap-3">
                                 <div 
@@ -896,7 +926,7 @@ const ServiceFlowTeam = () => {
                                 
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-sm font-medium text-gray-900 truncate">
+                                    <span className="text-sm font-medium text-[var(--sf-text-primary)] truncate">
                                       {member.first_name} {member.last_name}
                                     </span>
                                     {member.status === 'active' && (
@@ -905,16 +935,16 @@ const ServiceFlowTeam = () => {
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-xs text-gray-500 truncate mb-1">
+                                  <div className="text-xs text-[var(--sf-text-secondary)] truncate mb-1">
                                     {member.email || member.phone}
                                   </div>
-                                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                                  <div className="flex items-center gap-2 text-xs text-[var(--sf-text-secondary)]">
                                     <span>{member.role === 'account owner' || member.role === 'owner' || member.role === 'admin' ? 'Account Owner' :
                                        member.role === 'manager' ? 'Manager' :
                                        member.role === 'scheduler' ? 'Scheduler' :
                                        member.role === 'worker' || member.role === 'technician' ? 'Worker' :
                                        member.role || 'Team Member'}</span>
-                                    <span className="text-gray-400">•</span>
+                                    <span className="text-[var(--sf-text-muted)]">•</span>
                                     <span>{member.is_service_provider ? 'Service Provider' : 'Non-Provider'}</span>
                                   </div>
                                 </div>
@@ -950,9 +980,19 @@ const ServiceFlowTeam = () => {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
+                                          setTerritoriesMember(member);
+                                        }}
+                                        className="text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-600)] transition-colors p-2"
+                                        title="Assign territories"
+                                      >
+                                        <MapPin className="w-5 h-5" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           handleEditMember(member);
                                         }}
-                                        className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+                                        className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors p-2"
                                       >
                                         <Settings className="w-5 h-5" />
                                       </button>
@@ -965,17 +1005,17 @@ const ServiceFlowTeam = () => {
                         </div>
 
                         {/* Pagination */}
-                        <div className="px-4 sm:px-6 py-4 border-t border-gray-200">
+                        <div className="px-4 sm:px-6 py-4 border-t border-[var(--sf-border-light)]">
                           <div className="flex items-center justify-center space-x-2">
                             <button
                               disabled
-                              className="p-2 rounded-lg border border-gray-300 text-gray-400 cursor-not-allowed"
+                              className="p-2 rounded-lg border border-[var(--sf-border-light)] text-[var(--sf-text-muted)] cursor-not-allowed"
                             >
                               <ChevronLeft className="w-5 h-5" />
                             </button>
                             <button
                               disabled
-                              className="p-2 rounded-lg border border-gray-300 text-gray-400 cursor-not-allowed"
+                              className="p-2 rounded-lg border border-[var(--sf-border-light)] text-[var(--sf-text-muted)] cursor-not-allowed"
                             >
                               <ChevronRight className="w-5 h-5" />
                             </button>
@@ -1018,12 +1058,23 @@ const ServiceFlowTeam = () => {
         />
       )}
 
+      <AssignTerritoriesModal
+        isOpen={!!territoriesMember}
+        member={territoriesMember}
+        userId={user?.id}
+        onClose={() => setTerritoriesMember(null)}
+        onSaved={() => {
+          fetchTeamMembers()
+          setTerritoriesMember(null)
+        }}
+      />
+
       {showDeleteModal && memberToDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-4 sm:p-6 max-w-lg w-full mx-4">
             <div className="flex items-center mb-4">
               <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 mr-3 flex-shrink-0" />
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">Delete Team Member</h3>
+              <h3 className="text-base sm:text-lg font-medium text-[var(--sf-text-primary)]">Delete Team Member</h3>
             </div>
 
             {deleteError && (
@@ -1038,7 +1089,7 @@ const ServiceFlowTeam = () => {
               </div>
             )}
 
-            <p className="text-xs sm:text-sm text-gray-500 mb-6">
+            <p className="text-xs sm:text-sm text-[var(--sf-text-muted)] mb-6">
               Are you sure you want to delete <strong>{memberToDelete.first_name} {memberToDelete.last_name}</strong>?
               This action cannot be undone.
             </p>
@@ -1050,7 +1101,7 @@ const ServiceFlowTeam = () => {
                   setMemberToDelete(null)
                   setDeleteError("")
                 }}
-                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-md hover:bg-[var(--sf-bg-page)]"
               >
                 Cancel
               </button>
@@ -1072,10 +1123,10 @@ const ServiceFlowTeam = () => {
           <div className="bg-white rounded-lg p-4 sm:p-6 max-w-lg w-full mx-4">
             <div className="flex items-center mb-4">
               <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 mr-3 flex-shrink-0" />
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">Delete All Team Members</h3>
+              <h3 className="text-base sm:text-lg font-medium text-[var(--sf-text-primary)]">Delete All Team Members</h3>
             </div>
 
-            <p className="text-xs sm:text-sm text-gray-500 mb-2">
+            <p className="text-xs sm:text-sm text-[var(--sf-text-muted)] mb-2">
               Are you sure you want to delete all team members? This will delete{' '}
               <strong>{deletableMembersCount}</strong>{' '}
               team member(s). Account owners will not be deleted.
@@ -1091,7 +1142,7 @@ const ServiceFlowTeam = () => {
                   setDeletableMembersCount(0)
                 }}
                 disabled={deleteAllLoading}
-                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-md hover:bg-[var(--sf-bg-page)] disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1117,11 +1168,11 @@ const ServiceFlowTeam = () => {
               ) : (
                 <Power className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 mr-3 flex-shrink-0" />
               )}
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">
+              <h3 className="text-base sm:text-lg font-medium text-[var(--sf-text-primary)]">
                 {memberToToggle.status === 'active' ? 'Deactivate' : 'Activate'} Team Member
               </h3>
             </div>
-            <p className="text-xs sm:text-sm text-gray-500 mb-6">
+            <p className="text-xs sm:text-sm text-[var(--sf-text-muted)] mb-6">
               {memberToToggle.status === 'active' ? (
                 <>Are you sure you want to deactivate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>?</>
               ) : (
@@ -1134,7 +1185,7 @@ const ServiceFlowTeam = () => {
                   setShowActivationModal(false)
                   setMemberToToggle(null)
                 }}
-                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-md hover:bg-[var(--sf-bg-page)]"
               >
                 Cancel
               </button>
@@ -1159,10 +1210,10 @@ const ServiceFlowTeam = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4">
             <div className="flex items-center mb-4">
-              <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 mr-3 flex-shrink-0" />
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">Resend Invitation</h3>
+              <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-[var(--sf-blue-500)] mr-3 flex-shrink-0" />
+              <h3 className="text-base sm:text-lg font-medium text-[var(--sf-text-primary)]">Resend Invitation</h3>
             </div>
-            <p className="text-xs sm:text-sm text-gray-500 mb-6">
+            <p className="text-xs sm:text-sm text-[var(--sf-text-muted)] mb-6">
               Are you sure you want to resend the invitation to <strong>{memberToResend.first_name} {memberToResend.last_name}</strong>?
             </p>
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3">
@@ -1171,14 +1222,14 @@ const ServiceFlowTeam = () => {
                   setShowResendModal(false)
                   setMemberToResend(null)
                 }}
-                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-md hover:bg-[var(--sf-bg-page)]"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmResendInvite}
                 disabled={resendLoading}
-                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-md hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
               >
                 {resendLoading ? "Sending..." : "Resend Invitation"}
               </button>

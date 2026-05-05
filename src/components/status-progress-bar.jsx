@@ -4,10 +4,10 @@ import StatusHistoryTooltip from './status-history-tooltip';
 const StatusProgressBar = ({ currentStatus, onStatusChange, statusHistory, isReached = false, jobCreatedAt = null, invoiceStatus = null }) => {
   const statuses = [
     { key: 'scheduled', label: 'Scheduled', color: 'bg-green-500' },
-    { key: 'en_route', label: 'En Route', color: 'bg-blue-500' },
+    { key: 'en_route', label: 'En Route', color: 'bg-[var(--sf-blue-500)]' },
     { key: 'started', label: 'Started', color: 'bg-orange-500' },
     { key: 'completed', label: 'Complete', color: 'bg-purple-500' },
-    { key: 'paid', label: 'Paid', color: 'bg-gray-500' }
+    { key: 'paid', label: 'Paid', color: 'bg-[var(--sf-bg-page)]0' }
   ];
 
   // Normalize status: pending=scheduled, en_route=confirmed, started=in-progress, complete=completed
@@ -106,7 +106,7 @@ const StatusProgressBar = ({ currentStatus, onStatusChange, statusHistory, isRea
                  w-full flex-1 items-center justify-center relative px-6 py-2.5 text-sm font-semibold whitespace-nowrap transition-all
                 ${isActive 
                   ? `bg-green-500 text-white` 
-                  : 'bg-gray-200 text-gray-500'}
+                  : 'bg-gray-200 text-[var(--sf-text-muted)]'}
                 ${isCurrent ? 'shadow-md' : ''}
                 ${index === 0 ? 'rounded-l-lg' : ''}
                 ${index === statuses.length - 1 ? 'rounded-r-lg' : ''}

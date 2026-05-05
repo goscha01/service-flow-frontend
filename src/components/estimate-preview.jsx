@@ -9,7 +9,7 @@ const EstimatePreview = () => {
           {/* Estimate content */}
           <div className="p-6 space-y-4">
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Refrigerator Repair Estimate</h3>
+              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Refrigerator Repair Estimate</h3>
 
               {/* Placeholder lines */}
               <div className="space-y-2 mb-6">
@@ -21,16 +21,16 @@ const EstimatePreview = () => {
               {/* Pricing section */}
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Subtotal</span>
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Subtotal</span>
                   <div className="h-2 bg-gray-200 rounded w-16"></div>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Discount</span>
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Discount</span>
                   <div className="h-2 bg-gray-200 rounded w-12"></div>
                 </div>
                 <div className="border-t pt-3">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold text-gray-900">Estimated</span>
+                    <span className="font-semibold text-[var(--sf-text-primary)]">Estimated</span>
                     <span className="font-bold text-green-600 text-lg">$170.00</span>
                   </div>
                 </div>
@@ -40,7 +40,7 @@ const EstimatePreview = () => {
               <button className="w-full bg-black text-white py-3 rounded-lg font-medium mb-3">Book Now</button>
 
               {/* Next available time */}
-              <p className="text-xs text-gray-500">Next available time: Fri, Sep 13th</p>
+              <p className="text-xs text-[var(--sf-text-muted)]">Next available time: Fri, Sep 13th</p>
             </div>
           </div>
         </div>

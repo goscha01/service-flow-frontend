@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react"
-import { Plus, ChevronLeft, ChevronRight, Calendar, Grid3X3, MapPin, Clock, DollarSign, User, Filter, AlertTriangle, RefreshCw, Map, BarChart3, Users, UserX, CheckCircle, PlayCircle, XCircle } from "lucide-react"
-import Sidebar from "../components/sidebar"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
+import { Plus, ChevronLeft, ChevronRight, Calendar, MapPin, Clock, DollarSign, User, Filter, AlertTriangle, RefreshCw, Map, Users } from "lucide-react"
 import ScheduleSidebar from "../components/schedule-sidebar"
 import { useNavigate } from "react-router-dom"
 
@@ -10,8 +10,6 @@ import { jobsAPI, teamAPI } from "../services/api"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [activeFilter, setActiveFilter] = useState("all")
   const [currentView, setCurrentView] = useState("day") // day, week, month
   const [currentDate, setCurrentDate] = useState(new Date()) // Current date
   const [allJobs, setAllJobs] = useState([]) // Store ALL jobs
@@ -37,8 +35,7 @@ const ServiceFlowSchedule = () => {
   const [selectedTeamMemberId, setSelectedTeamMemberId] = useState(null) // null = all team members
   const navigate = useNavigate()
 
-  // Request cancellation and navigation timeout
-  const abortControllerRef = useRef(null)
+  // Navigation timeout
   const navigationTimeoutRef = useRef(null)
   const silentRefreshIntervalRef = useRef(null)
   const calendarRef = useRef(null)
@@ -81,14 +78,14 @@ const ServiceFlowSchedule = () => {
     } else if (!currentUser) {
       navigate('/signin')
     }
-  }, [currentUser, navigate])
+  }, [currentUser, navigate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Separate useEffect for filtering jobs when view/date/filters change
   useEffect(() => {
     if (allJobs.length > 0) {
       filterJobsForCurrentView()
     }
-  }, [allJobs, currentView, currentDate, filters])
+  }, [allJobs, currentView, currentDate, filters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle clicking outside calendar picker to close it
   useEffect(() => {
@@ -208,7 +205,7 @@ const ServiceFlowSchedule = () => {
   }, [currentView, currentDate, teamMembers.length])
 
   // Get unique territories from team members
-  const getTerritories = () => {
+  const getTerritories = () => { // eslint-disable-line no-unused-vars
     const territories = new Set()
     teamMembers.forEach(member => {
       if (member.territory) {
@@ -317,7 +314,7 @@ const ServiceFlowSchedule = () => {
           const jobTeamMemberId = job.team_member_id
           const filterTeamMemberId = filters.teamMember
           console.log(`🔍 Comparing job team_member_id: ${jobTeamMemberId} (${typeof jobTeamMemberId}) with filter: ${filterTeamMemberId} (${typeof filterTeamMemberId})`)
-          return jobTeamMemberId == filterTeamMemberId
+          return String(jobTeamMemberId) === String(filterTeamMemberId)
         })
         console.log(`🔍 After team member filter (${filters.teamMember}):`, filteredJobs.length)
       }
@@ -327,8 +324,8 @@ const ServiceFlowSchedule = () => {
     if (filters.territory !== "all") {
       filteredJobs = filteredJobs.filter(job => {
         // Check if job has territory_id or if team member has territory
-        const teamMember = teamMembers.find(tm => tm.id == job.team_member_id)
-        return job.territory_id == filters.territory || 
+        const teamMember = teamMembers.find(tm => String(tm.id) === String(job.team_member_id))
+        return String(job.territory_id) === String(filters.territory) ||
                (teamMember && teamMember.territory === filters.territory)
       })
       console.log(`🔍 After territory filter (${filters.territory}):`, filteredJobs.length)
@@ -437,34 +434,7 @@ const ServiceFlowSchedule = () => {
     }
   }
 
-  const formatTime = (dateString) => {
-    if (!dateString) return 'Time placeholder'
-    
-    // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
-    let timePart = ''
-    if (dateString.includes('T')) {
-      // ISO format: 2025-08-20T09:00:00
-      timePart = dateString.split('T')[1]
-    } else {
-      // Space format: 2025-08-20 09:00:00
-      timePart = dateString.split(' ')[1]
-    }
-    
-    if (!timePart) return 'Time placeholder'
-    
-    const [hours, minutes] = timePart.split(':')
-    const hour = parseInt(hours, 10)
-    const minute = parseInt(minutes, 10)
-    
-    if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
-    
-    // Convert to 12-hour format
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    const displayMinute = minute.toString().padStart(2, '0')
-    
-    return `${displayHour}:${displayMinute} ${ampm}`
-  }
+  const formatTime = (dateString) => formatTimeShared(dateString) || 'Time placeholder'
 
   // Universal function to get jobs for a specific date
   const getJobsForDate = (date) => {
@@ -495,11 +465,12 @@ const ServiceFlowSchedule = () => {
   // Universal function to get status color for a job
   const getStatusColor = (status) => {
     switch (status) {
+      case 'paid': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'confirmed': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      default: return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] border-[var(--sf-border-light)]';
     }
   }
 
@@ -545,7 +516,6 @@ const ServiceFlowSchedule = () => {
     const month = currentDate.getMonth()
     
     const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
     const startDate = new Date(firstDay)
     startDate.setDate(firstDay.getDate() - firstDay.getDay())
     
@@ -604,7 +574,7 @@ const ServiceFlowSchedule = () => {
     navigate(`/job/${job.id}`)
   }
 
-  const handleViewCustomer = (customerId) => {
+  const handleViewCustomer = (customerId) => { // eslint-disable-line no-unused-vars
     navigate(`/customer/${customerId}`)
   }
 
@@ -615,7 +585,7 @@ const ServiceFlowSchedule = () => {
     const filteredJobs = getFilteredJobs()
     
     const totalJobs = filteredJobs.length
-    const completedJobs = filteredJobs.filter(job => job.status === 'completed').length
+    const completedJobs = filteredJobs.filter(job => job.status === 'completed' || job.status === 'paid').length
     const inProgressJobs = filteredJobs.filter(job => job.status === 'in_progress').length
     const pendingJobs = filteredJobs.filter(job => job.status === 'pending').length
     const confirmedJobs = filteredJobs.filter(job => job.status === 'confirmed').length
@@ -655,16 +625,16 @@ const ServiceFlowSchedule = () => {
     const summary = getJobSummary()
     
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">
             Day Summary - {formatDate(currentDate, 'day')}
           </h2>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowMap(!showMap)}
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                showMap ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                showMap ? 'bg-blue-100 text-[var(--sf-blue-500)]' : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-gray-200'
               }`}
             >
               <Map className="w-4 h-4 inline mr-1" />
@@ -675,59 +645,59 @@ const ServiceFlowSchedule = () => {
         
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{summary.totalJobs}</div>
-            <div className="text-sm text-gray-600">Total Jobs</div>
+            <div className="text-2xl font-bold text-[var(--sf-text-primary)]">{summary.totalJobs}</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">Total Jobs</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">{summary.completedJobs}</div>
-            <div className="text-sm text-gray-600">Completed</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">Completed</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">{summary.inProgressJobs}</div>
-            <div className="text-sm text-gray-600">In Progress</div>
+            <div className="text-2xl font-bold text-[var(--sf-blue-500)]">{summary.inProgressJobs}</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">In Progress</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-yellow-600">{summary.pendingJobs}</div>
-            <div className="text-sm text-gray-600">Pending</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">Pending</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">${summary.totalRevenue.toFixed(2)}</div>
-            <div className="text-sm text-gray-600">Revenue</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">Revenue</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">{summary.assignedJobs}</div>
-            <div className="text-sm text-gray-600">Assigned</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">Assigned</div>
           </div>
         </div>
 
         {/* Additional metrics row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-[var(--sf-border-light)]">
           <div className="text-center">
             <div className="text-lg font-semibold text-orange-600">{summary.confirmedJobs}</div>
-            <div className="text-sm text-gray-600">Confirmed</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">Confirmed</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-red-600">{summary.cancelledJobs}</div>
-            <div className="text-sm text-gray-600">Cancelled</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">Cancelled</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-semibold text-gray-600">{summary.unassignedJobs}</div>
-            <div className="text-sm text-gray-600">Unassigned</div>
+            <div className="text-lg font-semibold text-[var(--sf-text-secondary)]">{summary.unassignedJobs}</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">Unassigned</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-semibold text-blue-600">
+            <div className="text-lg font-semibold text-[var(--sf-blue-500)]">
               {summary.totalDuration > 0 ? `${Math.round(summary.totalDuration / 60)}h ${summary.totalDuration % 60}m` : '0h 0m'}
             </div>
-            <div className="text-sm text-gray-600">Total Duration</div>
+            <div className="text-sm text-[var(--sf-text-secondary)]">Total Duration</div>
           </div>
         </div>
 
         {/* Progress bar for completion rate */}
         {summary.totalJobs > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
+          <div className="mt-4 pt-4 border-t border-[var(--sf-border-light)]">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Completion Rate</span>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm font-medium text-[var(--sf-text-primary)]">Completion Rate</span>
+              <span className="text-sm text-[var(--sf-text-secondary)]">
                 {Math.round((summary.completedJobs / summary.totalJobs) * 100)}%
               </span>
             </div>
@@ -752,11 +722,11 @@ const ServiceFlowSchedule = () => {
 
     if (jobsWithLocation.length === 0) {
       return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-6 mb-6">
           <div className="text-center">
             <Map className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No locations available</h3>
-            <p className="text-gray-500">Jobs need addresses to be displayed on the map.</p>
+            <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">No locations available</h3>
+            <p className="text-[var(--sf-text-muted)]">Jobs need addresses to be displayed on the map.</p>
           </div>
         </div>
       )
@@ -780,9 +750,9 @@ const ServiceFlowSchedule = () => {
     }
 
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Locations</h3>
-        <p className="text-sm text-gray-600 mb-4">
+      <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-6 mb-6">
+        <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Job Locations</h3>
+        <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
           {jobsWithLocation.length === 1 
             ? "Map shows the job location." 
             : `Map shows all ${jobsWithLocation.length} job locations. Job details are listed below.`
@@ -790,7 +760,7 @@ const ServiceFlowSchedule = () => {
         </p>
         
         {/* Google Maps iframe with all job locations */}
-        <div className="h-80 bg-gray-100 rounded-lg overflow-hidden mb-4 relative">
+        <div className="h-80 bg-[var(--sf-bg-page)] rounded-lg overflow-hidden mb-4 relative">
           <iframe
             width="100%"
             height="100%"
@@ -805,7 +775,7 @@ const ServiceFlowSchedule = () => {
               // Map loaded successfully
             }}
           />
-          <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded text-xs text-gray-600 shadow-sm">
+          <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded text-xs text-[var(--sf-text-secondary)] shadow-sm">
             {jobsWithLocation.length} job{jobsWithLocation.length !== 1 ? 's' : ''}
           </div>
         </div>
@@ -815,28 +785,28 @@ const ServiceFlowSchedule = () => {
           {jobsWithLocation.slice(0, 6).map((job, index) => (
             <div 
               key={job.id} 
-              className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer border-l-4 border-blue-500"
+              className="p-3 bg-[var(--sf-bg-page)] rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors cursor-pointer border-l-4 border-blue-500"
               onClick={() => navigate(`/job/${job.id}`)}
             >
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
                   {index + 1}
                 </div>
-                <div className="font-medium text-sm text-gray-900">{job.service_name || 'Service placeholder'}</div>
+                <div className="font-medium text-sm text-[var(--sf-text-primary)]">{job.service_name || 'Service placeholder'}</div>
               </div>
-              <div className="text-xs text-gray-600 truncate mt-1">
+              <div className="text-xs text-[var(--sf-text-secondary)] truncate mt-1">
                 {job.customer_address || `${job.service_address_street}, ${job.service_address_city}`}
               </div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-[var(--sf-text-muted)] mt-1">
                                         {formatTime(job.scheduled_date)}
               </div>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-[var(--sf-text-muted)] mt-1">
                 {job.customer_first_name && job.customer_last_name 
                   ? `${job.customer_first_name} ${job.customer_last_name}`
                   : job.customer_first_name || job.customer_last_name || 'Client placeholder'
                 }
               </div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-[var(--sf-text-muted)] mt-1">
                 Status: {job.status || 'Status placeholder'}
               </div>
             </div>
@@ -845,7 +815,7 @@ const ServiceFlowSchedule = () => {
         
         {jobsWithLocation.length > 6 && (
           <div 
-            className="text-center text-sm text-blue-600 mt-3 cursor-pointer hover:text-blue-800 hover:underline transition-colors"
+            className="text-center text-sm text-[var(--sf-blue-500)] mt-3 cursor-pointer hover:text-blue-800 hover:underline transition-colors"
             onClick={() => {
               // For now, just show all jobs - could be enhanced to show a modal or expand the map
             }}
@@ -859,27 +829,27 @@ const ServiceFlowSchedule = () => {
 
   // Day View Component
   const DayView = () => (
-    <div className="flex-1 bg-gray-50 overflow-y-auto">
+    <div className="flex-1 bg-[var(--sf-bg-page)] overflow-y-auto">
       <div className="max-w-6xl mx-auto p-4 sm:p-6">
         <JobsSummary />
         {showMap && <JobsMap />}
         {loading ? (
           <div className="text-center py-16">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12">
+            <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-8 sm:p-12">
               <RefreshCw className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4 animate-spin" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Loading jobs...</h3>
-              <p className="text-gray-500 mb-6">Please wait while we fetch the scheduled jobs.</p>
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">Loading jobs...</h3>
+              <p className="text-[var(--sf-text-muted)] mb-6">Please wait while we fetch the scheduled jobs.</p>
             </div>
           </div>
         ) : error ? (
           <div className="text-center py-16">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12">
+            <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-8 sm:p-12">
               <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Error: {error}</h3>
-              <p className="text-gray-500 mb-6">Failed to load jobs. Please try again later.</p>
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">Error: {error}</h3>
+              <p className="text-[var(--sf-text-muted)] mb-6">Failed to load jobs. Please try again later.</p>
               <button 
                 onClick={loadAllJobs}
-                className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all duration-200 transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="w-10 h-10 bg-[var(--sf-blue-500)] text-white rounded-full flex items-center justify-center hover:bg-[var(--sf-blue-600)] transition-all duration-200 transform hover:scale-[1.02] focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2"
               >
                 <RefreshCw className="w-5 h-5" />
               </button>
@@ -892,7 +862,7 @@ const ServiceFlowSchedule = () => {
               return (
                 <div 
                   key={job.id} 
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer"
+                  className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-4 sm:p-6 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer"
                   onClick={() => navigate(`/job/${job.id}`)}
                 >
                   <div className="flex flex-col space-y-4 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
@@ -904,11 +874,11 @@ const ServiceFlowSchedule = () => {
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
+                          <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-1 truncate">
                             {job.service_name || 'Service'}
                           </h3>
                           <div 
-                            className="text-sm text-gray-600 truncate block hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                            className="text-sm text-[var(--sf-text-secondary)] truncate block hover:text-[var(--sf-blue-500)] hover:underline cursor-pointer transition-colors"
                             onClick={(e) => {
                               e.stopPropagation()
                               if (job.customer_id) {
@@ -926,7 +896,7 @@ const ServiceFlowSchedule = () => {
                           <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(job.status)} flex-shrink-0`}>
                             {job.status ? job.status.replace('_', ' ') : 'Status - sign placeholder'}
                           </span>
-                          <div className="flex items-center space-x-2 text-xs text-gray-500">
+                          <div className="flex items-center space-x-2 text-xs text-[var(--sf-text-muted)]">
                             <User className="w-3 h-3" />
                             <span>
                               {job.team_member_first_name && job.team_member_last_name 
@@ -939,13 +909,13 @@ const ServiceFlowSchedule = () => {
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
-                        <div className="flex items-center space-x-2 text-gray-600">
+                        <div className="flex items-center space-x-2 text-[var(--sf-text-secondary)]">
                           <Clock className="w-4 h-4 flex-shrink-0" />
                           <span className="truncate">
                             {formatTime(job.scheduled_date)}
                           </span>
                         </div>
-                        <div className="flex items-center space-x-2 text-gray-600">
+                        <div className="flex items-center space-x-2 text-[var(--sf-text-secondary)]">
                           <User className="w-4 h-4 flex-shrink-0" />
                           <span className="truncate">
                             {job.team_member_first_name && job.team_member_last_name 
@@ -954,19 +924,19 @@ const ServiceFlowSchedule = () => {
                             }
                           </span>
                         </div>
-                        <div className="flex items-center space-x-2 text-gray-600 sm:col-span-2">
+                        <div className="flex items-center space-x-2 text-[var(--sf-text-secondary)] sm:col-span-2">
                           <MapPin className="w-4 h-4 flex-shrink-0" />
                           <span className="truncate">{job.customer_address || 'Address not provided'}</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-gray-600">
+                        <div className="flex items-center space-x-2 text-[var(--sf-text-secondary)]">
                           <DollarSign className="w-4 h-4 flex-shrink-0" />
                           <span className="font-medium text-green-600">${job.service_price || '0'}</span>
                         </div>
                       </div>
                       
                       {job.notes && (
-                        <div className="mt-4 pt-4 border-t border-gray-100">
-                          <p className="text-sm text-gray-600 italic">"{job.notes}"</p>
+                        <div className="mt-4 pt-4 border-t border-[var(--sf-border-light)]">
+                          <p className="text-sm text-[var(--sf-text-secondary)] italic">"{job.notes}"</p>
                         </div>
                       )}
                     </div>
@@ -974,7 +944,7 @@ const ServiceFlowSchedule = () => {
                     <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 sm:ml-4">
                       <button 
                         onClick={() => handleViewJob(job)}
-                        className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                        className="px-3 py-2 text-sm font-medium text-[var(--sf-text-secondary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors border border-[var(--sf-border-light)]"
                       >
                         View
                       </button>
@@ -986,12 +956,12 @@ const ServiceFlowSchedule = () => {
           </div>
         ) : (
           <div className="text-center py-16 pb-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12">
+            <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-8 sm:p-12">
               <Calendar className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">
                 {jobs.length > 0 ? 'No jobs match your filters' : 'No scheduled jobs'}
               </h3>
-              <p className="text-gray-500 mb-6">
+              <p className="text-[var(--sf-text-muted)] mb-6">
                 {jobs.length > 0 
                   ? 'Try adjusting your filters to see more jobs.'
                   : `No jobs scheduled for ${formatDate(currentDate, 'day')}`
@@ -999,7 +969,7 @@ const ServiceFlowSchedule = () => {
               </p>
               <button 
                 onClick={handleCreateJob}
-                className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all duration-200 transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="w-10 h-10 bg-[var(--sf-blue-500)] text-white rounded-full flex items-center justify-center hover:bg-[var(--sf-blue-600)] transition-all duration-200 transform hover:scale-[1.02] focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2"
               >
                 <Plus className="w-5 h-5" />
               </button>
@@ -1027,7 +997,7 @@ const ServiceFlowSchedule = () => {
     }
 
     return (
-      <div className="flex-1 bg-gray-50 overflow-y-auto">
+      <div className="flex-1 bg-[var(--sf-bg-page)] overflow-y-auto">
         <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-8">
           <div className="grid grid-cols-1 sm:grid-cols-7 gap-4">
             {weekDays.map((day, index) => {
@@ -1035,12 +1005,12 @@ const ServiceFlowSchedule = () => {
               const isToday = day.toDateString() === new Date().toDateString()
               
               return (
-                <div key={index} className={`bg-white rounded-lg border ${isToday ? 'border-blue-300 shadow-md' : 'border-gray-200'} p-4`}>
+                <div key={index} className={`bg-white rounded-lg border ${isToday ? 'border-blue-300 shadow-md' : 'border-[var(--sf-border-light)]'} p-4`}>
                   <div className="text-center mb-3">
-                    <div className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-500'}`}>
+                    <div className={`text-sm font-medium ${isToday ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-muted)]'}`}>
                       {day.toLocaleDateString('en-US', { weekday: 'short' })}
                     </div>
-                    <div className={`text-2xl font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+                    <div className={`text-2xl font-bold ${isToday ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-primary)]'}`}>
                       {day.getDate()}
                     </div>
                   </div>
@@ -1059,9 +1029,9 @@ const ServiceFlowSchedule = () => {
                           }}
                           onClick={() => navigate(`/job/${job.id}`)}
                         >
-                          <div className="font-medium truncate text-gray-900">{job.service_name || 'Service placeholder'}</div>
+                          <div className="font-medium truncate text-[var(--sf-text-primary)]">{job.service_name || 'Service placeholder'}</div>
                           <div 
-                            className="text-gray-600 truncate hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                            className="text-[var(--sf-text-secondary)] truncate hover:text-[var(--sf-blue-500)] hover:underline cursor-pointer transition-colors"
                             onClick={(e) => {
                               e.stopPropagation()
                               if (job.customer_id) {
@@ -1075,7 +1045,7 @@ const ServiceFlowSchedule = () => {
                             }
                           </div>
                           <div className="flex items-center justify-between">
-                            <div className="text-gray-500">
+                            <div className="text-[var(--sf-text-muted)]">
                               {formatTime(job.scheduled_date)}
                             </div>
                             <div className="flex items-center space-x-1">
@@ -1084,7 +1054,7 @@ const ServiceFlowSchedule = () => {
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-1 text-gray-500 mt-1">
+                          <div className="flex items-center space-x-1 text-[var(--sf-text-muted)] mt-1">
                             <User className="w-3 h-3" />
                             <span className="text-xs">
                               {job.team_member_first_name && job.team_member_last_name 
@@ -1116,7 +1086,6 @@ const ServiceFlowSchedule = () => {
     
     const generateDaysArray = () => {
       const firstDay = new Date(year, month, 1)
-      const lastDay = new Date(year, month + 1, 0)
       const startDate = new Date(firstDay)
       startDate.setDate(firstDay.getDate() - firstDay.getDay())
       
@@ -1136,13 +1105,13 @@ const ServiceFlowSchedule = () => {
     const days = generateDaysArray()
 
     return (
-      <div className="flex-1 bg-gray-50 overflow-y-auto">
+      <div className="flex-1 bg-[var(--sf-bg-page)] overflow-y-auto">
         <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)]">
             <div className="grid grid-cols-7 gap-px bg-gray-200">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="bg-gray-50 p-2 text-center">
-                  <div className="text-sm font-medium text-gray-900">{day}</div>
+                <div key={day} className="bg-[var(--sf-bg-page)] p-2 text-center">
+                  <div className="text-sm font-medium text-[var(--sf-text-primary)]">{day}</div>
                 </div>
               ))}
               
@@ -1152,8 +1121,8 @@ const ServiceFlowSchedule = () => {
                 const isTodayDate = isToday(date)
                 
                 return (
-                  <div key={index} className={`bg-white min-h-[100px] p-2 ${!isCurrentMonthDay ? 'bg-gray-50' : ''}`}>
-                    <div className={`text-sm font-medium mb-1 ${isTodayDate ? 'text-blue-600' : isCurrentMonthDay ? 'text-gray-900' : 'text-gray-400'}`}>
+                  <div key={index} className={`bg-white min-h-[100px] p-2 ${!isCurrentMonthDay ? 'bg-[var(--sf-bg-page)]' : ''}`}>
+                    <div className={`text-sm font-medium mb-1 ${isTodayDate ? 'text-[var(--sf-blue-500)]' : isCurrentMonthDay ? 'text-[var(--sf-text-primary)]' : 'text-[var(--sf-text-muted)]'}`}>
                       {date.getDate()}
                     </div>
                     
@@ -1171,9 +1140,9 @@ const ServiceFlowSchedule = () => {
                             }}
                             onClick={() => navigate(`/job/${job.id}`)}
                           >
-                            <div className="font-medium truncate text-gray-900">{job.service_name || 'Service placeholder'}</div>
+                            <div className="font-medium truncate text-[var(--sf-text-primary)]">{job.service_name || 'Service placeholder'}</div>
                             <div 
-                              className="text-gray-600 truncate hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                              className="text-[var(--sf-text-secondary)] truncate hover:text-[var(--sf-blue-500)] hover:underline cursor-pointer transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 if (job.customer_id) {
@@ -1187,7 +1156,7 @@ const ServiceFlowSchedule = () => {
                               }
                             </div>
                             <div className="flex items-center justify-between">
-                              <div className="text-gray-500 text-xs">
+                              <div className="text-[var(--sf-text-muted)] text-xs">
                                 {formatTime(job.scheduled_date)}
                               </div>
                               <div className="flex items-center space-x-1">
@@ -1196,7 +1165,7 @@ const ServiceFlowSchedule = () => {
                                 </span>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-1 text-gray-500">
+                            <div className="flex items-center space-x-1 text-[var(--sf-text-muted)]">
                               <User className="w-3 h-3" />
                               <span className="text-xs">
                                 {job.team_member_first_name && job.team_member_last_name 
@@ -1210,7 +1179,7 @@ const ServiceFlowSchedule = () => {
                       })}
                       {dayJobs.length > 3 && !expandedDays.has(date.toISOString().split('T')[0]) && (
                         <div 
-                          className="text-xs text-blue-600 text-center cursor-pointer hover:text-blue-800 hover:underline transition-colors"
+                          className="text-xs text-[var(--sf-blue-500)] text-center cursor-pointer hover:text-blue-800 hover:underline transition-colors"
                           onClick={(e) => {
                             e.stopPropagation()
                             toggleDayExpansion(date.toISOString().split('T')[0])
@@ -1221,7 +1190,7 @@ const ServiceFlowSchedule = () => {
                       )}
                       {expandedDays.has(date.toISOString().split('T')[0]) && (
                         <div 
-                          className="text-xs text-gray-500 text-center cursor-pointer hover:text-gray-700 hover:underline transition-colors"
+                          className="text-xs text-[var(--sf-text-muted)] text-center cursor-pointer hover:text-[var(--sf-text-primary)] hover:underline transition-colors"
                           onClick={(e) => {
                             e.stopPropagation()
                             toggleDayExpansion(date.toISOString().split('T')[0])
@@ -1295,32 +1264,32 @@ const ServiceFlowSchedule = () => {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     
     return (
-      <div className="flex-1 bg-gray-50 overflow-y-auto">
+      <div className="flex-1 bg-[var(--sf-bg-page)] overflow-y-auto">
         <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-8">
           {loadingAvailability ? (
             <div className="text-center py-16">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12">
+              <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-8 sm:p-12">
                 <RefreshCw className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4 animate-spin" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Loading availability...</h3>
+                <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">Loading availability...</h3>
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[800px]">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)]">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wider sticky left-0 bg-[var(--sf-bg-page)] z-10 border-r border-[var(--sf-border-light)]">
                         Team Member
                       </th>
                       {weekDates.map((date, idx) => {
                         const isToday = date.toDateString() === new Date().toDateString()
                         return (
-                          <th key={idx} className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">
-                            <div className={`${isToday ? 'text-blue-600 font-bold' : ''}`}>
+                          <th key={idx} className="px-4 py-3 text-center text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wider min-w-[200px]">
+                            <div className={`${isToday ? 'text-[var(--sf-blue-500)] font-bold' : ''}`}>
                               {dayNames[date.getDay()]}
                             </div>
-                            <div className={`text-sm mt-1 ${isToday ? 'text-blue-600 font-bold' : 'text-gray-900'}`}>
+                            <div className={`text-sm mt-1 ${isToday ? 'text-[var(--sf-blue-500)] font-bold' : 'text-[var(--sf-text-primary)]'}`}>
                               {date.getDate()}/{date.getMonth() + 1}
                             </div>
                           </th>
@@ -1328,14 +1297,14 @@ const ServiceFlowSchedule = () => {
                       })}
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                     {teamMembers
                       .filter(member => !selectedTeamMemberId || selectedTeamMemberId === member.id)
                       .map((member) => {
                       const memberColor = member.color || '#2563EB'
                       return (
-                        <tr key={member.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-4 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-gray-200">
+                        <tr key={member.id} className="hover:bg-[var(--sf-bg-page)]">
+                          <td className="px-4 py-4 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-[var(--sf-border-light)]">
                             <div className="flex items-center space-x-3">
                               <div 
                                 className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
@@ -1344,11 +1313,11 @@ const ServiceFlowSchedule = () => {
                                 {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
                               </div>
                               <div>
-                                <div className="text-sm font-medium text-gray-900">
+                                <div className="text-sm font-medium text-[var(--sf-text-primary)]">
                                   {member.first_name} {member.last_name}
                                 </div>
                                 {member.territory && (
-                                  <div className="text-xs text-gray-500">{member.territory}</div>
+                                  <div className="text-xs text-[var(--sf-text-muted)]">{member.territory}</div>
                                 )}
                               </div>
                             </div>
@@ -1357,14 +1326,14 @@ const ServiceFlowSchedule = () => {
                             const dateStr = date.toISOString().split('T')[0]
                             const availability = getAvailabilityDisplay(member.id, dateStr)
                             const dayJobs = getJobsForDate(date).filter(job => 
-                              job.team_member_id == member.id
+                              String(job.team_member_id) === String(member.id)
                             )
                             const isToday = date.toDateString() === new Date().toDateString()
                             
                             return (
                               <td 
                                 key={dateIdx} 
-                                className={`px-4 py-4 align-top ${isToday ? 'bg-blue-50' : ''}`}
+                                className={`px-4 py-4 align-top ${isToday ? 'bg-[var(--sf-blue-50)]' : ''}`}
                               >
                                 <div className="space-y-2">
                                   {/* Availability */}
@@ -1372,8 +1341,8 @@ const ServiceFlowSchedule = () => {
                                     availability.status === 'available'
                                       ? 'bg-green-50 text-green-800 border border-green-200'
                                       : availability.status === 'unavailable'
-                                      ? 'bg-gray-100 text-gray-600 border border-gray-200'
-                                      : 'bg-gray-50 text-gray-500 border border-gray-200'
+                                      ? 'bg-[var(--sf-bg-page)] text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)]'
+                                      : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] border border-[var(--sf-border-light)]'
                                   }`}>
                                     <div className="font-medium mb-1">Availability</div>
                                     <div className="text-xs">{availability.text}</div>
@@ -1382,14 +1351,14 @@ const ServiceFlowSchedule = () => {
                                   {/* Jobs */}
                                   {dayJobs.length > 0 && (
                                     <div className="space-y-1">
-                                      <div className="text-xs font-medium text-gray-700 mb-1">
+                                      <div className="text-xs font-medium text-[var(--sf-text-primary)] mb-1">
                                         Jobs ({dayJobs.length})
                                       </div>
                                       {dayJobs.slice(0, 3).map((job) => (
                                         <div
                                           key={job.id}
                                           onClick={() => navigate(`/job/${job.id}`)}
-                                          className="p-2 rounded text-xs bg-blue-50 text-blue-800 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                                          className="p-2 rounded text-xs bg-[var(--sf-blue-50)] text-blue-800 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
                                           style={{ borderLeftColor: memberColor, borderLeftWidth: '3px' }}
                                         >
                                           <div className="font-medium truncate">{job.service_name || 'Service'}</div>
@@ -1402,7 +1371,7 @@ const ServiceFlowSchedule = () => {
                                         </div>
                                       ))}
                                       {dayJobs.length > 3 && (
-                                        <div className="text-xs text-blue-600 text-center">
+                                        <div className="text-xs text-[var(--sf-blue-500)] text-center">
                                           +{dayJobs.length - 3} more
                                         </div>
                                       )}
@@ -1446,23 +1415,23 @@ const ServiceFlowSchedule = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       
       <div className="flex-1 flex min-w-0 lg:ml-64 xl:ml-72 h-full">
         {/* Schedule Sidebar - Hidden on mobile, visible on desktop */}
         
         {/* Team Member Filter Sidebar - Only show in availability view */}
         {currentView === 'availability' && (
-          <div className="hidden lg:block w-64 bg-gray-50 border-r border-gray-200 flex-shrink-0 overflow-y-auto">
+          <div className="hidden lg:block w-64 bg-[var(--sf-bg-page)] border-r border-[var(--sf-border-light)] flex-shrink-0 overflow-y-auto">
             <div className="p-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">TEAM MEMBERS</h3>
+              <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-3">TEAM MEMBERS</h3>
               <div className="space-y-1">
                 <button
                   onClick={() => handleSelectTeamMember(null)}
                   className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
                     selectedTeamMemberId === null
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200' 
+                      : 'bg-white text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] hover:text-[var(--sf-text-primary)]'
                   }`}
                 >
                   <Users className="w-4 h-4" />
@@ -1479,8 +1448,8 @@ const ServiceFlowSchedule = () => {
                       onClick={() => handleSelectTeamMember(member.id)}
                       className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
                         isSelected 
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                          : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                          ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200' 
+                          : 'bg-white text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] hover:text-[var(--sf-text-primary)]'
                       }`}
                     >
                       <div 
@@ -1499,7 +1468,7 @@ const ServiceFlowSchedule = () => {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
           
           <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="border-b border-gray-200 bg-white flex-shrink-0">
+          <div className="border-b border-[var(--sf-border-light)] bg-white flex-shrink-0">
             <div className="px-4 sm:px-6 py-4">
               <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                 <div className="flex items-center space-x-4 relative">
@@ -1509,7 +1478,7 @@ const ServiceFlowSchedule = () => {
                   >
                     <Plus className="w-5 h-5" />
                   </button>
-                  <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Schedule</h1>
+                  <h1 className="text-xl sm:text-2xl font-semibold text-[var(--sf-text-primary)]">Schedule</h1>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => navigateDate(-1)}
@@ -1517,7 +1486,7 @@ const ServiceFlowSchedule = () => {
                       className={`p-1 rounded transition-colors ${
                         isNavigating 
                           ? 'text-gray-300 cursor-not-allowed' 
-                          : 'hover:bg-gray-100 text-gray-500'
+                          : 'hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-muted)]'
                       }`}
                       title={isNavigating ? 'Please wait...' : 'Previous'}
                     >
@@ -1526,7 +1495,7 @@ const ServiceFlowSchedule = () => {
                     
                     <button
                       onClick={() => setShowCalendarPicker(!showCalendarPicker)}
-                      className="font-medium text-sm sm:text-base hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors cursor-pointer"
+                      className="font-medium text-sm sm:text-base hover:text-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-50)] px-2 py-1 rounded transition-colors cursor-pointer"
                     >
                       {formatDate(currentDate, currentView)}
                     </button>
@@ -1537,7 +1506,7 @@ const ServiceFlowSchedule = () => {
                       className={`p-1 rounded transition-colors ${
                         isNavigating 
                           ? 'text-gray-300 cursor-not-allowed' 
-                          : 'hover:bg-gray-100 text-gray-500'
+                          : 'hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-muted)]'
                       }`}
                       title={isNavigating ? 'Please wait...' : 'Next'}
                     >
@@ -1549,12 +1518,12 @@ const ServiceFlowSchedule = () => {
                   {showCalendarPicker && (
                     <div 
                       ref={calendarRef}
-                      className="absolute top-full left-1/2 transform -translate-x-1/2 sm:left-0 sm:transform-none mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3 sm:p-4 min-w-[280px] sm:min-w-[320px] max-w-[90vw] sm:max-w-none"
+                      className="absolute top-full left-1/2 transform -translate-x-1/2 sm:left-0 sm:transform-none mt-2 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg z-50 p-3 sm:p-4 min-w-[280px] sm:min-w-[320px] max-w-[90vw] sm:max-w-none"
                     >
                       <div className="flex items-center justify-between mb-3">
                         <button
                           onClick={() => navigateMonth(-1)}
-                          className="p-2 sm:p-1 hover:bg-gray-100 rounded transition-colors"
+                          className="p-2 sm:p-1 hover:bg-[var(--sf-bg-hover)] rounded transition-colors"
                           title="Previous month"
                         >
                           <ChevronLeft className="w-5 h-5 sm:w-4 sm:h-4" />
@@ -1564,7 +1533,7 @@ const ServiceFlowSchedule = () => {
                         </span>
                         <button
                           onClick={() => navigateMonth(1)}
-                          className="p-2 sm:p-1 hover:bg-gray-100 rounded transition-colors"
+                          className="p-2 sm:p-1 hover:bg-[var(--sf-bg-hover)] rounded transition-colors"
                           title="Next month"
                         >
                           <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4" />
@@ -1574,7 +1543,7 @@ const ServiceFlowSchedule = () => {
                       {/* Calendar Grid */}
                       <div className="grid grid-cols-7 gap-1 text-xs">
                         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                          <div key={day} className="p-1 sm:p-1 text-center text-gray-500 font-medium text-xs sm:text-sm">
+                          <div key={day} className="p-1 sm:p-1 text-center text-[var(--sf-text-muted)] font-medium text-xs sm:text-sm">
                             {day}
                           </div>
                         ))}
@@ -1597,10 +1566,10 @@ const ServiceFlowSchedule = () => {
                                 !isCurrentMonth 
                                   ? 'text-gray-300' 
                                   : isToday 
-                                    ? 'bg-blue-100 text-blue-700 font-semibold' 
+                                    ? 'bg-blue-100 text-[var(--sf-blue-500)] font-semibold' 
                                     : isSelected 
-                                      ? 'bg-gray-200 text-gray-900 font-semibold'
-                                      : 'hover:bg-gray-100 text-gray-700'
+                                      ? 'bg-gray-200 text-[var(--sf-text-primary)] font-semibold'
+                                      : 'hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-primary)]'
                               }`}
                             >
                               {date.getDate()}
@@ -1610,19 +1579,19 @@ const ServiceFlowSchedule = () => {
                       </div>
                       
                       {/* Quick Actions */}
-                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--sf-border-light)]">
                         <button
                           onClick={() => {
                             setCurrentDate(new Date())
                             setShowCalendarPicker(false)
                           }}
-                          className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50"
+                          className="text-xs sm:text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium px-2 py-1 rounded hover:bg-[var(--sf-blue-50)]"
                         >
                           Today
                         </button>
                         <button
                           onClick={() => setShowCalendarPicker(false)}
-                          className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 font-medium px-2 py-1 rounded hover:bg-gray-50"
+                          className="text-xs sm:text-sm text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] font-medium px-2 py-1 rounded hover:bg-[var(--sf-bg-page)]"
                         >
                           Close
                         </button>
@@ -1638,17 +1607,17 @@ const ServiceFlowSchedule = () => {
                       onClick={() => setScheduleSidebarOpen(true)}
                       className={`lg:hidden p-2 rounded-lg transition-colors relative ${
                         currentView === 'availability' || (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')
-                          ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                          ? 'text-[var(--sf-blue-500)] bg-[var(--sf-blue-50)] hover:bg-blue-100'
+                          : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                       }`}
                       title="Open filters"
                     >
                       <Filter className="w-5 h-5" />
                       {currentView === 'availability' && selectedTeamMemberId && (
-                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full"></span>
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--sf-blue-500)] rounded-full"></span>
                       )}
                       {(currentView !== 'availability' && (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')) && (
-                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full"></span>
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--sf-blue-500)] rounded-full"></span>
                       )}
                     </button>
                   )}
@@ -1659,22 +1628,23 @@ const ServiceFlowSchedule = () => {
                       onClick={() => setScheduleSidebarOpen(true)}
                       className={`lg:hidden p-2 rounded-lg transition-colors relative ${
                         (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')
-                          ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                          ? 'text-[var(--sf-blue-500)] bg-[var(--sf-blue-50)] hover:bg-blue-100'
+                          : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                       }`}
                       title="Open filters"
                     >
                     <Filter className="w-5 h-5" />
                     {(filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all') && (
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full"></span>
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--sf-blue-500)] rounded-full"></span>
                     )}
                   </button>
-                  
+                  )}
+
                   <div className="flex items-center space-x-1 sm:space-x-2">
                     <button
                       onClick={() => setCurrentView("day")}
                       className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
-                        currentView === "day" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:text-gray-900"
+                        currentView === "day" ? "bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]" : "text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                       }`}
                     >
                       Day
@@ -1682,7 +1652,7 @@ const ServiceFlowSchedule = () => {
                     <button
                       onClick={() => setCurrentView("week")}
                       className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
-                        currentView === "week" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:text-gray-900"
+                        currentView === "week" ? "bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]" : "text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                       }`}
                     >
                       Week
@@ -1690,7 +1660,7 @@ const ServiceFlowSchedule = () => {
                     <button
                       onClick={() => setCurrentView("month")}
                       className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
-                        currentView === "month" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:text-gray-900"
+                        currentView === "month" ? "bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]" : "text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                       }`}
                     >
                       Month
@@ -1698,7 +1668,7 @@ const ServiceFlowSchedule = () => {
                     <button
                       onClick={() => setCurrentView("availability")}
                       className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
-                        currentView === "availability" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:text-gray-900"
+                        currentView === "availability" ? "bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]" : "text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                       }`}
                     >
                       Availability
@@ -1733,14 +1703,14 @@ const ServiceFlowSchedule = () => {
                   </svg>
                 </button>
               </div>
-              <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-                <p className="text-sm text-gray-500">Filter your schedule view</p>
+              <div className="flex-shrink-0 px-4 py-3 border-b border-[var(--sf-border-light)]">
+                <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Filters</h2>
+                <p className="text-sm text-[var(--sf-text-muted)]">Filter your schedule view</p>
               </div>
               <div className="flex-1 overflow-y-auto">
                 {currentView === 'availability' ? (
                   <div className="p-4">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">TEAM MEMBERS</h3>
+                    <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-3">TEAM MEMBERS</h3>
                     <div className="space-y-1">
                       <button
                         onClick={() => {
@@ -1749,8 +1719,8 @@ const ServiceFlowSchedule = () => {
                         }}
                         className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
                           selectedTeamMemberId === null
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200' 
+                            : 'bg-white text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] hover:text-[var(--sf-text-primary)]'
                         }`}
                       >
                         <Users className="w-4 h-4" />
@@ -1770,8 +1740,8 @@ const ServiceFlowSchedule = () => {
                             }}
                             className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
                               isSelected 
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                                : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                                ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200' 
+                                : 'bg-white text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] hover:text-[var(--sf-text-primary)]'
                             }`}
                           >
                             <div 
@@ -1796,10 +1766,10 @@ const ServiceFlowSchedule = () => {
                   />
                 )}
               </div>
-              <div className="flex-shrink-0 p-4 border-t border-gray-200">
+              <div className="flex-shrink-0 p-4 border-t border-[var(--sf-border-light)]">
                 <button
                   onClick={() => setScheduleSidebarOpen(false)}
-                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="w-full px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   Close Filters
                 </button>

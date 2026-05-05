@@ -96,7 +96,7 @@ const FieldApp = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -106,26 +106,26 @@ const FieldApp = () => {
         )}
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate("/settings")}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
               >
                 <ChevronLeft className="w-5 h-5" />
                 <span className="text-sm">Settings</span>
               </button>
-              <h1 className="text-2xl font-semibold text-gray-900">Field App</h1>
+              <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Field App</h1>
             </div>
             <div className="flex items-center space-x-4 text-sm">
               <div className="flex items-center space-x-2">
-                <span className="text-gray-600">Installed by</span>
-                <span className="font-semibold text-blue-600">{settings.installedTeammates} teammates</span>
+                <span className="text-[var(--sf-text-secondary)]">Installed by</span>
+                <span className="font-semibold text-[var(--sf-blue-500)]">{settings.installedTeammates} teammates</span>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-gray-600">Notifications enabled by</span>
-                <span className="font-semibold text-blue-600">{settings.notificationsEnabled} teammates</span>
+                <span className="text-[var(--sf-text-secondary)]">Notifications enabled by</span>
+                <span className="font-semibold text-[var(--sf-blue-500)]">{settings.notificationsEnabled} teammates</span>
               </div>
             </div>
           </div>
@@ -135,10 +135,10 @@ const FieldApp = () => {
         <div className="flex-1 overflow-auto">
           <div className="max-w-6xl mx-auto p-6 space-y-8">
             {/* App Access Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
               <div className="flex items-center space-x-3 mb-6">
-                <Smartphone className="w-6 h-6 text-blue-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Your field app</h2>
+                <Smartphone className="w-6 h-6 text-[var(--sf-blue-500)]" />
+                <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Your field app</h2>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -149,27 +149,27 @@ const FieldApp = () => {
                       type="text"
                       value={settings.appUrl}
                       readOnly
-                      className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm"
+                      className="flex-1 px-3 py-2 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-md text-sm"
                     />
                     <button
                       onClick={copyAppUrl}
-                      className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                      className="flex items-center space-x-2 px-3 py-2 bg-[var(--sf-bg-page)] hover:bg-gray-200 rounded-md"
                     >
                       {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
 
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-[var(--sf-text-secondary)] mb-6">
                     When your providers login to Serviceflow on their phone, they'll be directed to your mobile field app.
                   </p>
 
                   {/* Install Prompt Toggle */}
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-[var(--sf-blue-50)] rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <Bell className="w-5 h-5 text-blue-600" />
+                      <Bell className="w-5 h-5 text-[var(--sf-blue-500)]" />
                       <div>
                         <h3 className="font-medium text-blue-900">Prompt teammates to install the mobile web app</h3>
-                        <p className="text-sm text-blue-700">
+                        <p className="text-sm text-[var(--sf-blue-500)]">
                           Show installation prompts to help teammates add the app to their home screen.
                         </p>
                       </div>
@@ -178,7 +178,7 @@ const FieldApp = () => {
                       onClick={handleTogglePromptInstall}
                       disabled={loading}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        settings.promptInstall ? "bg-blue-600" : "bg-gray-200"
+                        settings.promptInstall ? "bg-[var(--sf-blue-500)]" : "bg-gray-200"
                       } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <span
@@ -192,7 +192,7 @@ const FieldApp = () => {
 
                 {/* QR Code */}
                 <div className="flex flex-col items-center">
-                  <div className="w-32 h-32 bg-white border-2 border-gray-200 rounded-lg flex items-center justify-center mb-4">
+                  <div className="w-32 h-32 bg-white border-2 border-[var(--sf-border-light)] rounded-lg flex items-center justify-center mb-4">
                     {/* QR Code Placeholder */}
                     <div className="grid grid-cols-8 gap-1">
                       {Array.from({ length: 64 }).map((_, i) => (
@@ -200,10 +200,10 @@ const FieldApp = () => {
                       ))}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600 text-center mb-3">Scan code to view the mobile field app</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)] text-center mb-3">Scan code to view the mobile field app</p>
                   <button
                     onClick={generateQRCode}
-                    className="flex items-center space-x-2 px-3 py-2 text-blue-600 hover:text-blue-700"
+                    className="flex items-center space-x-2 px-3 py-2 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                   >
                     <QrCode className="w-4 h-4" />
                     <span className="text-sm">Generate New QR</span>
@@ -213,13 +213,13 @@ const FieldApp = () => {
             </div>
 
             {/* Team App Branding */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Upgrade for Team App Branding</h2>
-                  <p className="text-gray-600">Your brand, front and center—right in the palm of your team's hands.</p>
+                  <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Upgrade for Team App Branding</h2>
+                  <p className="text-[var(--sf-text-secondary)]">Your brand, front and center—right in the palm of your team's hands.</p>
                 </div>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <button className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
                   Upgrade to Professional
                 </button>
               </div>
@@ -230,81 +230,81 @@ const FieldApp = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <div className="flex items-center space-x-2 mb-2">
-                        <Palette className="w-4 h-4 text-blue-600" />
+                        <Palette className="w-4 h-4 text-[var(--sf-blue-500)]" />
                         <h3 className="font-medium text-blue-900">Your Name, Your Icon</h3>
                       </div>
-                      <p className="text-sm text-blue-700">
+                      <p className="text-sm text-[var(--sf-blue-500)]">
                         Make your brand the first thing your team sees when they open the app.
                       </p>
                     </div>
 
                     <div>
                       <div className="flex items-center space-x-2 mb-2">
-                        <Bell className="w-4 h-4 text-blue-600" />
+                        <Bell className="w-4 h-4 text-[var(--sf-blue-500)]" />
                         <h3 className="font-medium text-blue-900">Iconic Notifications</h3>
                       </div>
-                      <p className="text-sm text-blue-700">
+                      <p className="text-sm text-[var(--sf-blue-500)]">
                         Your custom icon isn't just for show; it appears in all push notifications.
                       </p>
                     </div>
 
                     <div>
                       <div className="flex items-center space-x-2 mb-2">
-                        <Palette className="w-4 h-4 text-blue-600" />
+                        <Palette className="w-4 h-4 text-[var(--sf-blue-500)]" />
                         <h3 className="font-medium text-blue-900">Colors & Theme</h3>
                       </div>
-                      <p className="text-sm text-blue-700">
+                      <p className="text-sm text-[var(--sf-blue-500)]">
                         From buttons to backgrounds, deck out the app in your signature colors.
                       </p>
                     </div>
                   </div>
 
                   {/* Branding Form */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="space-y-4 p-4 bg-[var(--sf-bg-page)] rounded-lg">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">App Name</label>
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">App Name</label>
                       <input
                         type="text"
                         value={settings.branding.appName}
                         onChange={(e) => handleBrandingChange("appName", e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md"
                         placeholder="Your Business Name"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
+                        <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Primary Color</label>
                         <div className="flex items-center space-x-2">
                           <input
                             type="color"
                             value={settings.branding.primaryColor}
                             onChange={(e) => handleBrandingChange("primaryColor", e.target.value)}
-                            className="w-12 h-10 border border-gray-300 rounded"
+                            className="w-12 h-10 border border-[var(--sf-border-light)] rounded"
                           />
                           <input
                             type="text"
                             value={settings.branding.primaryColor}
                             onChange={(e) => handleBrandingChange("primaryColor", e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-md text-sm"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Color</label>
+                        <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Secondary Color</label>
                         <div className="flex items-center space-x-2">
                           <input
                             type="color"
                             value={settings.branding.secondaryColor}
                             onChange={(e) => handleBrandingChange("secondaryColor", e.target.value)}
-                            className="w-12 h-10 border border-gray-300 rounded"
+                            className="w-12 h-10 border border-[var(--sf-border-light)] rounded"
                           />
                           <input
                             type="text"
                             value={settings.branding.secondaryColor}
                             onChange={(e) => handleBrandingChange("secondaryColor", e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-md text-sm"
                           />
                         </div>
                       </div>
@@ -313,7 +313,7 @@ const FieldApp = () => {
                     <LoadingButton
                       onClick={handleSaveBranding}
                       loading={loading}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                     >
                       Save Branding
                     </LoadingButton>
@@ -327,7 +327,7 @@ const FieldApp = () => {
                       <Users className="w-4 h-4" />
                       <span>Invite Team</span>
                     </button>
-                    <button className="px-4 py-2 text-blue-600 hover:text-blue-700 border border-blue-600 rounded-lg">
+                    <button className="px-4 py-2 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] border border-blue-600 rounded-lg">
                       Learn more about white labeling the field app
                     </button>
                   </div>
@@ -392,19 +392,19 @@ const FieldApp = () => {
 
             {/* Stats & Actions */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                <div className="text-2xl font-bold text-blue-600 mb-2">{settings.installedTeammates}</div>
-                <div className="text-gray-600">Team Members with App</div>
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 text-center">
+                <div className="text-2xl font-bold text-[var(--sf-blue-500)] mb-2">{settings.installedTeammates}</div>
+                <div className="text-[var(--sf-text-secondary)]">Team Members with App</div>
               </div>
 
-              <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 text-center">
                 <div className="text-2xl font-bold text-green-600 mb-2">{settings.notificationsEnabled}</div>
-                <div className="text-gray-600">Notifications Enabled</div>
+                <div className="text-[var(--sf-text-secondary)]">Notifications Enabled</div>
               </div>
 
-              <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 text-center">
                 <div className="text-2xl font-bold text-purple-600 mb-2">{settings.promptInstall ? "ON" : "OFF"}</div>
-                <div className="text-gray-600">Install Prompts</div>
+                <div className="text-[var(--sf-text-secondary)]">Install Prompts</div>
               </div>
             </div>
           </div>

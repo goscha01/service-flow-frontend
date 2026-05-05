@@ -7,27 +7,27 @@ export default function ServiceTerritoriesSection() {
           <div className="bg-blue-100 rounded-3xl p-8 lg:p-12">
             <div className="space-y-6">
               <div>
-                <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">Service Territories</span>
-                <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mt-2">Control where and when you work.</h2>
+                <span className="text-xs font-bold text-[var(--sf-blue-500)] uppercase tracking-wide">Service Territories</span>
+                <h2 className="text-3xl lg:text-4xl font-bold text-[var(--sf-text-primary)] mt-2">Control where and when you work.</h2>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Define your service areas</h3>
-                  <p className="text-gray-600">
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Define your service areas</h3>
+                  <p className="text-[var(--sf-text-secondary)]">
                     Define the geographic regions your business serves. And block scheduling for addresses outside your
                     service areas.
                   </p>
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Customize availability by location</h3>
-                  <p className="text-gray-600">Set different hours and assign specific providers to each area.</p>
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Customize availability by location</h3>
+                  <p className="text-[var(--sf-text-secondary)]">Set different hours and assign specific providers to each area.</p>
                 </div>
 
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Geographic pricing rules</h3>
-                  <p className="text-gray-600">
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Geographic pricing rules</h3>
+                  <p className="text-[var(--sf-text-secondary)]">
                     Automatically adjust prices based on where the customer needs the service.
                   </p>
                 </div>
@@ -36,7 +36,7 @@ export default function ServiceTerritoriesSection() {
               <div>
                 <a
                   href="/service-territories"
-                  className="inline-flex items-center bg-white/70 text-blue-600 font-semibold px-4 py-2 rounded-full hover:bg-white transition-colors"
+                  className="inline-flex items-center bg-white/70 text-[var(--sf-blue-500)] font-semibold px-4 py-2 rounded-full hover:bg-white transition-colors"
                 >
                   Explore Service Territories
                   <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,12 +1,41 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { X } from "lucide-react"
+import { availabilityAPI } from "../services/api"
 
-const SchedulingBookingModal = ({ isOpen, onClose }) => {
+// Display-string <-> minutes mapping for the dropdowns.
+// Keep both options arrays in sync with the DEFAULTS constants.
+const INTERVAL_OPTIONS = [
+  { label: "30 minutes", minutes: 30 },
+  { label: "1 hour", minutes: 60 },
+  { label: "2 hours", minutes: 120 },
+]
+const ARRIVAL_OPTIONS = [
+  { label: "1 hour", minutes: 60 },
+  { label: "2 hours", minutes: 120 },
+  { label: "3 hours", minutes: 180 },
+]
+
+const DEFAULT_INTERVAL_MIN = 60
+const DEFAULT_ARRIVAL_MIN = 120
+const DEFAULT_MIN_JOB_DURATION = 60 // minutes
+
+const minutesToLabel = (mins, options, fallbackLabel) => {
+  const found = options.find(o => o.minutes === mins)
+  return found ? found.label : fallbackLabel
+}
+const labelToMinutes = (label, options, fallbackMin) => {
+  const found = options.find(o => o.label === label)
+  return found ? found.minutes : fallbackMin
+}
+
+const SchedulingBookingModal = ({ isOpen, onClose, userId }) => {
   const [settings, setSettings] = useState({
-    timeslotInterval: "1 hour",
-    arrivalWindow: "2 hours",
+    timeslotInterval: minutesToLabel(DEFAULT_INTERVAL_MIN, INTERVAL_OPTIONS, "1 hour"),
+    arrivalWindow: minutesToLabel(DEFAULT_ARRIVAL_MIN, ARRIVAL_OPTIONS, "2 hours"),
+    drivingTime: 0, // minutes; buffer before/after each job, used by schedule availability calc
+    minimumJobDuration: DEFAULT_MIN_JOB_DURATION, // minutes; floor enforced on job creation
     availabilityMethod: "service-provider",
     serviceProviders: 1,
     limitDistance: false,
@@ -15,6 +44,46 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
     minBookingNotice: "No lead time needed",
     maxBookingNotice: "No limit",
   })
+  const [businessHours, setBusinessHours] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
+
+  // Load persisted scheduling settings whenever the modal opens.
+  useEffect(() => {
+    if (!isOpen || !userId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        setSaveError("")
+        const resp = await availabilityAPI.getAvailability(userId)
+        const bh = resp?.businessHours || resp?.business_hours || {}
+        const parsed = typeof bh === "string" ? JSON.parse(bh) : bh
+        if (cancelled) return
+        setBusinessHours(parsed)
+        const sched = parsed?.schedulingSettings || {}
+        setSettings(prev => ({
+          ...prev,
+          timeslotInterval: minutesToLabel(
+            sched.timeslotInterval ?? DEFAULT_INTERVAL_MIN,
+            INTERVAL_OPTIONS,
+            prev.timeslotInterval
+          ),
+          arrivalWindow: minutesToLabel(
+            sched.arrivalWindow ?? DEFAULT_ARRIVAL_MIN,
+            ARRIVAL_OPTIONS,
+            prev.arrivalWindow
+          ),
+          drivingTime: parseInt(parsed?.drivingTime, 10) || 0,
+          minimumJobDuration: parseInt(sched.minimumJobDuration, 10) || DEFAULT_MIN_JOB_DURATION,
+        }))
+      } catch (err) {
+        console.error("Error loading scheduling settings:", err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, userId])
 
   const handleToggle = (settingKey) => {
     setSettings(prev => ({
@@ -23,62 +92,140 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
     }))
   }
 
+  const handleSave = async () => {
+    if (!userId || !businessHours) {
+      setSaveError("Cannot save — availability not loaded.")
+      return
+    }
+    setIsSaving(true)
+    setSaveError("")
+    try {
+      const intervalMin = labelToMinutes(settings.timeslotInterval, INTERVAL_OPTIONS, DEFAULT_INTERVAL_MIN)
+      const arrivalMin = labelToMinutes(settings.arrivalWindow, ARRIVAL_OPTIONS, DEFAULT_ARRIVAL_MIN)
+      const drivingMin = Math.max(0, parseInt(settings.drivingTime, 10) || 0)
+      const minJobMin = Math.max(0, parseInt(settings.minimumJobDuration, 10) || DEFAULT_MIN_JOB_DURATION)
+      const merged = {
+        ...businessHours,
+        // Top-level drivingTime — read by the schedule page for the cleaner-buffer
+        // calculation. Existing convention from settings/availability.jsx.
+        drivingTime: drivingMin,
+        schedulingSettings: {
+          ...(businessHours.schedulingSettings || {}),
+          timeslotInterval: intervalMin,
+          arrivalWindow: arrivalMin,
+          minimumJobDuration: minJobMin,
+        },
+      }
+      await availabilityAPI.updateAvailability({ businessHours: merged })
+      setBusinessHours(merged)
+      onClose?.()
+    } catch (err) {
+      console.error("Error saving scheduling settings:", err)
+      setSaveError(err?.response?.data?.error || err?.message || "Save failed")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Scheduling & Booking</h2>
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Scheduling & Booking</h2>
           <div className="flex items-center space-x-3">
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-              Save
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSaving ? "Saving..." : "Save"}
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-              <X className="w-5 h-5 text-gray-400" />
+            <button onClick={onClose} className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg">
+              <X className="w-5 h-5 text-[var(--sf-text-muted)]" />
             </button>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-6 space-y-8">
+          {saveError && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {saveError}
+            </div>
+          )}
           {/* Timeslot Options */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Timeslot Options</h3>
+            <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Timeslot Options</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Timeslot interval</label>
-                <p className="text-xs text-gray-500 mb-2">Controls how many timeslots are presented to customers</p>
-                <select 
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Timeslot interval</label>
+                <p className="text-xs text-[var(--sf-text-muted)] mb-2">Controls how many timeslots are presented to customers</p>
+                <select
                   value={settings.timeslotInterval}
                   onChange={(e) => setSettings(prev => ({ ...prev, timeslotInterval: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                 >
-                  <option>1 hour</option>
-                  <option>30 minutes</option>
-                  <option>2 hours</option>
+                  {INTERVAL_OPTIONS.map(opt => (
+                    <option key={opt.minutes} value={opt.label}>{opt.label}</option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Arrival window length</label>
-                <select 
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Arrival window length</label>
+                <select
                   value={settings.arrivalWindow}
                   onChange={(e) => setSettings(prev => ({ ...prev, arrivalWindow: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                 >
-                  <option>2 hours</option>
-                  <option>1 hour</option>
-                  <option>3 hours</option>
+                  {ARRIVAL_OPTIONS.map(opt => (
+                    <option key={opt.minutes} value={opt.label}>{opt.label}</option>
+                  ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Driving time between jobs</label>
+                <p className="text-xs text-[var(--sf-text-muted)] mb-2">Buffer minutes blocked before and after each job for travel</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="240"
+                    step="5"
+                    value={settings.drivingTime}
+                    onChange={(e) => setSettings(prev => ({ ...prev, drivingTime: e.target.value }))}
+                    className="w-28 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
+                  />
+                  <span className="text-sm text-[var(--sf-text-secondary)]">minutes</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Minimum job duration</label>
+                <p className="text-xs text-[var(--sf-text-muted)] mb-2">Floor enforced when creating a job — duration cannot be shorter than this</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="480"
+                    step="15"
+                    value={settings.minimumJobDuration}
+                    onChange={(e) => setSettings(prev => ({ ...prev, minimumJobDuration: e.target.value }))}
+                    className="w-28 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
+                  />
+                  <span className="text-sm text-[var(--sf-text-secondary)]">minutes</span>
+                </div>
               </div>
             </div>
 
             {/* Example Timeline */}
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm font-medium text-gray-700 mb-2">EXAMPLE</p>
+            <div className="mt-4 p-4 bg-[var(--sf-bg-page)] rounded-lg">
+              <p className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">EXAMPLE</p>
               <div className="flex items-center space-x-4 text-xs">
                 <div className="text-center">
                   <div className="font-medium">8:00 AM - 10:00 AM</div>
@@ -95,24 +242,24 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
 
           {/* Availability Options */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Availability Options</h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Availability Options</h3>
+            <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
               Control how Serviceflow should calculate bookable timeslots for your business
             </p>
 
             <div className="space-y-4">
-              <div className="border border-blue-200 bg-blue-50 rounded-lg p-4">
+              <div className="border border-blue-200 bg-[var(--sf-blue-50)] rounded-lg p-4">
                 <div className="flex items-start space-x-3">
-                  <input 
-                    type="radio" 
-                    name="availability" 
+                  <input
+                    type="radio"
+                    name="availability"
                     checked={settings.availabilityMethod === "service-provider"}
                     onChange={() => setSettings(prev => ({ ...prev, availabilityMethod: "service-provider" }))}
-                    className="mt-1" 
+                    className="mt-1"
                   />
                   <div>
-                    <h4 className="font-medium text-gray-900">Based on service provider availability</h4>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h4 className="font-medium text-[var(--sf-text-primary)]">Based on service provider availability</h4>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Shows a timeslot as available if the minimum number of service providers required for the job are
                       scheduled to work at the time and have no overlapping jobs assigned to them.
                     </p>
@@ -121,26 +268,26 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
                         type="number"
                         value={settings.serviceProviders}
                         onChange={(e) => setSettings(prev => ({ ...prev, serviceProviders: parseInt(e.target.value) }))}
-                        className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
+                        className="w-20 border border-[var(--sf-border-light)] rounded px-2 py-1 text-sm"
                         min="1"
                       />
-                      <span className="ml-2 text-sm text-gray-600">service provider</span>
+                      <span className="ml-2 text-sm text-[var(--sf-text-secondary)]">service provider</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-4">
+              <div className="border border-[var(--sf-border-light)] rounded-lg p-4">
                 <div className="flex items-start space-x-3">
-                  <input 
-                    type="radio" 
-                    name="availability" 
+                  <input
+                    type="radio"
+                    name="availability"
                     checked={settings.availabilityMethod === "manual"}
                     onChange={() => setSettings(prev => ({ ...prev, availabilityMethod: "manual" }))}
                   />
                   <div>
-                    <h4 className="font-medium text-gray-900">Manual</h4>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h4 className="font-medium text-[var(--sf-text-primary)]">Manual</h4>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Lets you set the maximum number of jobs that can be booked per slot or day.
                     </p>
                   </div>
@@ -152,16 +299,16 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
             <div className="space-y-4 mt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium text-gray-900">Limit Distance Between Jobs</h4>
-                  <p className="text-sm text-gray-600">
+                  <h4 className="font-medium text-[var(--sf-text-primary)]">Limit Distance Between Jobs</h4>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     Enable to limit the distance between jobs for providers. Affects which timeslots are available
                     depending on the location of the customer booking.
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={() => handleToggle('limitDistance')}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    settings.limitDistance ? 'bg-blue-600' : 'bg-gray-300'
+                    settings.limitDistance ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-300'
                   }`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -172,12 +319,12 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium text-gray-900">Daily Job Limit</h4>
+                  <h4 className="font-medium text-[var(--sf-text-primary)]">Daily Job Limit</h4>
                 </div>
-                <button 
+                <button
                   onClick={() => handleToggle('dailyJobLimit')}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    settings.dailyJobLimit ? 'bg-blue-600' : 'bg-gray-300'
+                    settings.dailyJobLimit ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-300'
                   }`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -188,17 +335,17 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium text-gray-900">
+                  <h4 className="font-medium text-[var(--sf-text-primary)]">
                     Prevent bookings that would end outside of business hours
                   </h4>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     Prevents services with long durations from being booked later in the day.
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={() => handleToggle('preventOutsideHours')}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    settings.preventOutsideHours ? 'bg-blue-600' : 'bg-gray-300'
+                    settings.preventOutsideHours ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-300'
                   }`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -211,18 +358,18 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
 
           {/* Minimum & future booking lead time */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Minimum & future booking lead time</h3>
+            <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Minimum & future booking lead time</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Min. booking notice</label>
-                <p className="text-xs text-gray-500 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Min. booking notice</label>
+                <p className="text-xs text-[var(--sf-text-muted)] mb-2">
                   How much lead time do you need before a job can be scheduled online?
                 </p>
-                <select 
+                <select
                   value={settings.minBookingNotice}
                   onChange={(e) => setSettings(prev => ({ ...prev, minBookingNotice: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                 >
                   <option>No lead time needed</option>
                   <option>1 hour</option>
@@ -232,12 +379,12 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Max. booking notice</label>
-                <p className="text-xs text-gray-500 mb-2">How far in advance can new jobs be scheduled online?</p>
-                <select 
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Max. booking notice</label>
+                <p className="text-xs text-[var(--sf-text-muted)] mb-2">How far in advance can new jobs be scheduled online?</p>
+                <select
                   value={settings.maxBookingNotice}
                   onChange={(e) => setSettings(prev => ({ ...prev, maxBookingNotice: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                 >
                   <option>No limit</option>
                   <option>1 month</option>

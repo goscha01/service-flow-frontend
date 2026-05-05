@@ -120,12 +120,12 @@ const TwilioAPISetup = ({ onSuccess, onError }) => {
 
   if (checkingConnection) {
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
         <div className="flex items-center space-x-3">
-          <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+          <Loader className="w-5 h-5 text-[var(--sf-blue-500)] animate-spin" />
           <div>
             <h3 className="text-sm font-medium text-blue-800">Checking Connection</h3>
-            <p className="text-sm text-blue-700">
+            <p className="text-sm text-[var(--sf-blue-500)]">
               Verifying your Twilio connection status...
             </p>
           </div>
@@ -164,23 +164,23 @@ const TwilioAPISetup = ({ onSuccess, onError }) => {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
+    <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
       <div className="flex items-start space-x-3">
         <div className="flex-shrink-0">
-          <Phone className="w-6 h-6 text-blue-600" />
+          <Phone className="w-6 h-6 text-[var(--sf-blue-500)]" />
         </div>
         <div className="flex-1">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">
             Setup Twilio SMS Integration
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
             Enter your Twilio credentials to send SMS notifications. 
             You'll use your own Twilio account and phone numbers.
           </p>
           
           <form onSubmit={handleSetupCredentials} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Account SID
               </label>
               <input
@@ -188,14 +188,14 @@ const TwilioAPISetup = ({ onSuccess, onError }) => {
                 name="accountSid"
                 value={formData.accountSid}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                 placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Auth Token
               </label>
               <div className="relative">
@@ -204,7 +204,7 @@ const TwilioAPISetup = ({ onSuccess, onError }) => {
                   name="authToken"
                   value={formData.authToken}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 pr-10 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                   placeholder="Your Twilio Auth Token"
                   required
                 />
@@ -214,16 +214,16 @@ const TwilioAPISetup = ({ onSuccess, onError }) => {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
                   {showCredentials ? (
-                    <EyeOff className="w-4 h-4 text-gray-400" />
+                    <EyeOff className="w-4 h-4 text-[var(--sf-text-muted)]" />
                   ) : (
-                    <Eye className="w-4 h-4 text-gray-400" />
+                    <Eye className="w-4 h-4 text-[var(--sf-text-muted)]" />
                   )}
                 </button>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Phone Number
               </label>
               <input
@@ -231,7 +231,7 @@ const TwilioAPISetup = ({ onSuccess, onError }) => {
                 name="phoneNumber"
                 value={formData.phoneNumber}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                 placeholder="+1234567890"
                 required
               />
@@ -250,7 +250,7 @@ const TwilioAPISetup = ({ onSuccess, onError }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? (
                   <Loader className="w-4 h-4 animate-spin" />
@@ -266,14 +266,14 @@ const TwilioAPISetup = ({ onSuccess, onError }) => {
                 type="button"
                 onClick={handleTestSMS}
                 disabled={loading || !formData.phoneNumber}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Test SMS
               </button>
             </div>
           </form>
 
-          <div className="mt-4 text-xs text-gray-500">
+          <div className="mt-4 text-xs text-[var(--sf-text-muted)]">
             <p>
               Your credentials are stored securely and only used to send SMS messages through your Twilio account.
             </p>
