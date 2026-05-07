@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { formatTime as formatTimeShared } from "../utils/formatTime"
+import { GOOGLE_MAPS_API_KEY } from "../config/maps"
 import { 
   ArrowLeft, 
   Edit, 
@@ -2173,7 +2174,7 @@ const JobDetails = () => {
               width="100%"
               height="100%"
               style={{ border: 0 }}
-              src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(
+              src={`https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(
                 `${job.service_address_street}, ${job.service_address_city}, ${job.service_address_state} ${job.service_address_zip}`
               )}&zoom=15`}
               allowFullScreen=""
@@ -3334,7 +3335,7 @@ const JobDetails = () => {
                       loading="lazy"
                       allowFullScreen
                       referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(
+                      src={`https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(
                         `${job.service_address_street}, ${job.service_address_city}, ${job.service_address_state || ''} ${job.service_address_zip || ''}`
                       )}&maptype=roadmap&zoom=16`}
                       onError={(e) => {
