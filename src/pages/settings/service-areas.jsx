@@ -6,6 +6,7 @@ import Sidebar from "../../components/sidebar"
 import TerritoryMap from "../../components/territory-map"
 import { ChevronLeft, MapPin, Check, X } from "lucide-react"
 import { serviceAreasAPI } from "../../services/api"
+import { GOOGLE_MAPS_API_KEY } from "../../config/maps"
 import { useAuth } from "../../context/AuthContext"
 
 const ServiceAreas = () => {
@@ -36,7 +37,7 @@ const ServiceAreas = () => {
     const radius = territory.radius_miles || 25
     
     // Create a Google Maps embed URL with the territory location
-    return `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodedLocation}&zoom=10`
+    return `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodedLocation}&zoom=10`
   }
 
   useEffect(() => {

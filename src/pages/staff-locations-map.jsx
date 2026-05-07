@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { MapPin, Users, Clock, RefreshCw, Map, Navigation, AlertCircle, CheckCircle, Plus, X, EyeOff } from "lucide-react"
 import { staffLocationsAPI, teamAPI } from "../services/api"
+import { GOOGLE_MAPS_API_KEY } from "../config/maps"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileBottomNav from "../components/mobile-bottom-nav"
@@ -99,7 +100,7 @@ const StaffLocationsMap = () => {
   const generateMapUrl = () => {
     if (locations.length === 0) {
       // Default to US center if no locations
-      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&center=39.8283,-98.5795&zoom=4&maptype=roadmap`
+      return `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_API_KEY}&center=39.8283,-98.5795&zoom=4&maptype=roadmap`
     }
 
     // Calculate center point from all locations
@@ -110,7 +111,7 @@ const StaffLocationsMap = () => {
     // Note: Google Maps Embed API doesn't support custom markers directly
     // We'll use the center point and show locations in the sidebar
     const zoom = locations.length === 1 ? 15 : 12
-    return `https://www.google.com/maps/embed/v1/view?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&center=${avgLat},${avgLng}&zoom=${zoom}&maptype=roadmap`
+    return `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_API_KEY}&center=${avgLat},${avgLng}&zoom=${zoom}&maptype=roadmap`
   }
 
   const formatTime = (dateString) => {

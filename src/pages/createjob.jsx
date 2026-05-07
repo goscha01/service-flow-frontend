@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { formatTime as formatTimeShared } from "../utils/formatTime";
+import { GOOGLE_MAPS_API_KEY } from "../config/maps";
 import {
   Search,
   Plus, 
@@ -3906,7 +3907,7 @@ setIntakeQuestionAnswers(answers);
                           loading="lazy"
                           allowFullScreen
                           referrerPolicy="no-referrer-when-downgrade"
-                          src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(
+                          src={`https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(
                             `${formData.serviceAddress.street}, ${formData.serviceAddress.city}, ${formData.serviceAddress.state || ''} ${formData.serviceAddress.zipCode || ''}`
                           )}&zoom=16&maptype=roadmap`}
                         />

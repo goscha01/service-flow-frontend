@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
 import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI, paymentMethodsAPI, paymentSettingsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
+import { GOOGLE_MAPS_API_KEY } from "../config/maps"
 import { sliceIntoArrivalWindows } from "../utils/slotUtils"
 import { 
   Plus, 
@@ -7573,7 +7574,7 @@ const ServiceFlowSchedule = () => {
                       loading="lazy"
                       allowFullScreen
                       referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(
+                      src={`https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(
                         `${selectedJobDetails.service_address_street || selectedJobDetails.customer_address}, ${selectedJobDetails.service_address_city || selectedJobDetails.city || ''}`
                       )}&zoom=16&maptype=roadmap`}
                     />
