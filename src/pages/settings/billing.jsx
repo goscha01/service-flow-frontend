@@ -10,8 +10,10 @@ import { useAuth } from "../../context/AuthContext"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
 
-// Initialize Stripe (you'll need to add your publishable key to .env)
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_51QKpqSCEs5M0Zlj5PlrkzA9w688adVtvGVskrKoIJdQxHLkBjawv3TBaxN0MIqSwZDT9Ph0dnf4IrB4SGafAGHUd00i2ADTJe8')
+// REACT_APP_STRIPE_PUBLISHABLE_KEY is provided at build time by Vercel.
+// When unset (e.g. local dev), Stripe Elements render in a non-functional
+// state — failing loud is preferable to leaking a key as a fallback.
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '')
 
 const PaymentForm = ({ onSuccess, plan, loading, setLoading }) => {
   const stripe = useStripe()

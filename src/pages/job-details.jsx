@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useParams, useNavigate } from "react-router-dom"
+import { GOOGLE_MAPS_API_KEY } from "../config/maps"
 import { 
   ArrowLeft, 
   Edit, 
@@ -1600,7 +1601,7 @@ const JobDetails = () => {
                       loading="lazy"
                       allowFullScreen
                       referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(
+                      src={`https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(
                         `${job.service_address_street}, ${job.service_address_city}, ${job.service_address_state || ''} ${job.service_address_zip || ''}`
                       )}`}
                       onError={(e) => {

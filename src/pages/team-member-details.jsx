@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import Sidebar from '../components/sidebar'
 import AddressValidation from '../components/address-validation'
 import AddressAutocomplete from '../components/address-autocomplete'
+import { GOOGLE_MAPS_API_KEY } from '../config/maps'
 import { 
   ChevronLeft, 
   Edit,
@@ -1420,7 +1421,7 @@ const TeamMemberDetails = () => {
 
                       // Build Google Maps URL for current member's address only
                       // Use place API with higher zoom (15) for close range view
-                      const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(currentAddress)}&zoom=15&maptype=roadmap`
+                      const mapUrl = `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(currentAddress)}&zoom=15&maptype=roadmap`
 
                       return (
                         <div className="relative">
