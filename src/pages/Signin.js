@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { Link, useNavigate, Navigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import GoogleOAuth from "../components/GoogleOAuth"
+import ForgotPasswordModal from "../components/ForgotPasswordModal"
 
 export default function SignInForm() {
   const navigate = useNavigate()
@@ -15,6 +16,7 @@ export default function SignInForm() {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState("")
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -129,8 +131,7 @@ export default function SignInForm() {
   }
 
   const handleForgotPassword = () => {
-    // Add forgot password logic here
-    console.log("Forgot password clicked")
+    setShowForgotPassword(true)
   }
 
   const handleSignUp = () => {
@@ -299,8 +300,8 @@ export default function SignInForm() {
         <div className="text-center mt-6">
           <span className="text-gray-600 text-sm">
             {"Don't have an account? "}
-            <button 
-              onClick={handleSignUp} 
+            <button
+              onClick={handleSignUp}
               disabled={isLoading}
               className="text-blue-600 hover:text-blue-800 font-medium transition-colors disabled:opacity-50"
             >
@@ -309,6 +310,11 @@ export default function SignInForm() {
           </span>
         </div>
       </div>
+
+      <ForgotPasswordModal
+        open={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+      />
     </div>
   )
 }

@@ -104,6 +104,7 @@ import TeamMemberLogin from "./pages/team-member-login"
 import TeamMemberDashboard from "./pages/team-member-dashboard"
 import TeamMemberFieldApp from "./pages/team-member-field-app"
 import TeamMemberSignup from "./pages/team-member-signup"
+import ResetPasswordPage from "./pages/reset-password"
 import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
 import ImportDataPage from "./pages/import-data"
 import ImportJobsPage from "./pages/import-jobs"
@@ -256,6 +257,10 @@ root.render(
       <Route path="team-member/signup" element={<TeamMemberSignup />} />
       <Route path="team-member/dashboard" element={<TeamMemberDashboard />} />
       <Route path="team-member/field-app" element={<TeamMemberFieldApp />} />
+
+      {/* Password reset — public, used by both owner and team-member emails */}
+      <Route path="reset-password" element={<ResetPasswordPage />} />
+      <Route path="team-member/reset-password" element={<ResetPasswordPage />} />
       
       {/* Demo Routes */}
       <Route path="dropdown-demo" element={<DropdownMultiselectDemo />} />
