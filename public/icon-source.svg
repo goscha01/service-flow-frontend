@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#1976F2"/>
+  <text x="256" y="305" font-family="Montserrat, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="240" fill="#FFFFFF" text-anchor="middle" letter-spacing="-8">SF</text>
+  <g fill="#FFFFFF">
+    <circle cx="186" cy="380" r="14"/>
+    <circle cx="256" cy="380" r="14"/>
+    <circle cx="326" cy="380" r="14"/>
+  </g>
+</svg>

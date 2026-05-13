@@ -1,29 +1,45 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Bell, Check } from "lucide-react"
 import MobileHeader from "../components/mobile-header"
+import {
+  isPushSupported,
+  isCurrentlySubscribed,
+  subscribeUserToPush,
+} from "../utils/pushNotifications"
 
 const Notifications = () => {
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
+
+  useEffect(() => {
+    let alive = true
+    isCurrentlySubscribed().then((sub) => {
+      if (alive) setPushNotificationsEnabled(!!sub)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   const handleEnablePushNotifications = async () => {
-    // Check if browser supports notifications
-    if (!("Notification" in window)) {
-      alert("This browser does not support notifications")
+    setErrorMsg("")
+    if (!isPushSupported()) {
+      setErrorMsg("This browser doesn't support push notifications. On iPhone, add ServiceFlow to your Home Screen first (Share → Add to Home Screen).")
       return
     }
-
-    // Request permission
-    if (Notification.permission === "default") {
-      const permission = await Notification.requestPermission()
-      if (permission === "granted") {
-        setPushNotificationsEnabled(true)
-      }
-    } else if (Notification.permission === "granted") {
+    setBusy(true)
+    try {
+      await subscribeUserToPush()
       setPushNotificationsEnabled(true)
-    } else {
-      alert("Please enable notifications in your browser settings")
+    } catch (e) {
+      if (e.code === 'PERMISSION_DENIED') {
+        setErrorMsg("Permission denied. Enable notifications for ServiceFlow in your device settings.")
+      } else {
+        setErrorMsg(e.message || "Failed to enable push notifications")
+      }
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -58,11 +74,16 @@ const Notifications = () => {
               {/* Enable Button */}
               <button
                 onClick={handleEnablePushNotifications}
-                className="w-full sf-btn-primary bg-[var(--sf-blue-500)] text-white font-semibold py-3 px-4 rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
+                disabled={busy}
+                className="w-full sf-btn-primary bg-[var(--sf-blue-500)] text-white font-semibold py-3 px-4 rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors disabled:opacity-60"
                 style={{fontFamily: 'Montserrat', fontWeight: 600}}
               >
-                Enable push notifications
+                {busy ? 'Enabling…' : 'Enable push notifications'}
               </button>
+
+              {errorMsg && (
+                <p className="text-sm text-red-600 text-left w-full" style={{fontFamily: 'Montserrat'}}>{errorMsg}</p>
+              )}
             </div>
           </div>
         )}
