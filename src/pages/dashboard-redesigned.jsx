@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
+import { isWorker } from "../utils/roleUtils"
 import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI, territoriesAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import { decodeHtmlEntities } from "../utils/htmlUtils"
@@ -328,10 +329,10 @@ const DashboardRedesigned = () => {
       // Show setup section for new users or if tasks are incomplete
       const hasAnyActivity = (services?.length || 0) > 0 || (jobs?.length || 0) > 0 || (teamMembers?.length || 0) > 0
       const isDismissed = localStorage.getItem('setupSectionDismissed') === 'true'
-      
+
       // Check if all tasks are completed
       const allTasksCompleted = updatedTasks.every(task => task.completed)
-      
+
       // Show setup section if:
       // 1. User has no activity (new user), OR
       // 2. Not all tasks are completed AND user hasn't dismissed it
@@ -1020,8 +1021,8 @@ const DashboardRedesigned = () => {
                   </div>
                 )}
 
-                {/* Setup Section */}
-                {setupCheckCompleted && showSetupSection && !setupSectionDismissed && (
+                {/* Setup Section — hidden for team members (workers) */}
+                {!isWorker(user) && setupCheckCompleted && showSetupSection && !setupSectionDismissed && (
                   <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 sm:p-6">
                     <div className="flex items-center justify-between mb-4 sm:mb-6">
                       <h2 className="text-sm sm:text-base font-semibold text-[var(--sf-text-primary)]">Finish setting up your account</h2>
@@ -1061,6 +1062,16 @@ const DashboardRedesigned = () => {
                           </div>
                         </Link>
                       ))}
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-[var(--sf-border-light)] flex justify-end">
+                      <button
+                        type="button"
+                        onClick={dismissSetupSection}
+                        className="text-sm font-medium text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] transition-colors px-3 py-1.5 rounded-md hover:bg-[var(--sf-bg-page)]"
+                      >
+                        Don't show again
+                      </button>
                     </div>
                   </div>
                 )}
