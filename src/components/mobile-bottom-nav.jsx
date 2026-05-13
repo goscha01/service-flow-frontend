@@ -10,7 +10,6 @@ import {
   Briefcase,
   Calendar,
   CalendarDays,
-  Megaphone,
   Bell,
   Menu,
   X,
@@ -42,21 +41,18 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
   const isWorkerUser = isWorker(user)
 
   // Bottom nav items - always visible
-  // For workers, include Availability before Offers
   const bottomNavItems = isWorkerUser
     ? [
         { icon: Home, label: "Home", path: "/dashboard" },
         { icon: Briefcase, label: "Jobs", path: "/jobs" },
         { icon: Calendar, label: "Schedule", path: "/schedule" },
         { icon: Clock, label: "Availability", path: "/availability" },
-        { icon: Megaphone, label: "Offers", path: "/offers" },
         { icon: Bell, label: "Notifications", path: "/notifications" },
       ]
     : [
         { icon: Home, label: "Home", path: "/dashboard" },
         { icon: Briefcase, label: "Jobs", path: "/jobs" },
         { icon: Calendar, label: "Schedule", path: "/schedule" },
-        { icon: Megaphone, label: "Offers", path: "/offers" },
         { icon: Bell, label: "Notifications", path: "/notifications" },
       ]
 
@@ -175,8 +171,8 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
                     : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
                 }`}
               >
-                <Icon className={`w-6 h-6 ${active ? 'text-[var(--sf-blue-500)]' : ''}`} />
-                <span className={`text-xs font-medium ${active ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
+                <Icon size={24} className={active ? 'text-[var(--sf-blue-500)]' : ''} />
+                <span className={`text-[12px] font-medium ${active ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
                   {item.label}
                 </span>
               </button>
@@ -193,8 +189,8 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
                   : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
               }`}
             >
-              <Menu className={`w-6 h-6 ${showMoreOverlay ? 'text-[var(--sf-blue-500)]' : ''}`} />
-              <span className={`text-xs font-medium ${showMoreOverlay ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
+              <Menu size={24} className={showMoreOverlay ? 'text-[var(--sf-blue-500)]' : ''} />
+              <span className={`text-[12px] font-medium ${showMoreOverlay ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
                 More
               </span>
             </button>
