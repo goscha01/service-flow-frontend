@@ -992,7 +992,7 @@ const DashboardRedesigned = () => {
 
           {/* Main Content Area */}
           <div className="flex-1 bg-[var(--sf-bg-page)]">
-            <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8 pb-28 lg:pb-8" style={{ paddingTop: 'calc(73px + 1rem)' }}>
+            <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8 pb-40 lg:pb-8" style={{ paddingTop: 'calc(73px + 1rem)' }}>
               <div className="max-w-7xl mx-auto space-y-4 min-w-0">
 
                 {/* Error Display */}

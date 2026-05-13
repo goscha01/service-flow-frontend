@@ -797,7 +797,7 @@ const WorkerAvailability = () => {
   
   return (
     <>
-      <div className="min-h-screen bg-[var(--sf-bg-page)] pb-24 lg:pb-0">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] pb-40 lg:pb-0">
         {/* Mobile Header */}
         <MobileHeader pageTitle="My Availability" />
         

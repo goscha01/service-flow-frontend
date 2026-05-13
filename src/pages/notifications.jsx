@@ -44,7 +44,7 @@ const Notifications = () => {
   }
 
   return (
-    <div className="lg:hidden min-h-screen bg-[var(--sf-bg-page)] pb-28 w-full max-w-full overflow-x-hidden">
+    <div className="lg:hidden min-h-screen bg-[var(--sf-bg-page)] pb-40 w-full max-w-full overflow-x-hidden">
       {/* Mobile Header */}
       <div className="fixed top-0 left-0 right-0 z-30 bg-white">
         <MobileHeader pageTitle="Notifications" />

@@ -1,18 +1,17 @@
 "use client"
 
 import { useNavigate, useLocation } from "react-router-dom"
-import { Home, Briefcase, Calendar, User, Megaphone, Bell, Clock } from "lucide-react"
+import { Home, Briefcase, Calendar, User, Bell } from "lucide-react"
 
 const WorkerBottomNav = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  
+
   const navItems = [
     { icon: Home, label: "Home", path: "/dashboard" },
     { icon: Briefcase, label: "Jobs", path: "/jobs" },
     { icon: Calendar, label: "Schedule", path: "/schedule" },
     { icon: User, label: "Availability", path: "/availability" },
-    { icon: Megaphone, label: "Offers", path: "/offers" },
     { icon: Bell, label: "Notifications", path: "/notifications" },
   ]
   
@@ -44,8 +43,8 @@ const WorkerBottomNav = () => {
                   : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
               }`}
             >
-              <Icon className={`w-6 h-6 ${active ? 'text-[var(--sf-blue-500)]' : ''}`} />
-              <span className={`text-xs font-medium ${active ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
+              <Icon className={`w-12 h-12 ${active ? 'text-[var(--sf-blue-500)]' : ''}`} />
+              <span className={`text-2xl font-medium ${active ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
                 {item.label}
               </span>
             </button>

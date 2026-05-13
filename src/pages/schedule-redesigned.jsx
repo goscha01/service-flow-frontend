@@ -4456,7 +4456,7 @@ const ServiceFlowSchedule = () => {
         `}</style>
         
         {/* Mobile view - shown on mobile, hidden on desktop */}
-        <div className="lg:hidden min-h-screen bg-gray-50 pb-28 w-full max-w-full overflow-x-hidden">
+        <div className="lg:hidden min-h-screen bg-gray-50 pb-40 w-full max-w-full overflow-x-hidden">
         {/* Mobile Header */}
         <div className="fixed top-0 left-0 right-0 z-30 bg-white">
           <MobileHeader pageTitle="Schedule" />
@@ -4798,7 +4798,7 @@ const ServiceFlowSchedule = () => {
 
         {/* Jobs List */}
         {/* paddingTop must clear the three stacked fixed bars: MobileHeader (~73), tabs+date row (~72), week strip (~132 jobs / ~100 availability). */}
-        <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 pb-28 w-full max-w-full overflow-x-hidden" key={`jobs-${dateUpdateKey}`} style={{ paddingTop: activeTab === 'jobs' ? '290px' : '230px' }}>
+        <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 pb-40 w-full max-w-full overflow-x-hidden" key={`jobs-${dateUpdateKey}`} style={{ paddingTop: activeTab === 'jobs' ? '290px' : '230px' }}>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
