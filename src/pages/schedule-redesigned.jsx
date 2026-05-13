@@ -4797,7 +4797,8 @@ const ServiceFlowSchedule = () => {
         </div>
 
         {/* Jobs List */}
-        <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 pb-28 w-full max-w-full overflow-x-hidden" key={`jobs-${dateUpdateKey}`} style={{ paddingTop: activeTab === 'jobs' ? '220px' : '188px' }}>
+        {/* paddingTop must clear the three stacked fixed bars: MobileHeader (~73), tabs+date row (~72), week strip (~132 jobs / ~100 availability). */}
+        <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 pb-28 w-full max-w-full overflow-x-hidden" key={`jobs-${dateUpdateKey}`} style={{ paddingTop: activeTab === 'jobs' ? '290px' : '230px' }}>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
