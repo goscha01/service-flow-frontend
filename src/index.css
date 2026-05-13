@@ -548,11 +548,8 @@ a[class*="text-blue"]:hover {
 .pipeline-scrollbar::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 7px; border: 3px solid #F1F5F9; }
 .pipeline-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748B; }
 
-/* Mobile root font-size bumped (was 14px) so all Tailwind text-* utilities scale up
-   on phones. Affects body text only; bottom-nav uses explicit small classes (text-xs)
-   that already scale proportionally. */
 @media (max-width: 600px) {
-  html { font-size: 22px; }
+  html { font-size: 14px; }
 }
 
 /* Safe area insets for iOS */
