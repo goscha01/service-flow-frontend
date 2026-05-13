@@ -1157,7 +1157,7 @@ const DashboardRedesigned = () => {
                   <div className="flex flex-col md:flex-row overflow-hidden rounded-xl mx-4 sm:mx-6" style={{ border: '1px solid var(--sf-border-light)' }}>
                    
                   {dashboardData.todayJobs > 0 && todayJobsList.length > 0 ? (
-                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-[var(--sf-bg-page)] overflow-y-auto">
+                    <div className="md:h-80 w-full md:w-1/2 relative bg-[var(--sf-bg-page)] md:overflow-y-auto">
                       <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
                         {todayJobsList.map((job) => {
                           const formatTime = (dateString) => formatTimeShared(dateString) || 'Time not set'
