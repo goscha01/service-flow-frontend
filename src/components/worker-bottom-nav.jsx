@@ -43,8 +43,8 @@ const WorkerBottomNav = () => {
                   : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
               }`}
             >
-              <Icon className={`w-12 h-12 ${active ? 'text-[var(--sf-blue-500)]' : ''}`} />
-              <span className={`text-2xl font-medium ${active ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
+              <Icon size={24} className={active ? 'text-[var(--sf-blue-500)]' : ''} />
+              <span className={`text-[12px] font-medium ${active ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
                 {item.label}
               </span>
             </button>

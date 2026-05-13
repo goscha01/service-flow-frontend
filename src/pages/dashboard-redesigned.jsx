@@ -992,7 +992,7 @@ const DashboardRedesigned = () => {
 
           {/* Main Content Area */}
           <div className="flex-1 bg-[var(--sf-bg-page)]">
-            <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8 pb-40 lg:pb-8" style={{ paddingTop: 'calc(73px + 1rem)' }}>
+            <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8 pb-28 lg:pb-8" style={{ paddingTop: 'calc(73px + 1rem)' }}>
               <div className="max-w-7xl mx-auto space-y-4 min-w-0">
 
                 {/* Error Display */}
@@ -1118,7 +1118,8 @@ const DashboardRedesigned = () => {
                       />
                     </div>
                   </div>
-                  {/* Today stat mini-cards */}
+                  {/* Today stat mini-cards — company-wide aggregates; hide for workers */}
+                  {!isWorker(user) && (
                   <div className="grid grid-cols-3 gap-3 sm:gap-4 px-4 sm:px-6 pb-4 sm:pb-5">
                     <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl p-2.5 sm:p-3.5" style={{ background: 'var(--sf-blue-50)', border: '1px solid var(--sf-border-light)' }}>
                       <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--sf-blue-500)' }}>
@@ -1148,6 +1149,7 @@ const DashboardRedesigned = () => {
                       </div>
                     </div>
                   </div>
+                  )}
 
                  
 
@@ -1266,7 +1268,8 @@ const DashboardRedesigned = () => {
                   </div>
                 </div>
 
-                {/* Overview Section */}
+                {/* Overview Section — company-wide stats; hide for workers (team-member view) */}
+                {!isWorker(user) && (
                 <div className="">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
                     <h2 className="text-sm sm:text-md font-semibold text-[var(--sf-text-secondary)]">
@@ -1656,6 +1659,7 @@ const DashboardRedesigned = () => {
                     )}
                   </div>
                 </div>
+                )}
               </div>
             </div>
           </div>

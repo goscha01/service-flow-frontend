@@ -1216,7 +1216,7 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Jobs List */}
-        <div className="flex-1 overflow-auto bg-white lg:bg-[var(--sf-bg-page)] jobs-scroll-container pb-40 lg:pb-0 pt-[140px] lg:pt-0" style={{ maxWidth: '100%', width: '100%' }}>
+        <div className="flex-1 overflow-auto bg-white lg:bg-[var(--sf-bg-page)] jobs-scroll-container pb-28 lg:pb-0 pt-[140px] lg:pt-0" style={{ maxWidth: '100%', width: '100%' }}>
           <div className="" style={{ maxWidth: '100%' }}>
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -1349,7 +1349,7 @@ const ServiceFlowJobs = () => {
                 </div>
 
                 {/* Mobile Card View */}
-                <div className="lg:hidden bg-[var(--sf-bg-card)] pb-40">
+                <div className="lg:hidden bg-[var(--sf-bg-card)] pb-28">
                   {(() => {
                     const groupedJobs = groupJobsByDate(jobs)
                     const dateKeys = Object.keys(groupedJobs).sort((a, b) => {
