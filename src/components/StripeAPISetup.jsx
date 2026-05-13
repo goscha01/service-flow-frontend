@@ -76,21 +76,34 @@ const StripeAPISetup = ({ onSuccess, onError }) => {
   };
 
   const handleTestConnection = async () => {
+    // The backend returns HTTP 200 with `{ connected: false, error: '...' }`
+    // when there are no Stripe credentials saved (e.g. after disconnect).
+    // We MUST inspect `connected` — the prior implementation only caught
+    // exceptions and would show "Successful" for a 200 with connected=false.
     setLoading(true);
     try {
-      await stripeAPI.testConnection();
-      setModal({
-        isOpen: true,
-        title: 'Connection Test Successful',
-        message: 'Stripe connection test successful! Your credentials are working properly.',
-        type: 'success'
-      });
+      const result = await stripeAPI.testConnection();
+      if (result && result.connected === true) {
+        setModal({
+          isOpen: true,
+          title: 'Connection Test Successful',
+          message: 'Stripe connection test successful! Your credentials are working properly.',
+          type: 'success',
+        });
+      } else {
+        setModal({
+          isOpen: true,
+          title: 'Connection Test Failed',
+          message: (result && result.error) || 'Stripe is not connected. Save your API keys and try again.',
+          type: 'error',
+        });
+      }
     } catch (error) {
       setModal({
         isOpen: true,
         title: 'Connection Test Failed',
-        message: 'Failed to test Stripe connection. Please check your credentials.',
-        type: 'error'
+        message: error?.response?.data?.error || 'Failed to test Stripe connection. Please check your credentials.',
+        type: 'error',
       });
     } finally {
       setLoading(false);
