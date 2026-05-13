@@ -4,6 +4,7 @@ import { X, MapPin, Search } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import AddressAutocomplete from "./address-autocomplete"
+import { leadSourcesAPI } from "../services/api"
 
 const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false }) => {
   const navigate = useNavigate()
@@ -25,6 +26,9 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   const [validationErrors, setValidationErrors] = useState({})
   const [isValidatingEmail, setIsValidatingEmail] = useState(false)
   const [isValidatingPhone, setIsValidatingPhone] = useState(false)
+  const [leadSources, setLeadSources] = useState([])
+  const [showCustomSource, setShowCustomSource] = useState(false)
+  const [customSource, setCustomSource] = useState("")
 
   // Refs for autofill detection
   const addressRef = useRef(null)
@@ -246,6 +250,50 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen, onClose])
+
+  // Load lead sources when modal opens
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await leadSourcesAPI.list()
+        let list = (data?.sources || []).map(s => s.name)
+        if (!list.length) {
+          try {
+            const seeded = await leadSourcesAPI.seed()
+            list = (seeded?.sources || []).map(s => s.name)
+          } catch {}
+        }
+        if (!cancelled) setLeadSources(list)
+      } catch {
+        if (!cancelled) {
+          setLeadSources(['Website', 'Referral', 'Cold Call', 'Social Media', 'Google', 'Thumbtack', 'Yelp', 'Facebook', 'Other'])
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [isOpen])
+
+  // Reset custom-source UI when modal closes/opens
+  useEffect(() => {
+    if (!isOpen) {
+      setShowCustomSource(false)
+      setCustomSource("")
+    }
+  }, [isOpen])
+
+  const addCustomSource = (name) => {
+    const trimmed = (name || '').trim()
+    if (!trimmed) return
+    if (!leadSources.includes(trimmed)) {
+      setLeadSources(prev => [...prev, trimmed])
+      leadSourcesAPI.create(trimmed).catch(() => {})
+    }
+    setCustomerData(prev => ({ ...prev, source: trimmed }))
+    setCustomSource("")
+    setShowCustomSource(false)
+  }
 
   const validateEmail = async (email) => {
     if (!email) return true // Email is optional
@@ -678,13 +726,81 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
               <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Source
               </label>
-              <input
-                type="text"
-                placeholder="e.g. Website, Referral"
-                value={customerData.source}
-                onChange={(e) => setCustomerData({ ...customerData, source: e.target.value })}
-                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm"
-              />
+              <select
+                value={
+                  showCustomSource
+                    ? '__custom__'
+                    : (customerData.source && (leadSources.includes(customerData.source) || customerData.source === '')
+                        ? customerData.source
+                        : (customerData.source ? customerData.source : ''))
+                }
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value === '__custom__') {
+                    setShowCustomSource(true)
+                    setCustomSource('')
+                  } else {
+                    setShowCustomSource(false)
+                    setCustomSource('')
+                    setCustomerData({ ...customerData, source: value })
+                  }
+                }}
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm bg-white"
+              >
+                <option value="">Select a source...</option>
+                {leadSources.map((source) => (
+                  <option key={source} value={source}>{source}</option>
+                ))}
+                {customerData.source && !leadSources.includes(customerData.source) && !showCustomSource && (
+                  <option value={customerData.source}>{customerData.source}</option>
+                )}
+                <option value="__custom__">+ Add custom source</option>
+              </select>
+
+              {showCustomSource && (
+                <div className="mt-2 p-3 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg">
+                  <label className="block text-xs font-medium text-[var(--sf-text-primary)] mb-1">
+                    Custom source name
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customSource}
+                      onChange={(e) => setCustomSource(e.target.value)}
+                      placeholder="Enter custom source name"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && customSource.trim()) {
+                          e.preventDefault()
+                          addCustomSource(customSource)
+                        } else if (e.key === 'Escape') {
+                          setCustomSource('')
+                          setShowCustomSource(false)
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addCustomSource(customSource)}
+                      disabled={!customSource.trim()}
+                      className="px-3 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomSource('')
+                        setShowCustomSource(false)
+                      }}
+                      className="px-3 py-2 bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Notes */}
