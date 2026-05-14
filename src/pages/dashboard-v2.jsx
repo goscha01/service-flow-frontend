@@ -93,15 +93,58 @@ const jobStatusLabel = (raw) => {
   return "Scheduled"
 }
 
-const isAssigned = (job) =>
-  Boolean(
-    job.team_member_id ||
-      job.assigned_to ||
-      (Array.isArray(job.assigned_providers) && job.assigned_providers.length > 0) ||
-      (Array.isArray(job.team_members) && job.team_members.length > 0)
-  )
+// Return all cleaner assignees on a job as { id, name } pairs. A multi-cleaner
+// job (a "team" in business terms) has length >= 2. Empty array = unassigned.
+const assigneesFor = (job) => {
+  const out = []
+  if (Array.isArray(job.assigned_providers) && job.assigned_providers.length) {
+    job.assigned_providers.forEach((p) => {
+      const id = p?.id || p?.team_member_id || p?.provider_id
+      if (!id) return
+      const name =
+        p?.name ||
+        `${p?.first_name || ""} ${p?.last_name || ""}`.trim() ||
+        p?.email ||
+        ""
+      out.push({ id: String(id), name })
+    })
+  } else if (Array.isArray(job.team_members) && job.team_members.length) {
+    job.team_members.forEach((m) => {
+      const id = m?.id || m?.team_member_id
+      if (!id) return
+      const name =
+        m?.name ||
+        `${m?.first_name || ""} ${m?.last_name || ""}`.trim() ||
+        m?.email ||
+        ""
+      out.push({ id: String(id), name })
+    })
+  } else if (Array.isArray(job.job_team_assignments) && job.job_team_assignments.length) {
+    job.job_team_assignments.forEach((a) => {
+      const id = a?.team_member_id || a?.id
+      if (!id) return
+      out.push({ id: String(id), name: a?.team_member_name || "" })
+    })
+  } else if (job.team_member_id) {
+    out.push({ id: String(job.team_member_id), name: job.team_member_name || "" })
+  } else if (job.assigned_to) {
+    out.push({ id: String(job.assigned_to), name: job.assigned_to_name || "" })
+  }
+  return out
+}
+
+const isAssigned = (job) => assigneesFor(job).length > 0
 
 const onShiftStatuses = new Set(["en route", "en_route", "in progress", "in_progress", "in-progress", "onsite", "on_site"])
+
+// Tiny string hash for stable per-cleaner colors. Doesn't need to be
+// cryptographic — just a number from a string id.
+const stableHash = (s) => {
+  const str = String(s ?? "")
+  let h = 0
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
 
 // ── Page ───────────────────────────────────────────────────
 
@@ -216,6 +259,19 @@ const DashboardV2 = () => {
 
   const teamForDisplay = useMemo(() => teamMembers.slice(0, 5), [teamMembers])
 
+  // Unique cleaners with at least one job today (for the greeting line)
+  const cleanersOnDuty = useMemo(() => {
+    const ids = new Set()
+    todayJobs.forEach((j) => assigneesFor(j).forEach((a) => ids.add(a.id)))
+    return ids.size
+  }, [todayJobs])
+
+  // Multi-cleaner jobs today (a "team" in business terms)
+  const teamJobsToday = useMemo(
+    () => todayJobs.filter((j) => assigneesFor(j).length >= 2).length,
+    [todayJobs]
+  )
+
   const recentLeads = useMemo(() => {
     return [...leads]
       .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
@@ -257,8 +313,11 @@ const DashboardV2 = () => {
               ) : (
                 <>
                   You have <b className="text-[var(--sf-ink)]">{kpiData.jobsToday} job{kpiData.jobsToday === 1 ? "" : "s"}</b> today
-                  {teamForDisplay.length > 0 && (
-                    <> across <b className="text-[var(--sf-ink)]">{teamForDisplay.length} {teamForDisplay.length === 1 ? "person" : "people"}</b></>
+                  {cleanersOnDuty > 0 && (
+                    <> across <b className="text-[var(--sf-ink)]">{cleanersOnDuty} {cleanersOnDuty === 1 ? "cleaner" : "cleaners"}</b></>
+                  )}
+                  {teamJobsToday > 0 && (
+                    <> · <b className="text-[var(--sf-ink)]">{teamJobsToday} team{teamJobsToday === 1 ? "" : "s"}</b></>
                   )}
                   .
                 </>
@@ -372,24 +431,41 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
   const nowPct = pct(nowMins)
   const showNow = now.getHours() >= startHr && now.getHours() <= endHr
 
-  // Group by assignee (max 3 rows). If no assignee, "Unassigned".
+  // One row per cleaner. Multi-cleaner jobs (a "team") render on every
+  // assigned cleaner's row with a small team badge. Unassigned jobs land
+  // in a single "Unassigned" row at the bottom.
   const rows = useMemo(() => {
-    const map = new Map()
+    const map = new Map() // cleanerId -> { id, name, jobs: [...] }
     jobs.forEach((j) => {
-      const k = j.team_member_id || j.assigned_to || (j.assigned_providers?.[0]?.id ?? "unassigned")
-      if (!map.has(k)) map.set(k, [])
-      map.get(k).push(j)
+      const assignees = assigneesFor(j)
+      const teamSize = assignees.length
+      const augmented = { ...j, _teamSize: teamSize }
+      if (teamSize === 0) {
+        if (!map.has("unassigned")) map.set("unassigned", { id: "unassigned", name: "Unassigned", jobs: [] })
+        map.get("unassigned").jobs.push(augmented)
+        return
+      }
+      assignees.forEach((a) => {
+        if (!map.has(a.id)) map.set(a.id, { id: a.id, name: a.name, jobs: [] })
+        // Prefer the first non-empty name we encounter
+        if (!map.get(a.id).name && a.name) map.get(a.id).name = a.name
+        map.get(a.id).jobs.push(augmented)
+      })
     })
-    const arr = Array.from(map.entries()).slice(0, 3)
-    // Each row gets a deterministic color
-    return arr.map(([id, list], i) => ({
-      id,
-      label: id === "unassigned" ? "Unassigned" : (list[0].team_member_name || list[0].assigned_to_name || `Team ${i + 1}`),
-      members: list[0].team_members || list[0].assigned_providers || [],
-      color: id === "unassigned" ? "var(--sf-red)" : sfTeamColor(i),
-      jobs: list,
+    const arr = Array.from(map.values()).sort((a, b) => {
+      if (a.id === "unassigned") return 1
+      if (b.id === "unassigned") return -1
+      return 0
+    })
+    return arr.map((row) => ({
+      ...row,
+      label: row.name || (row.id === "unassigned" ? "Unassigned" : "Cleaner"),
+      color: row.id === "unassigned" ? "var(--sf-red)" : sfTeamColor(stableHash(row.id)),
     }))
   }, [jobs])
+
+  const cleanerRowCount = rows.filter((r) => r.id !== "unassigned").length
+  const teamJobCount = jobs.filter((j) => assigneesFor(j).length >= 2).length
 
   return (
     <SfCard padding={0}>
@@ -400,7 +476,9 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
             Today's schedule
           </div>
           <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-0.5">
-            {rows.length} {rows.length === 1 ? "team" : "teams"} · {jobs.length} {jobs.length === 1 ? "job" : "jobs"}
+            {cleanerRowCount} {cleanerRowCount === 1 ? "cleaner" : "cleaners"}
+            {teamJobCount > 0 && <> · {teamJobCount} {teamJobCount === 1 ? "team" : "teams"}</>}
+            {" · "}{jobs.length} {jobs.length === 1 ? "job" : "jobs"}
           </div>
         </div>
         <SfSegmented options={["Day", "Week", "Month"]} value={scheduleView} onChange={setScheduleView} />
@@ -438,16 +516,27 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
           </div>
           {/* Team rows */}
           <div className="flex flex-col gap-2 mt-1">
-            {rows.map((row) => (
+            {rows.map((row) => {
+              const teamJobsHere = row.jobs.filter((x) => (x._teamSize ?? 1) >= 2).length
+              return (
               <div key={row.id} className="flex items-center gap-2.5">
-                <div className="w-[100px] flex items-center gap-2 flex-shrink-0">
-                  <span className="w-2 h-2 rounded-full" style={{ background: row.color }} />
+                <div className="w-[120px] flex items-center gap-2 flex-shrink-0">
+                  {row.id === "unassigned" ? (
+                    <span className="w-2 h-2 rounded-full" style={{ background: row.color }} />
+                  ) : (
+                    <SfAvatar
+                      initials={sfInitials(row.label) || "—"}
+                      color={row.color}
+                      size={22}
+                    />
+                  )}
                   <div className="min-w-0">
                     <div className="text-[11.5px] font-semibold text-[var(--sf-ink)] leading-tight truncate">
                       {row.label}
                     </div>
                     <div className="text-[10px] text-[var(--sf-ink-3)] mt-px">
                       {row.jobs.length} job{row.jobs.length === 1 ? "" : "s"}
+                      {teamJobsHere > 0 && <> · {teamJobsHere} team</>}
                     </div>
                   </div>
                 </div>
@@ -505,9 +594,11 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
                     const widthPct = Math.max(3, (duration / ((endHr - startHr) * 60)) * 100)
                     const statusRaw = (j.status || "").toLowerCase()
                     const isLive = onShiftStatuses.has(statusRaw)
+                    const teamSize = j._teamSize ?? 1
+                    const isTeamJob = teamSize >= 2
                     return (
                       <button
-                        key={j.id}
+                        key={`${row.id}-${j.id}`}
                         onClick={() => onJobClick(j.id)}
                         className="absolute flex flex-col justify-center text-left overflow-hidden cursor-pointer"
                         style={{
@@ -526,8 +617,27 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
                           boxShadow: isLive ? `0 1px 4px ${row.color}40` : "none",
                           border: "none",
                         }}
-                        title={`${j.customer_first_name || j.customer_name || "Customer"} · ${j.service_name || "Service"}`}
+                        title={`${j.customer_first_name || j.customer_name || "Customer"} · ${j.service_name || "Service"}${isTeamJob ? ` · team of ${teamSize}` : ""}`}
                       >
+                        {isTeamJob && (
+                          <span
+                            className="absolute top-[2px] right-[3px] flex items-center justify-center"
+                            style={{
+                              minWidth: 14,
+                              height: 14,
+                              padding: "0 3px",
+                              borderRadius: 7,
+                              fontSize: 9,
+                              fontWeight: 700,
+                              fontFamily: "var(--sf-font-mono)",
+                              background: isLive ? "rgba(255,255,255,.25)" : `${row.color}33`,
+                              color: isLive ? "#fff" : row.color,
+                              letterSpacing: "0",
+                            }}
+                          >
+                            +{teamSize - 1}
+                          </span>
+                        )}
                         <span
                           className="whitespace-nowrap overflow-hidden text-ellipsis"
                           style={{ lineHeight: 1.1 }}
@@ -543,7 +653,7 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
                   })}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
