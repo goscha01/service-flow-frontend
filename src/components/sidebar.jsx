@@ -27,42 +27,42 @@ import {
   Wrench,
 } from "lucide-react"
 
+// Reorganized into 4 sections per the Service Blue redesign.
+// `section` here is one of: today, customers, operations, system.
+// `badge` is optional and rendered as a pill on the right of the item.
+// `aliases` are extra path prefixes that should also highlight the item
+// (e.g. detail screens — /job/:id keeps "Jobs" highlighted).
+const ALL_SIDEBAR_ITEMS = [
+  { icon: Home,            label: "Dashboard",      path: "/dashboard",      section: "today" },
+  { icon: Calendar,        label: "Schedule",       path: "/schedule",       section: "today" },
+  { icon: Briefcase,       label: "Jobs",           path: "/jobs",           section: "today", aliases: ["/job/"] },
+  { icon: MessageSquare,   label: "Inbox",          path: "/communications", section: "today" },
+
+  { icon: Users,           label: "Customers",      path: "/customers",      section: "customers", aliases: ["/customer/"] },
+  { icon: Target,          label: "Leads",          path: "/leads",          section: "customers" },
+  { icon: CalendarDays,    label: "Tasks",          path: "/calendar",       section: "customers" },
+
+  { icon: UserCheck,       label: "Team",           path: "/team",           section: "operations", aliases: ["/team/"] },
+  { icon: Receipt,         label: "Payroll",        path: "/payroll",        section: "operations" },
+  { icon: Wrench,          label: "Services",       path: "/services",       section: "operations", aliases: ["/services/"], hidden: true },
+  { icon: FileText,        label: "Estimates",      path: "/estimates",      section: "operations", hidden: true },
+  { icon: FileText,        label: "Invoices",       path: "/invoices",       section: "operations", hidden: true },
+  { icon: RotateCcw,       label: "Recurring",      path: "/recurring",      section: "operations", hidden: true },
+  { icon: CreditCard,      label: "Payments",       path: "/payments",       section: "operations", hidden: true },
+  { icon: Tag,             label: "Coupons",        path: "/coupons",        section: "operations", hidden: true },
+
+  { icon: BarChart3,       label: "Analytics",      path: "/analytics",      section: "system" },
+  { icon: Globe,           label: "Online Booking", path: "/online-booking", section: "system", hidden: true },
+  { icon: Settings,        label: "Settings",       path: "/settings",       section: "system", aliases: ["/settings/"] },
+]
+
 const Sidebar = ({ isOpen, onClose, onOpenSpotlight }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
   const { user } = useAuth()
 
-  // Reorganized into 4 sections per the Service Blue redesign.
-  // `section` here is one of: today, customers, operations, system.
-  // `badge` is optional and rendered as a pill on the right of the item.
-  // `aliases` are extra path prefixes that should also highlight the item
-  // (e.g. detail screens — /job/:id keeps "Jobs" highlighted).
-  const allSidebarItems = [
-    { icon: Home,            label: "Dashboard",      path: "/dashboard",      section: "today" },
-    { icon: Calendar,        label: "Schedule",       path: "/schedule",       section: "today" },
-    { icon: Briefcase,       label: "Jobs",           path: "/jobs",           section: "today", aliases: ["/job/"] },
-    { icon: MessageSquare,   label: "Inbox",          path: "/communications", section: "today" },
-
-    { icon: Users,           label: "Customers",      path: "/customers",      section: "customers", aliases: ["/customer/"] },
-    { icon: Target,          label: "Leads",          path: "/leads",          section: "customers" },
-    { icon: CalendarDays,    label: "Tasks",          path: "/calendar",       section: "customers" },
-
-    { icon: UserCheck,       label: "Team",           path: "/team",           section: "operations", aliases: ["/team/"] },
-    { icon: Receipt,         label: "Payroll",        path: "/payroll",        section: "operations" },
-    { icon: Wrench,          label: "Services",       path: "/services",       section: "operations", aliases: ["/services/"], hidden: true },
-    { icon: FileText,        label: "Estimates",      path: "/estimates",      section: "operations", hidden: true },
-    { icon: FileText,        label: "Invoices",       path: "/invoices",       section: "operations", hidden: true },
-    { icon: RotateCcw,       label: "Recurring",      path: "/recurring",      section: "operations", hidden: true },
-    { icon: CreditCard,      label: "Payments",       path: "/payments",       section: "operations", hidden: true },
-    { icon: Tag,             label: "Coupons",        path: "/coupons",        section: "operations", hidden: true },
-
-    { icon: BarChart3,       label: "Analytics",      path: "/analytics",      section: "system" },
-    { icon: Globe,           label: "Online Booking", path: "/online-booking", section: "system", hidden: true },
-    { icon: Settings,        label: "Settings",       path: "/settings",       section: "system", aliases: ["/settings/"] },
-  ]
-
-  const sidebarItems = useMemo(() => filterSidebarItems(allSidebarItems, user), [user])
+  const sidebarItems = useMemo(() => filterSidebarItems(ALL_SIDEBAR_ITEMS, user), [user])
 
   const SECTIONS = [
     { id: "today",      label: "Today" },
