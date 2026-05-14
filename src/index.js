@@ -3,6 +3,7 @@ import App from "./App"
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from "react-router-dom"
 import { AuthProvider } from "./context/AuthContext"
 import { TimeFormatProvider } from "./context/TimeFormatContext"
+import { LocationProvider } from "./context/LocationContext"
 import ProtectedRoute from "./components/ProtectedRoute"
 import RoleProtectedRoute from "./components/RoleProtectedRoute"
 import SignupForm from "./pages/Signup"
@@ -140,6 +141,7 @@ const root = ReactDOM.createRoot(document.getElementById("root"))
 root.render(
   <BrowserRouter style={{fontFamily: 'Montserrat', fontWeight: 500}}>
     <AuthProvider>
+      <LocationProvider>
       <TimeFormatProvider>
       <CategoryProvider>
         <TeamMemberAuthProvider>
@@ -279,6 +281,7 @@ root.render(
         </TeamMemberAuthProvider>
       </CategoryProvider>
       </TimeFormatProvider>
+      </LocationProvider>
     </AuthProvider>
   </BrowserRouter>,
 )

@@ -15,7 +15,10 @@ import {
   Receipt,
   CalendarDays,
   MessageSquare,
+  MapPin,
+  Check,
 } from "lucide-react"
+import { useLocationScope } from "../context/LocationContext"
 
 /**
  * Global desktop topbar (49px). Renders ServiceFlow breadcrumb on the
@@ -121,6 +124,9 @@ const Topbar = ({ onOpenSpotlight, onOpenMobileSidebar }) => {
 
       <div className="flex-1" />
 
+      {/* Location switcher pill */}
+      <LocationPill />
+
       {/* ⌘K Spotlight trigger — desktop only */}
       <button
         onClick={() => onOpenSpotlight?.()}
@@ -194,6 +200,96 @@ const Topbar = ({ onOpenSpotlight, onOpenMobileSidebar }) => {
         </div>
       </div>
     </header>
+  )
+}
+
+// ── Location switcher pill ─────────────────────────────────
+
+const LocationPill = () => {
+  const { locationId, setLocationId, locations, loading, selectedLocation } = useLocationScope()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener("mousedown", onClick)
+    return () => document.removeEventListener("mousedown", onClick)
+  }, [open])
+
+  // Hide when the user has no locations defined — the switcher is
+  // meaningless without at least one to choose from.
+  if (!loading && locations.length === 0) return null
+
+  const label = locationId === "all" ? "All locations" : (selectedLocation?.name || "Location")
+  const dotColor = locationId === "all"
+    ? "var(--sf-ink-3)"
+    : (selectedLocation?.color || "var(--sf-blue)")
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-2.5 py-[6px] rounded-[8px] bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] text-[var(--sf-ink-2)] hover:bg-[var(--sf-panel-soft)] transition-colors"
+        style={{ fontFamily: "var(--sf-font-ui)" }}
+      >
+        {locationId === "all" ? (
+          <MapPin size={13} strokeWidth={1.85} className="text-[var(--sf-ink-3)]" />
+        ) : (
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: dotColor }} />
+        )}
+        <span className="text-[12.5px] font-semibold text-[var(--sf-ink)] max-w-[160px] truncate">
+          {label}
+        </span>
+        <ChevronDown size={12} strokeWidth={2} className="text-[var(--sf-ink-3)] flex-shrink-0" />
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-1.5 w-[260px] rounded-[10px] bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] py-1.5 z-50 max-h-[60vh] overflow-y-auto"
+          style={{ boxShadow: "var(--sf-shadow-l)" }}
+        >
+          <button
+            onClick={() => { setLocationId("all"); setOpen(false) }}
+            className="w-full flex items-center gap-2.5 px-3 py-[7px] text-[12.5px] font-medium hover:bg-[var(--sf-panel-soft)] transition-colors"
+            style={{
+              color: locationId === "all" ? "var(--sf-blue-dark)" : "var(--sf-ink-2)",
+              background: locationId === "all" ? "var(--sf-blue-soft)" : "transparent",
+            }}
+          >
+            <MapPin size={13} strokeWidth={1.85} className="text-[var(--sf-ink-3)]" />
+            <span className="flex-1 text-left">All locations</span>
+            {locationId === "all" && <Check size={13} strokeWidth={2.4} className="text-[var(--sf-blue-dark)]" />}
+          </button>
+          {locations.length > 0 && (
+            <div className="my-1 border-t border-[var(--sf-border-soft)]" />
+          )}
+          {locations.map((loc) => {
+            const sel = String(loc.id) === String(locationId)
+            return (
+              <button
+                key={loc.id}
+                onClick={() => { setLocationId(loc.id); setOpen(false) }}
+                className="w-full flex items-center gap-2.5 px-3 py-[7px] text-[12.5px] font-medium hover:bg-[var(--sf-panel-soft)] transition-colors"
+                style={{
+                  color: sel ? "var(--sf-blue-dark)" : "var(--sf-ink-2)",
+                  background: sel ? "var(--sf-blue-soft)" : "transparent",
+                }}
+              >
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ background: loc.color || "var(--sf-blue)" }}
+                />
+                <span className="flex-1 text-left truncate">{loc.name}</span>
+                {sel && <Check size={13} strokeWidth={2.4} className="text-[var(--sf-blue-dark)]" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

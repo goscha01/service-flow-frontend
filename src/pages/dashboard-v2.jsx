@@ -11,6 +11,7 @@ import {
   MoreHorizontal,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
+import { useLocationScope, filterByLocation } from "../context/LocationContext"
 import { jobsAPI, teamAPI, invoicesAPI, leadsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import MobileHeader from "../components/mobile-header"
@@ -135,6 +136,50 @@ const assigneesFor = (job) => {
 
 const isAssigned = (job) => assigneesFor(job).length > 0
 
+// Resolve the team lead for a multi-cleaner job. Looks at a few possible
+// fields (the lead-assign UI is still TBD, so the field name may settle
+// later). Returns the assignee object or null when no lead is set.
+const teamLeadFor = (job) => {
+  const assignees = assigneesFor(job)
+  if (assignees.length < 2) return null
+  const leadId =
+    job.lead_cleaner_id ??
+    job.team_lead_id ??
+    job.lead_team_member_id ??
+    job.lead_id ??
+    null
+  if (leadId == null) return null
+  return assignees.find((a) => String(a.id) === String(leadId)) || null
+}
+
+// First name helper for team labels like "Tatiana's team".
+const firstName = (name) => {
+  if (!name) return ""
+  return String(name).trim().split(/\s+/)[0]
+}
+
+// Read planned vs real duration in minutes. Real comes from
+// start_time/end_time if both present and span a sensible delta.
+const durationsFor = (job) => {
+  const planned = parseInt(job.duration || job.service_duration || job.estimated_duration || 0, 10) || 0
+  let real = 0
+  const s = job.start_time || job.started_at
+  const e = job.end_time || job.completed_at
+  if (s && e) {
+    const sd = new Date(s)
+    const ed = new Date(e)
+    if (!isNaN(sd) && !isNaN(ed)) {
+      const diff = Math.round((ed - sd) / 60000)
+      if (diff > 0 && diff < 24 * 60) real = diff
+    }
+  }
+  const hoursWorked = parseFloat(job.hours_worked)
+  if (!real && Number.isFinite(hoursWorked) && hoursWorked > 0) {
+    real = Math.round(hoursWorked * 60)
+  }
+  return { planned, real }
+}
+
 const onShiftStatuses = new Set(["en route", "en_route", "in progress", "in_progress", "in-progress", "onsite", "on_site"])
 
 // Tiny string hash for stable per-cleaner colors. Doesn't need to be
@@ -150,16 +195,24 @@ const stableHash = (s) => {
 
 const DashboardV2 = () => {
   const { user } = useAuth()
+  const { locationId, selectedLocation, setLocationId } = useLocationScope()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
-  const [jobs, setJobs] = useState([])
-  const [invoices, setInvoices] = useState([])
-  const [teamMembers, setTeamMembers] = useState([])
-  const [leads, setLeads] = useState([])
+  const [jobsAll, setJobsAll] = useState([])
+  const [invoicesAll, setInvoicesAll] = useState([])
+  const [teamMembersAll, setTeamMembersAll] = useState([])
+  const [leadsAll, setLeadsAll] = useState([])
   const [scheduleView, setScheduleView] = useState("Day")
   const [queueFilter, setQueueFilter] = useState("all")
 
   const today = todayString()
+
+  // Apply the current location filter to all top-level datasets so
+  // every section of the page reacts when the switcher changes.
+  const jobs = useMemo(() => filterByLocation(jobsAll, locationId), [jobsAll, locationId])
+  const invoices = useMemo(() => filterByLocation(invoicesAll, locationId), [invoicesAll, locationId])
+  const teamMembers = useMemo(() => filterByLocation(teamMembersAll, locationId), [teamMembersAll, locationId])
+  const leads = useMemo(() => filterByLocation(leadsAll, locationId), [leadsAll, locationId])
 
   // Fetch dashboard data — last 7 days range to get "new leads this week" etc.
   const fetchData = useCallback(async () => {
@@ -180,16 +233,16 @@ const DashboardV2 = () => {
       const invoicesList = invoicesResp.status === "fulfilled" ? normalizeAPIResponse(invoicesResp.value, "invoices") : []
       const teamList =
         teamResp.status === "fulfilled" ? (teamResp.value.teamMembers || teamResp.value || []) : []
-      setJobs(jobsList)
-      setInvoices(invoicesList)
-      setTeamMembers(teamList)
+      setJobsAll(jobsList)
+      setInvoicesAll(invoicesList)
+      setTeamMembersAll(teamList)
 
       // Leads are best-effort — leadsAPI.getAll may not be available for all roles
       try {
         const leadsList = await leadsAPI.getAll()
-        setLeads(Array.isArray(leadsList) ? leadsList : [])
+        setLeadsAll(Array.isArray(leadsList) ? leadsList : [])
       } catch {
-        setLeads([])
+        setLeadsAll([])
       }
     } finally {
       setLoading(false)
@@ -280,7 +333,7 @@ const DashboardV2 = () => {
 
   // ── Render ────────────────────────────────────────────────
 
-  const firstName = user?.firstName || user?.first_name || user?.email?.split("@")[0] || "there"
+  const greetingName = user?.firstName || user?.first_name || user?.email?.split("@")[0] || "there"
 
   return (
     <div
@@ -299,12 +352,17 @@ const DashboardV2 = () => {
             >
               {formatEyebrowDate()}
             </div>
-            <h1
-              className="text-[22px] sm:text-[24px] font-bold text-[var(--sf-ink)] m-0"
-              style={{ letterSpacing: "-0.02em", lineHeight: 1.15 }}
-            >
-              {greeting()}, {firstName}
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1
+                className="text-[22px] sm:text-[24px] font-bold text-[var(--sf-ink)] m-0"
+                style={{ letterSpacing: "-0.02em", lineHeight: 1.15 }}
+              >
+                {greeting()}, {greetingName}
+              </h1>
+              {selectedLocation && (
+                <ScopedToChip location={selectedLocation} onClear={() => setLocationId("all")} />
+              )}
+            </div>
             <div className="text-[13px] text-[var(--sf-ink-2)] mt-1">
               {loading ? (
                 "Loading today's overview…"
@@ -459,7 +517,10 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
     })
     return arr.map((row) => ({
       ...row,
-      label: row.name || (row.id === "unassigned" ? "Unassigned" : "Cleaner"),
+      label:
+        row.id === "unassigned"
+          ? "Unassigned"
+          : row.name || "Team member",
       color: row.id === "unassigned" ? "var(--sf-red)" : sfTeamColor(stableHash(row.id)),
     }))
   }, [jobs])
@@ -589,66 +650,142 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
                   {row.jobs.map((j) => {
                     const start = parseTime(j.service_time || j.scheduled_time || j.start_time)
                     if (!start) return null
-                    const duration = parseInt(j.duration || j.service_duration || j.estimated_duration || 60, 10) || 60
+                    const { planned, real } = durationsFor(j)
+                    const duration = planned || real || 60
                     const left = pct(start.minutes)
                     const widthPct = Math.max(3, (duration / ((endHr - startHr) * 60)) * 100)
                     const statusRaw = (j.status || "").toLowerCase()
                     const isLive = onShiftStatuses.has(statusRaw)
+                    const isCompleted = statusRaw === "completed" || statusRaw === "complete" || statusRaw === "done"
                     const teamSize = j._teamSize ?? 1
                     const isTeamJob = teamSize >= 2
+                    const lead = isTeamJob ? teamLeadFor(j) : null
+                    const isLead = lead && String(lead.id) === String(row.id)
+                    const customer = j.customer_first_name || (j.customer_name || "").split(" ")[0] || "—"
+
+                    // Block label varies by team role on this row.
+                    let blockTitle
+                    if (isTeamJob && lead && isLead) {
+                      blockTitle = `${firstName(lead.name) || "Team"}'s team · ${customer}`
+                    } else if (isTeamJob && lead && !isLead) {
+                      blockTitle = `w/ ${firstName(lead.name) || "team"} · ${customer}`
+                    } else if (isTeamJob) {
+                      blockTitle = `Team · ${customer}`
+                    } else {
+                      blockTitle = j.service_name ? `${customer} · ${j.service_name}` : customer
+                    }
+
+                    // Overtime / undertime — only meaningful for completed jobs
+                    // where both planned and real are known.
+                    const showDelta = isCompleted && planned > 0 && real > 0 && Math.abs(real - planned) >= 3
+                    const overtimeMins = showDelta && real > planned ? real - planned : 0
+                    const undertimeMins = showDelta && real < planned ? planned - real : 0
+                    // Overtime renders as a sibling extension past the block.
+                    const overtimePct = overtimeMins
+                      ? Math.max(0.5, (overtimeMins / ((endHr - startHr) * 60)) * 100)
+                      : 0
+                    // Undertime overlays the right side of the block as an "unused" strip.
+                    const undertimePctOfBlock = undertimeMins && duration
+                      ? (undertimeMins / duration) * 100
+                      : 0
+
                     return (
-                      <button
-                        key={`${row.id}-${j.id}`}
-                        onClick={() => onJobClick(j.id)}
-                        className="absolute flex flex-col justify-center text-left overflow-hidden cursor-pointer"
-                        style={{
-                          top: 3,
-                          bottom: 3,
-                          left: `${left}%`,
-                          width: `${widthPct}%`,
-                          background: isLive ? row.color : `${row.color}1f`,
-                          borderLeft: `3px solid ${row.color}`,
-                          color: isLive ? "#fff" : row.color,
-                          borderRadius: 5,
-                          padding: "3px 7px",
-                          fontSize: 11,
-                          fontWeight: 600,
-                          fontFamily: "var(--sf-font-ui)",
-                          boxShadow: isLive ? `0 1px 4px ${row.color}40` : "none",
-                          border: "none",
-                        }}
-                        title={`${j.customer_first_name || j.customer_name || "Customer"} · ${j.service_name || "Service"}${isTeamJob ? ` · team of ${teamSize}` : ""}`}
-                      >
-                        {isTeamJob && (
-                          <span
-                            className="absolute top-[2px] right-[3px] flex items-center justify-center"
-                            style={{
-                              minWidth: 14,
-                              height: 14,
-                              padding: "0 3px",
-                              borderRadius: 7,
-                              fontSize: 9,
-                              fontWeight: 700,
-                              fontFamily: "var(--sf-font-mono)",
-                              background: isLive ? "rgba(255,255,255,.25)" : `${row.color}33`,
-                              color: isLive ? "#fff" : row.color,
-                              letterSpacing: "0",
-                            }}
-                          >
-                            +{teamSize - 1}
-                          </span>
-                        )}
-                        <span
-                          className="whitespace-nowrap overflow-hidden text-ellipsis"
-                          style={{ lineHeight: 1.1 }}
+                      <span key={`${row.id}-${j.id}`} className="contents">
+                        <button
+                          onClick={() => onJobClick(j.id)}
+                          className="absolute flex flex-col justify-center text-left overflow-hidden cursor-pointer"
+                          style={{
+                            top: 3,
+                            bottom: 3,
+                            left: `${left}%`,
+                            width: `${widthPct}%`,
+                            background: isLive ? row.color : `${row.color}1f`,
+                            borderLeft: `3px solid ${row.color}`,
+                            color: isLive ? "#fff" : row.color,
+                            borderRadius: overtimeMins ? "5px 0 0 5px" : 5,
+                            padding: "3px 7px",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            fontFamily: "var(--sf-font-ui)",
+                            boxShadow: isLive ? `0 1px 4px ${row.color}40` : "none",
+                            border: "none",
+                          }}
+                          title={`${blockTitle}${planned ? ` · planned ${planned}m` : ""}${real ? ` · real ${real}m` : ""}${overtimeMins ? ` · +${overtimeMins}m overtime` : undertimeMins ? ` · −${undertimeMins}m undertime` : ""}`}
                         >
-                          {(j.customer_first_name || j.customer_name || "—").split(" ")[0]}
-                          {j.service_name ? ` · ${j.service_name}` : ""}
-                        </span>
-                        <span style={{ fontSize: 9.5, opacity: 0.85, fontWeight: 500 }}>
-                          {start.label} · {duration}m
-                        </span>
-                      </button>
+                          {/* undertime: shade the unused trailing slice of the block */}
+                          {undertimeMins > 0 && (
+                            <span
+                              className="absolute top-0 bottom-0 right-0"
+                              style={{
+                                width: `${undertimePctOfBlock}%`,
+                                background:
+                                  "repeating-linear-gradient(45deg, rgba(22,163,74,.18) 0 4px, rgba(22,163,74,.05) 4px 8px)",
+                                borderLeft: "1px dashed rgba(22,163,74,.5)",
+                                pointerEvents: "none",
+                              }}
+                            />
+                          )}
+
+                          {/* team count badge top-right */}
+                          {isTeamJob && (
+                            <span
+                              className="absolute top-[2px] right-[3px] flex items-center justify-center"
+                              style={{
+                                minWidth: 14,
+                                height: 14,
+                                padding: "0 3px",
+                                borderRadius: 7,
+                                fontSize: 9,
+                                fontWeight: 700,
+                                fontFamily: "var(--sf-font-mono)",
+                                background: isLive ? "rgba(255,255,255,.25)" : `${row.color}33`,
+                                color: isLive ? "#fff" : row.color,
+                                letterSpacing: "0",
+                              }}
+                            >
+                              +{teamSize - 1}
+                            </span>
+                          )}
+
+                          <span
+                            className="whitespace-nowrap overflow-hidden text-ellipsis"
+                            style={{ lineHeight: 1.1 }}
+                          >
+                            {blockTitle}
+                          </span>
+                          <span style={{ fontSize: 9.5, opacity: 0.85, fontWeight: 500 }}>
+                            {start.label} · {planned || duration}m
+                            {overtimeMins > 0 && (
+                              <span style={{ marginLeft: 4, color: isLive ? "#fff" : "var(--sf-red-dark)", fontWeight: 700 }}>
+                                +{overtimeMins}m
+                              </span>
+                            )}
+                            {undertimeMins > 0 && (
+                              <span style={{ marginLeft: 4, color: isLive ? "#fff" : "var(--sf-green-dark)", fontWeight: 700 }}>
+                                −{undertimeMins}m
+                              </span>
+                            )}
+                          </span>
+                        </button>
+
+                        {/* overtime extension (red striped) past the planned end */}
+                        {overtimeMins > 0 && (
+                          <span
+                            className="absolute"
+                            style={{
+                              top: 3,
+                              bottom: 3,
+                              left: `${left + widthPct}%`,
+                              width: `${overtimePct}%`,
+                              background:
+                                "repeating-linear-gradient(45deg, var(--sf-red) 0 6px, var(--sf-red-dark) 6px 12px)",
+                              borderRadius: "0 5px 5px 0",
+                              pointerEvents: "none",
+                            }}
+                            title={`+${overtimeMins}m overtime`}
+                          />
+                        )}
+                      </span>
                     )
                   })}
                 </div>
@@ -935,5 +1072,43 @@ const HotLeadsCard = ({ leads, onSeePipeline }) => {
     </SfCard>
   )
 }
+
+// ── Location filter indicator chip ─────────────────────────
+
+const ScopedToChip = ({ location, onClear }) => (
+  <span
+    className="inline-flex items-center gap-1.5 px-2 py-[3px] rounded-full text-[11.5px] font-semibold"
+    style={{
+      background: "var(--sf-blue-soft)",
+      color: "var(--sf-blue-dark)",
+      border: `1px solid ${location?.color || "var(--sf-blue)"}25`,
+    }}
+  >
+    <span
+      className="w-1.5 h-1.5 rounded-full"
+      style={{ background: location?.color || "var(--sf-blue)" }}
+    />
+    {location?.name}
+    <button
+      type="button"
+      onClick={onClear}
+      aria-label="Clear location filter"
+      className="opacity-70 hover:opacity-100 transition-opacity ml-px"
+      style={{
+        background: "transparent",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        color: "inherit",
+        fontFamily: "inherit",
+        fontSize: 13,
+        fontWeight: 600,
+        lineHeight: 1,
+      }}
+    >
+      ×
+    </button>
+  </span>
+)
 
 export default DashboardV2
