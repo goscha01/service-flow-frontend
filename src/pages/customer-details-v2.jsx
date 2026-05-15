@@ -150,37 +150,70 @@ const CustomerDetailsV2 = () => {
     if (!user?.id || !customerId) return
     setLoading(true)
     try {
-      const [custResp, jobsResp, invResp, estResp, convResp] = await Promise.allSettled([
+      // First fetch the customer + non-conversation lists. We need
+      // cust loaded before we can issue the targeted conversation
+      // searches (phone / email / name).
+      const [custResp, jobsResp, invResp, estResp] = await Promise.allSettled([
         customersAPI.getById(customerId),
         jobsAPI.getAll(user.id, "", "", 1, 500, null, null, "scheduled_date", "DESC", null, null, customerId),
         invoicesAPI.getAll(user.id, { customerId, page: 1, limit: 500 }),
         estimatesAPI.getAll(user.id, { customerId, page: 1, limit: 500 }),
-        communicationsAPI.getConversations({}).catch(() => ({ conversations: [] })),
       ])
       const cust = custResp.status === "fulfilled" ? (custResp.value?.customer || custResp.value) : null
       const jobsList = jobsResp.status === "fulfilled" ? normalizeAPIResponse(jobsResp.value, "jobs") : []
       const invList = invResp.status === "fulfilled" ? normalizeAPIResponse(invResp.value, "invoices") : []
       const estList = estResp.status === "fulfilled" ? normalizeAPIResponse(estResp.value, "estimates") : []
-      const convRaw = convResp.status === "fulfilled" ? convResp.value : null
-      const convList = Array.isArray(convRaw)
-        ? convRaw
-        : Array.isArray(convRaw?.conversations)
-        ? convRaw.conversations
-        : []
       setCustomer(cust)
-      // Belt-and-braces filter: server-side filter MAY ignore unknown
-      // customerId param shapes in some endpoints, so also filter
-      // client-side.
       setJobs(jobsList.filter((j) => String(j.customer_id) === String(customerId)))
       setInvoices(invList.filter((i) => String(i.customer_id) === String(customerId)))
       setEstimates(estList.filter((e) => String(e.customer_id) === String(customerId)))
-      // Conversations API returns camelCase. Match by customerId, OR
-      // by phone (when CRM linkage isn't stamped yet — many
-      // conversations are anchored on participant phone only).
+
+      // The conversations endpoint caps results at 100 globally. A
+      // customer whose thread is paginated out of that window never
+      // surfaces in a single getConversations({}) call. Issue
+      // targeted server-side searches by phone / email / name and
+      // merge them — the backend's `search` clause runs an OR across
+      // participant_name / participant_phone / participant_email /
+      // last_preview / company so each of these queries returns the
+      // matching subset within the 100-row cap.
       const custPhone = digitsOnly(cust?.phone)
       const custEmail = (cust?.email || "").toLowerCase()
+      const custName = [cust?.first_name, cust?.last_name].filter(Boolean).join(" ").trim()
+      const searches = []
+      if (custPhone) searches.push(custPhone.slice(-10))
+      if (custEmail) searches.push(custEmail)
+      if (custName) searches.push(custName)
+      // Always include the default page too — picks up the CRM-linked
+      // threads where the customerId is stamped even if phone/email
+      // are missing.
+      searches.push(null)
+
+      const responses = await Promise.allSettled(
+        searches.map((q) =>
+          communicationsAPI
+            .getConversations(q ? { search: q } : {})
+            .catch(() => ({ conversations: [] }))
+        )
+      )
+      const merged = new Map()
+      responses.forEach((r) => {
+        if (r.status !== "fulfilled") return
+        const list = Array.isArray(r.value)
+          ? r.value
+          : Array.isArray(r.value?.conversations)
+          ? r.value.conversations
+          : []
+        list.forEach((c) => {
+          if (!merged.has(c.id)) merged.set(c.id, c)
+        })
+      })
+      const allConvs = Array.from(merged.values())
+
+      // Match by customerId, phone, OR email. Phone match uses last
+      // 10 digits so formatting differences ("+1 (727) 457-0527" vs
+      // "7274570527") don't miss.
       setConversations(
-        convList.filter((c) => {
+        allConvs.filter((c) => {
           if (String(c.customerId ?? c.customer_id) === String(customerId)) return true
           if (custPhone) {
             const fp = digitsOnly(c.fallbackIdentifier || c.participantPhone || "")
@@ -351,16 +384,28 @@ const CustomerDetailsV2 = () => {
                   <MapPin size={13} className="text-[var(--sf-ink-3)]" /> {cityState}
                 </span>
               )}
-              {customer.created_at && (
-                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                  <CalendarIcon size={13} className="text-[var(--sf-ink-3)]" />
-                  Customer since{" "}
-                  {new Date(customer.created_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
-              )}
+              {(() => {
+                // Customer-since = earliest of customer.created_at
+                // and the earliest job date. ZB-sync customers have a
+                // created_at that's only the SF insert time, not when
+                // they actually became a customer; the first job's
+                // scheduled_date is usually closer to truth.
+                let since = customer.created_at ? new Date(customer.created_at) : null
+                jobs.forEach((j) => {
+                  const d = j.scheduled_date || j.created_at
+                  if (!d) return
+                  const ts = new Date(String(d).includes("T") ? d : String(d).replace(" ", "T"))
+                  if (!isNaN(ts) && (!since || ts < since)) since = ts
+                })
+                if (!since || isNaN(since)) return null
+                return (
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                    <CalendarIcon size={13} className="text-[var(--sf-ink-3)]" />
+                    Customer since{" "}
+                    {since.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                  </span>
+                )
+              })()}
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">

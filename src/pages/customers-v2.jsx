@@ -51,8 +51,10 @@ const formatMoney = (n) => {
 
 const formatDateShort = (s) => {
   if (!s) return "—"
-  const d = new Date(String(s).includes("T") ? s : String(s).replace(" ", "T"))
-  if (isNaN(d)) return "—"
+  const d = s instanceof Date
+    ? s
+    : new Date(String(s).includes("T") ? s : String(s).replace(" ", "T"))
+  if (!d || isNaN(d)) return "—"
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
@@ -196,9 +198,10 @@ const CustomersV2 = () => {
   )
 
   // Aggregate per-customer stats from the jobs list. Built once and
-  // looked up by id on the row. LTV uses revenue from any non-cancelled
-  // job (paid or expected) so the figure reflects what the customer
-  // is worth, not just what's been collected.
+  // looked up by id on the row. LTV mirrors the customer detail
+  // page's definition: revenue from COMPLETED jobs only (actual
+  // earned, not pipeline). totalJobs counts every non-cancelled job
+  // so it's still useful for "how active is this customer".
   const customerAgg = useMemo(() => {
     const map = new Map()
     jobsAll.forEach((j) => {
@@ -206,27 +209,32 @@ const CustomersV2 = () => {
       if (cid == null) return
       const status = (j.status || "").toLowerCase()
       const isCancelled = status === "cancelled" || status === "canceled"
+      const isCompleted = status === "completed" || status === "complete" || status === "done"
       if (isCancelled) return
       if (!map.has(cid)) {
         map.set(cid, {
           totalJobs: 0,
+          completedJobs: 0,
           totalRevenue: 0,
           hasRecurring: false,
           lastJobDate: null,
+          firstJobDate: null,
         })
       }
       const agg = map.get(cid)
       agg.totalJobs += 1
-      const value = parseFloat(
-        j.total || j.service_price || j.amount || 0
-      )
-      if (Number.isFinite(value)) agg.totalRevenue += value
+      if (isCompleted) {
+        agg.completedJobs += 1
+        const value = parseFloat(j.total || j.service_price || j.amount || 0)
+        if (Number.isFinite(value)) agg.totalRevenue += value
+      }
       if (j.is_recurring === true) agg.hasRecurring = true
       const d = j.scheduled_date || j.created_at
       if (d) {
         const ts = new Date(String(d).includes("T") ? d : String(d).replace(" ", "T"))
-        if (!isNaN(ts) && (!agg.lastJobDate || ts > agg.lastJobDate)) {
-          agg.lastJobDate = ts
+        if (!isNaN(ts)) {
+          if (!agg.lastJobDate || ts > agg.lastJobDate) agg.lastJobDate = ts
+          if (!agg.firstJobDate || ts < agg.firstJobDate) agg.firstJobDate = ts
         }
       }
     })
@@ -644,7 +652,16 @@ const CustomerRow = ({ customer, agg, isLast, selected, onToggleSelected, onClic
   const ltv = agg?.totalRevenue ?? 0
   const last = agg?.lastJobDate ?? (c.updated_at ? new Date(c.updated_at) : null)
   const rating = parseFloat(c.rating)
-  const joined = c.created_at
+  // Customer-since = the earliest signal we have. For Zenbooker-synced
+  // customers, the SF created_at is when the sync first ran, not the
+  // original join date. The earliest job_date is usually closer to
+  // when the customer actually started.
+  const createdAtDate = c.created_at ? new Date(c.created_at) : null
+  const joined = (() => {
+    if (!createdAtDate || isNaN(createdAtDate)) return agg?.firstJobDate || null
+    if (!agg?.firstJobDate) return createdAtDate
+    return agg.firstJobDate < createdAtDate ? agg.firstJobDate : createdAtDate
+  })()
 
   return (
     <div
