@@ -248,7 +248,7 @@ const JobsV2 = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const initialTab = TABS.find((t) => t.id === searchParams.get("tab"))?.id || "today"
+  const initialTab = TABS.find((t) => t.id === searchParams.get("tab"))?.id || "upcoming"
 
   const [tab, setTab] = useState(initialTab)
   const [search, setSearch] = useState("")
@@ -337,12 +337,13 @@ const JobsV2 = () => {
   const counts = useMemo(() => {
     const today = todayString()
     const tomorrow = addDays(today, 1)
-    const weekEnd = addDays(today, 6)
     return {
       today:     jobs.filter((j) => jobDateStr(j) === today && !isCancelled(j)).length,
       tomorrow:  jobs.filter((j) => jobDateStr(j) === tomorrow && !isCancelled(j)).length,
       week:      jobs.filter((j) => isInWeek(jobDateStr(j)) && !isCancelled(j)).length,
-      upcoming:  jobs.filter((j) => jobDateStr(j) > weekEnd && !isCancelled(j)).length,
+      // Upcoming = everything from tomorrow onwards (excluding cancelled).
+      // Overlaps with Tomorrow and This week — those are tighter slices.
+      upcoming:  jobs.filter((j) => jobDateStr(j) >= tomorrow && !isCancelled(j)).length,
       past:      jobs.filter(isPast).length,
       cancelled: jobs.filter(isCancelled).length,
       all:       jobs.length,
@@ -365,12 +366,11 @@ const JobsV2 = () => {
     }
     const today = todayString()
     const tomorrow = addDays(today, 1)
-    const weekEnd = addDays(today, 6)
     switch (tab) {
       case "today":     return jobs.filter((j) => jobDateStr(j) === today && !isCancelled(j))
       case "tomorrow":  return jobs.filter((j) => jobDateStr(j) === tomorrow && !isCancelled(j))
       case "week":      return jobs.filter((j) => isInWeek(jobDateStr(j)) && !isCancelled(j))
-      case "upcoming":  return jobs.filter((j) => jobDateStr(j) > weekEnd && !isCancelled(j))
+      case "upcoming":  return jobs.filter((j) => jobDateStr(j) >= tomorrow && !isCancelled(j))
       case "past":      return jobs.filter(isPast)
       case "cancelled": return jobs.filter(isCancelled)
       default:          return jobs
