@@ -863,13 +863,17 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                     const customer = j.customer_first_name || (j.customer_name || "").split(" ")[0] || "—"
 
                     // Block label varies by team role on this row.
+                    // For multi-cleaner jobs *with* a lead set, prefix with
+                    // "{lead}'s team" on the lead's row and "w/ {lead}" on
+                    // co-workers' rows so the team identity is explicit.
+                    // For multi-cleaner jobs *without* a lead, fall through
+                    // to the customer/service format — the +N badge in the
+                    // top-right already signals it's a team job.
                     let blockTitle
                     if (isTeamJob && lead && isLead) {
                       blockTitle = `${firstName(leadName) || "Team"}'s team · ${customer}`
                     } else if (isTeamJob && lead && !isLead) {
                       blockTitle = `w/ ${firstName(leadName) || "team"} · ${customer}`
-                    } else if (isTeamJob) {
-                      blockTitle = `Team · ${customer}`
                     } else {
                       blockTitle = j.service_name ? `${customer} · ${j.service_name}` : customer
                     }
