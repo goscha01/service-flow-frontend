@@ -377,17 +377,44 @@ export const sfInitials = (name) => {
     .toUpperCase()
 }
 
-// ── Team color cycle (A → E) ───────────────────────────────
+// ── Team color cycle ───────────────────────────────────────
 // Raw hex so callers can compose with alpha (`${color}26` etc.). The
-// matching CSS vars in index.css still exist for static styling needs.
+// matching --sf-team-* CSS vars in index.css still exist for static
+// styling needs.
 const TEAM_COLORS = [
-  "#2563EB", // A — blue
-  "#16A34A", // B — green
-  "#D97706", // C — amber
-  "#7C3AED", // D — purple
-  "#0891B2", // E — teal
+  "#2563EB", // blue
+  "#16A34A", // green
+  "#D97706", // amber
+  "#7C3AED", // purple
+  "#0891B2", // teal
+  "#DB2777", // pink
+  "#4F46E5", // indigo
+  "#65A30D", // lime
+  "#EA580C", // orange
+  "#0D9488", // emerald-teal
 ]
 export const sfTeamColor = (idx) => TEAM_COLORS[(idx ?? 0) % TEAM_COLORS.length]
+
+/**
+ * Assign visually-distinct colors to a deterministically-ordered list
+ * of ids. Same id → same color whenever the surrounding set is the same,
+ * and *different* ids always get different colors as long as the set is
+ * within the palette size. Implementation: order ids by stable hash,
+ * then walk the palette.
+ */
+const stringHash = (s) => {
+  const str = String(s ?? "")
+  let h = 0
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+export const sfAssignTeamColors = (ids) => {
+  const unique = Array.from(new Set(ids.map((x) => String(x))))
+  const ordered = unique.slice().sort((a, b) => stringHash(a) - stringHash(b))
+  const out = new Map()
+  ordered.forEach((id, i) => out.set(id, sfTeamColor(i)))
+  return out
+}
 
 // Re-export ChevronDown for callers that want a consistent dropdown caret
 export { ChevronDown as SfChevronDown }

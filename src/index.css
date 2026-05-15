@@ -98,6 +98,17 @@
 .sf-tabular { font-variant-numeric: tabular-nums; }
 .sf-mono { font-family: var(--sf-font-mono); font-variant-numeric: tabular-nums; }
 
+/* Schedule-timeline blocks need to override the global button
+   border-radius so the right edge can square off where the overtime
+   extension joins. The global rule below uses !important, so we match
+   with !important and rely on stylesheet order to win. */
+.sf-timeline-block {
+  border-radius: 5px !important;
+}
+.sf-timeline-block.has-overtime {
+  border-radius: 5px 0 0 5px !important;
+}
+
 /* ══════════════════════════════════════════════════
    BASE — Apply to everything
    ══════════════════════════════════════════════════ */

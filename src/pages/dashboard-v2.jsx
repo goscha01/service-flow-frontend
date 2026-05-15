@@ -25,10 +25,10 @@ import {
   SfTag,
   SfFilterChip,
   SfAvatar,
-  SfAvatarStack,
   SfSegmented,
   sfInitials,
   sfTeamColor,
+  sfAssignTeamColors,
 } from "../components/sf-primitives"
 
 /**
@@ -548,12 +548,16 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
       if (b.id === "unassigned") return -1
       return 0
     })
+    // Assign each cleaner a *unique* color among today's rows so two
+    // cleaners never share the same hue on the same screen.
+    const assignableIds = arr.map((r) => r.id).filter((id) => id !== "unassigned")
+    const colorMap = sfAssignTeamColors(assignableIds)
     return arr.map((row) => {
       const resolved = row.id === "unassigned" ? "Unassigned" : resolveName(row.id, row.name)
       return {
         ...row,
         label: resolved || "Team member",
-        color: row.id === "unassigned" ? "#DC2626" : sfTeamColor(stableHash(row.id)),
+        color: row.id === "unassigned" ? "#DC2626" : (colorMap.get(String(row.id)) || sfTeamColor(stableHash(row.id))),
       }
     })
   }, [jobs, resolveName])
@@ -737,7 +741,7 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                       <span key={`${row.id}-${j.id}`} className="contents">
                         <button
                           onClick={() => onJobClick(j.id)}
-                          className="absolute flex flex-col justify-center text-left overflow-hidden cursor-pointer"
+                          className={`sf-timeline-block absolute flex flex-col justify-center text-left overflow-hidden cursor-pointer ${overtimeMins ? "has-overtime" : ""}`}
                           style={{
                             top: 3,
                             bottom: 3,
@@ -746,7 +750,6 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                             background: blockBg,
                             borderLeft: `3px solid ${row.color}`,
                             color: blockFg,
-                            borderRadius: overtimeMins ? "5px 0 0 5px" : 5,
                             padding: "3px 8px",
                             fontSize: 11,
                             fontWeight: 600,
@@ -756,15 +759,18 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                           }}
                           title={`${blockTitle}${planned ? ` · planned ${planned}m` : ""}${real ? ` · real ${real}m` : ""}${overtimeMins ? ` · +${overtimeMins}m overtime` : undertimeMins ? ` · −${undertimeMins}m undertime` : ""}`}
                         >
-                          {/* undertime: shade the unused trailing slice of the block */}
+                          {/* undertime: the unused trailing slice of the block.
+                              Solid-ish white base with green diagonal stripes so it
+                              reads clearly against any block color underneath. */}
                           {undertimeMins > 0 && (
                             <span
                               className="absolute top-0 bottom-0 right-0 pointer-events-none"
                               style={{
                                 width: `${undertimePctOfBlock}%`,
                                 background:
-                                  "repeating-linear-gradient(45deg, rgba(22,163,74,.32) 0 5px, rgba(22,163,74,.10) 5px 10px)",
-                                borderLeft: "1px dashed rgba(22,163,74,.55)",
+                                  "repeating-linear-gradient(45deg, rgba(255,255,255,.92) 0 6px, #16A34A 6px 9px)",
+                                borderLeft: "1.5px dashed #15803D",
+                                borderRadius: "0 4px 4px 0",
                               }}
                             />
                           )}
