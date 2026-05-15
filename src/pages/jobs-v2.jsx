@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   Plus,
@@ -12,12 +12,15 @@ import {
   ChevronRight,
   MoreHorizontal,
   Clock,
-  Users as UsersIcon,
-  Tag as TagIcon,
   Calendar as CalendarIcon,
   List,
   LayoutGrid,
   CalendarRange,
+  RotateCw,
+  UserX,
+  CheckCircle2,
+  AlertCircle,
+  X as XIcon,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useLocationScope, filterByLocation } from "../context/LocationContext"
@@ -40,14 +43,18 @@ import {
 /**
  * Jobs list — Service Blue redesign (Wave 2.2).
  *
- * Reuses jobsAPI.getAll for data and integrates the LocationContext
- * filter. Layout follows the design pack: tabs by date/status, toolbar
- * with search + filter chips + view toggle, dense table with checkbox,
- * time block, customer cell, address, team cell, value, status pill,
- * row-end overflow, paginated footer.
+ * Uses jobsAPI.getAll for data and integrates LocationContext. Layout
+ * follows the design pack with two extensions per feedback:
+ *   - Tabs cover the time spectrum (Today / Tomorrow / This week /
+ *     Upcoming / Past / Cancelled / All), plus an explicit date-range
+ *     picker that overrides the tab when set.
+ *   - Row shows date, time-from-to, duration, service, and payment
+ *     status (paid / unpaid) alongside the job status. Unassigned and
+ *     Recurring move to toggleable filter chips so they can combine
+ *     with any tab.
  */
 
-// ── Helpers ────────────────────────────────────────────────
+// ── Date helpers ───────────────────────────────────────────
 
 const todayString = () => {
   const d = new Date()
@@ -66,6 +73,14 @@ const jobDateStr = (j) => {
   return String(raw).split("T")[0].split(" ")[0]
 }
 
+const formatDateShort = (s) => {
+  if (!s) return "—"
+  const [y, m, d] = s.split("-").map(Number)
+  if (!y) return "—"
+  const dt = new Date(y, m - 1, d)
+  return dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+}
+
 const parseTime = (s) => {
   if (!s) return null
   const m = String(s).trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM|am|pm)?$/)
@@ -76,9 +91,27 @@ const parseTime = (s) => {
   if (mer === "PM" && h < 12) h += 12
   if (mer === "AM" && h === 12) h = 0
   if (h < 0 || h > 23 || min < 0 || min > 59) return null
-  const display = `${h % 12 === 0 ? 12 : h % 12}:${String(min).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`
-  return { h, m: min, label: display, minutes: h * 60 + min }
+  return { h, m: min, minutes: h * 60 + min }
 }
+
+const formatTimeHM = (h, m) => {
+  const merid = h < 12 ? "AM" : "PM"
+  const hh = h % 12 === 0 ? 12 : h % 12
+  return `${hh}:${String(m).padStart(2, "0")} ${merid}`
+}
+
+const timeRangeLabel = (job) => {
+  const t = parseTime(job.service_time || job.start_time)
+  if (!t) return "—"
+  const duration = parseInt(job.duration || job.service_duration || job.estimated_duration || 0, 10)
+  if (!duration) return formatTimeHM(t.h, t.m)
+  const endMins = t.minutes + duration
+  const endH = Math.floor(endMins / 60) % 24
+  const endM = endMins % 60
+  return `${formatTimeHM(t.h, t.m).replace(/ (AM|PM)/, "")} – ${formatTimeHM(endH, endM)}`
+}
+
+// ── Job-shape helpers ──────────────────────────────────────
 
 const jobStatusLabel = (raw) => {
   const s = (raw || "").toLowerCase()
@@ -87,6 +120,17 @@ const jobStatusLabel = (raw) => {
   if (s === "completed" || s === "complete" || s === "done") return "Completed"
   if (s === "cancelled" || s === "canceled") return "Cancelled"
   return "Scheduled"
+}
+
+const isCancelled = (j) => {
+  const s = (j.status || "").toLowerCase()
+  return s === "cancelled" || s === "canceled"
+}
+
+const isPast = (j) => {
+  const s = (j.status || "").toLowerCase()
+  if (s === "completed" || s === "complete" || s === "done" || s === "finished") return true
+  return jobDateStr(j) < todayString() && !isCancelled(j)
 }
 
 const isAssigned = (job) =>
@@ -117,10 +161,60 @@ const assigneeIdsOf = (job) => {
 
 const formatMoney = (n) => `$${(Number.isFinite(n) ? n : 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
-// ── Date-window helpers for the tabs ───────────────────────
+const paymentState = (j) => {
+  const total = parseFloat(j.total || j.service_price || 0)
+  if (isCancelled(j) || total === 0) return null
+  const raw = String(j.payment_status || j.payment_state || "").toLowerCase()
+  if (raw === "paid" || raw === "complete" || raw === "completed") return "paid"
+  if (raw === "partial" || raw === "partial_paid" || raw === "partially_paid") return "partial"
+  if (raw === "refunded") return "refunded"
+  // Default: unpaid when there's a value and status is not paid
+  return "unpaid"
+}
 
+const PaymentPill = ({ state }) => {
+  if (!state) return <span className="text-[var(--sf-ink-3)] text-[11px]">—</span>
+  const map = {
+    paid:     { label: "Paid",     fg: "#15803D", bg: "#ECFDF5", dot: "#22C55E", icon: CheckCircle2 },
+    unpaid:   { label: "Unpaid",   fg: "#B45309", bg: "#FEF3C7", dot: "#D97706", icon: AlertCircle },
+    partial:  { label: "Partial",  fg: "#0E7490", bg: "#CFFAFE", dot: "#0891B2", icon: AlertCircle },
+    refunded: { label: "Refunded", fg: "#5F6775", bg: "#F1F5F9", dot: "#94A3B8", icon: AlertCircle },
+  }
+  const m = map[state] || map.unpaid
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-2 py-[3px] rounded-full whitespace-nowrap"
+      style={{
+        background: m.bg,
+        color: m.fg,
+        fontSize: 11,
+        fontWeight: 600,
+        border: `1px solid ${m.dot}25`,
+      }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: m.dot }} />
+      {m.label}
+    </span>
+  )
+}
+
+// ── Tab definitions ────────────────────────────────────────
+
+const TABS = [
+  { id: "today",     label: "Today" },
+  { id: "tomorrow",  label: "Tomorrow" },
+  { id: "week",      label: "This week" },
+  { id: "upcoming",  label: "Upcoming" },
+  { id: "past",      label: "Past" },
+  { id: "cancelled", label: "Cancelled" },
+  { id: "all",       label: "All" },
+]
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+const DEFAULT_PAGE_SIZE = 10
+
+// "This week" = today through next 6 days
 const isInWeek = (dateStr) => {
-  // "This week" = today through next 6 days
   if (!dateStr) return false
   const today = todayString()
   const end = addDays(today, 6)
@@ -128,17 +222,6 @@ const isInWeek = (dateStr) => {
 }
 
 // ── Component ──────────────────────────────────────────────
-
-const TABS = [
-  { id: "today",       label: "Today" },
-  { id: "tomorrow",    label: "Tomorrow" },
-  { id: "week",        label: "This week" },
-  { id: "inProgress",  label: "In progress" },
-  { id: "unassigned",  label: "Unassigned" },
-  { id: "all",         label: "All" },
-]
-
-const PAGE_SIZE = 50
 
 const JobsV2 = () => {
   const { user } = useAuth()
@@ -151,15 +234,26 @@ const JobsV2 = () => {
   const [tab, setTab] = useState(initialTab)
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [view, setView] = useState("list") // list | cards | cal
+  const [view, setView] = useState("list")
   const [sortMode, setSortMode] = useState("time")
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
+  // Toggleable secondary filters
+  const [onlyRecurring, setOnlyRecurring] = useState(false)
+  const [onlyUnassigned, setOnlyUnassigned] = useState(false)
+
+  // Custom date range (overrides tab when active)
+  const [dateRange, setDateRange] = useState({ from: "", to: "" })
+  const [datePickerOpen, setDatePickerOpen] = useState(false)
+  const datePickerRef = useRef(null)
+
+  // Data
   const [loading, setLoading] = useState(true)
   const [jobsAll, setJobsAll] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
 
-  // Sync tab → URL so refresh keeps state
+  // Sync tab → URL
   useEffect(() => {
     setSearchParams((sp) => {
       const next = new URLSearchParams(sp)
@@ -168,25 +262,42 @@ const JobsV2 = () => {
     }, { replace: true })
   }, [tab, setSearchParams])
 
-  // Debounce the search input
+  // Debounce search
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 200)
     return () => clearTimeout(t)
   }, [search])
 
-  // Fetch jobs spanning [today − 7 days, today + 30 days] so tabs other
-  // than "All" stay client-side cheap. "All" uses the same slice — for
-  // a truly unbounded archive, pagination would need to drive the API.
+  // Close date picker on outside click
+  useEffect(() => {
+    if (!datePickerOpen) return
+    const onClick = (e) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setDatePickerOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", onClick)
+    return () => document.removeEventListener("mousedown", onClick)
+  }, [datePickerOpen])
+
+  // Compute the API fetch window. Default covers ~5 months centered on
+  // today; custom date range expands the window as needed.
+  const fetchWindow = useMemo(() => {
+    const today = todayString()
+    let start = addDays(today, -60)
+    let end = addDays(today, 90)
+    if (dateRange.from && dateRange.from < start) start = dateRange.from
+    if (dateRange.to && dateRange.to > end) end = dateRange.to
+    return { start, end }
+  }, [dateRange.from, dateRange.to])
+
   const fetchJobs = useCallback(async () => {
     if (!user?.id) return
     setLoading(true)
     try {
-      const today = todayString()
-      const start = addDays(today, -7)
-      const end = addDays(today, 30)
-      const dateRange = `${start} to ${end}`
+      const range = `${fetchWindow.start} to ${fetchWindow.end}`
       const [jobsResp, teamResp] = await Promise.allSettled([
-        jobsAPI.getAll(user.id, "", "", 1, 500, null, dateRange, "scheduled_date", "ASC"),
+        jobsAPI.getAll(user.id, "", "", 1, 1000, null, range, "scheduled_date", "ASC"),
         teamAPI.getAll(user.id, { page: 1, limit: 200 }),
       ])
       const jobsList = jobsResp.status === "fulfilled" ? normalizeAPIResponse(jobsResp.value, "jobs") : []
@@ -196,74 +307,90 @@ const JobsV2 = () => {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user?.id, fetchWindow.start, fetchWindow.end])
 
   useEffect(() => { fetchJobs() }, [fetchJobs])
 
-  // Location filter
+  // Apply location filter
   const jobs = useMemo(() => filterByLocation(jobsAll, locationId), [jobsAll, locationId])
 
   // Tab counts
   const counts = useMemo(() => {
     const today = todayString()
     const tomorrow = addDays(today, 1)
+    const weekEnd = addDays(today, 6)
     return {
-      today:      jobs.filter((j) => jobDateStr(j) === today).length,
-      tomorrow:   jobs.filter((j) => jobDateStr(j) === tomorrow).length,
-      week:       jobs.filter((j) => isInWeek(jobDateStr(j))).length,
-      inProgress: jobs.filter((j) => {
-        const s = (j.status || "").toLowerCase()
-        return s === "in progress" || s === "in_progress" || s === "en route" || s === "en_route"
-      }).length,
-      unassigned: jobs.filter((j) => !isAssigned(j)).length,
-      all:        jobs.length,
+      today:     jobs.filter((j) => jobDateStr(j) === today && !isCancelled(j)).length,
+      tomorrow:  jobs.filter((j) => jobDateStr(j) === tomorrow && !isCancelled(j)).length,
+      week:      jobs.filter((j) => isInWeek(jobDateStr(j)) && !isCancelled(j)).length,
+      upcoming:  jobs.filter((j) => jobDateStr(j) > weekEnd && !isCancelled(j)).length,
+      past:      jobs.filter(isPast).length,
+      cancelled: jobs.filter(isCancelled).length,
+      all:       jobs.length,
     }
   }, [jobs])
 
-  // Filter by tab
+  // Custom date range takes precedence over the tab when set
+  const dateRangeActive = Boolean(dateRange.from || dateRange.to)
+
+  // Filter by tab (or date range when active)
   const tabFiltered = useMemo(() => {
+    if (dateRangeActive) {
+      return jobs.filter((j) => {
+        const d = jobDateStr(j)
+        if (!d) return false
+        if (dateRange.from && d < dateRange.from) return false
+        if (dateRange.to && d > dateRange.to) return false
+        return true
+      })
+    }
     const today = todayString()
     const tomorrow = addDays(today, 1)
+    const weekEnd = addDays(today, 6)
     switch (tab) {
-      case "today":      return jobs.filter((j) => jobDateStr(j) === today)
-      case "tomorrow":   return jobs.filter((j) => jobDateStr(j) === tomorrow)
-      case "week":       return jobs.filter((j) => isInWeek(jobDateStr(j)))
-      case "inProgress": return jobs.filter((j) => {
-        const s = (j.status || "").toLowerCase()
-        return s === "in progress" || s === "in_progress" || s === "en route" || s === "en_route"
-      })
-      case "unassigned": return jobs.filter((j) => !isAssigned(j))
-      default:           return jobs
+      case "today":     return jobs.filter((j) => jobDateStr(j) === today && !isCancelled(j))
+      case "tomorrow":  return jobs.filter((j) => jobDateStr(j) === tomorrow && !isCancelled(j))
+      case "week":      return jobs.filter((j) => isInWeek(jobDateStr(j)) && !isCancelled(j))
+      case "upcoming":  return jobs.filter((j) => jobDateStr(j) > weekEnd && !isCancelled(j))
+      case "past":      return jobs.filter(isPast)
+      case "cancelled": return jobs.filter(isCancelled)
+      default:          return jobs
     }
-  }, [jobs, tab])
+  }, [jobs, tab, dateRangeActive, dateRange.from, dateRange.to])
 
-  // Apply search
-  const searched = useMemo(() => {
-    if (!debouncedSearch) return tabFiltered
-    const q = debouncedSearch.toLowerCase()
+  // Secondary filters
+  const filtered = useMemo(() => {
     return tabFiltered.filter((j) => {
+      if (onlyRecurring && j.is_recurring !== true) return false
+      if (onlyUnassigned && isAssigned(j)) return false
+      return true
+    })
+  }, [tabFiltered, onlyRecurring, onlyUnassigned])
+
+  // Search
+  const searched = useMemo(() => {
+    if (!debouncedSearch) return filtered
+    const q = debouncedSearch.toLowerCase()
+    return filtered.filter((j) => {
       const customer = `${j.customer_first_name || ""} ${j.customer_last_name || ""} ${j.customer_name || ""}`.toLowerCase()
       const addr = (j.service_address || j.customer_address || "").toLowerCase()
       const id = String(j.id || "").toLowerCase()
-      return customer.includes(q) || addr.includes(q) || id.includes(q)
+      const svc = String(j.service_name || "").toLowerCase()
+      return customer.includes(q) || addr.includes(q) || id.includes(q) || svc.includes(q)
     })
-  }, [tabFiltered, debouncedSearch])
+  }, [filtered, debouncedSearch])
 
-  // Apply sort
+  // Sort
   const sorted = useMemo(() => {
     const out = [...searched]
     out.sort((a, b) => {
       if (sortMode === "value") {
-        const av = parseFloat(a.total || a.service_price || 0)
-        const bv = parseFloat(b.total || b.service_price || 0)
-        return bv - av
+        return parseFloat(b.total || b.service_price || 0) - parseFloat(a.total || a.service_price || 0)
       }
       if (sortMode === "customer") {
-        const ac = (a.customer_name || "").toLowerCase()
-        const bc = (b.customer_name || "").toLowerCase()
-        return ac.localeCompare(bc)
+        return (a.customer_name || "").toLowerCase().localeCompare((b.customer_name || "").toLowerCase())
       }
-      // default: time (scheduled_date then service_time)
+      // time: date asc, then start asc
       const ad = jobDateStr(a)
       const bd = jobDateStr(b)
       if (ad !== bd) return ad < bd ? -1 : 1
@@ -275,22 +402,20 @@ const JobsV2 = () => {
   }, [searched, sortMode])
 
   // Pagination
-  useEffect(() => { setPage(1) }, [tab, debouncedSearch, sortMode, locationId])
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
+  useEffect(() => {
+    setPage(1)
+  }, [tab, debouncedSearch, sortMode, locationId, onlyRecurring, onlyUnassigned, dateRange.from, dateRange.to, pageSize])
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
   const currentPage = Math.min(page, totalPages)
-  const pageStart = (currentPage - 1) * PAGE_SIZE
-  const pageRows = sorted.slice(pageStart, pageStart + PAGE_SIZE)
+  const pageStart = (currentPage - 1) * pageSize
+  const pageRows = sorted.slice(pageStart, pageStart + pageSize)
 
-  // Cleaner color + name lookups
+  // Name + color lookups
   const memberNameById = useMemo(() => {
     const map = new Map()
     teamMembers.forEach((m) => {
       if (m?.id == null) return
-      const n =
-        m.name ||
-        `${m.first_name || ""} ${m.last_name || ""}`.trim() ||
-        m.email ||
-        ""
+      const n = m.name || `${m.first_name || ""} ${m.last_name || ""}`.trim() || m.email || ""
       if (n) map.set(String(m.id), n)
     })
     return map
@@ -303,6 +428,11 @@ const JobsV2 = () => {
   }, [jobs])
 
   const cleanerColors = useMemo(() => sfAssignTeamColors(allAssigneeIds), [allAssigneeIds])
+
+  // Show date column when tab spans multiple days
+  const tabSpansMultipleDays =
+    dateRangeActive ||
+    !["today", "tomorrow"].includes(tab)
 
   // ── Render ────────────────────────────────────────────────
 
@@ -318,7 +448,9 @@ const JobsV2 = () => {
         subtitle={
           loading
             ? "Loading…"
-            : `${counts.all} job${counts.all === 1 ? "" : "s"} in the window · ${counts.unassigned} unassigned`
+            : dateRangeActive
+              ? `${sorted.length} job${sorted.length === 1 ? "" : "s"} in ${formatDateShort(dateRange.from || fetchWindow.start)} – ${formatDateShort(dateRange.to || fetchWindow.end)}`
+              : `${counts.all} job${counts.all === 1 ? "" : "s"} in the window · ${counts.cancelled} cancelled · ${jobs.filter((j) => !isAssigned(j) && !isCancelled(j)).length} unassigned`
         }
         actions={
           <>
@@ -334,18 +466,21 @@ const JobsV2 = () => {
           </>
         }
         tabs={
-          <>
+          <div className="flex items-center overflow-x-auto scrollbar-hide w-full">
             {TABS.map((t) => (
               <SfTab
                 key={t.id}
-                active={tab === t.id}
+                active={!dateRangeActive && tab === t.id}
                 count={counts[t.id]}
-                onClick={() => setTab(t.id)}
+                onClick={() => {
+                  setTab(t.id)
+                  setDateRange({ from: "", to: "" })
+                }}
               >
                 {t.label}
               </SfTab>
             ))}
-          </>
+          </div>
         }
       />
 
@@ -385,15 +520,86 @@ const JobsV2 = () => {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search jobs by customer, ID, or address…"
+            placeholder="Search by customer, ID, address, or service…"
             className="flex-1 bg-transparent border-none outline-none text-[12.5px] text-[var(--sf-ink)]"
             style={{ fontFamily: "var(--sf-font-ui)", padding: 0, boxShadow: "none" }}
           />
         </div>
-        <SfFilterChip icon={UsersIcon}>Team</SfFilterChip>
-        <SfFilterChip icon={TagIcon}>Service</SfFilterChip>
-        <SfFilterChip icon={MapPin}>Area</SfFilterChip>
-        <SfFilterChip icon={CalendarIcon}>Date</SfFilterChip>
+
+        {/* Date range picker */}
+        <div className="relative" ref={datePickerRef}>
+          <SfFilterChip
+            icon={CalendarIcon}
+            active={dateRangeActive}
+            onClick={() => setDatePickerOpen((v) => !v)}
+          >
+            {dateRangeActive
+              ? `${formatDateShort(dateRange.from || fetchWindow.start)} → ${formatDateShort(dateRange.to || fetchWindow.end)}`
+              : "Date range"}
+          </SfFilterChip>
+          {datePickerOpen && (
+            <div
+              className="absolute left-0 top-full mt-1.5 z-50 rounded-[10px] bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] p-3"
+              style={{ boxShadow: "var(--sf-shadow-l)", minWidth: 280 }}
+            >
+              <div className="flex flex-col gap-2.5">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10.5px] font-semibold text-[var(--sf-ink-3)] uppercase tracking-wide">From</span>
+                  <input
+                    type="date"
+                    value={dateRange.from}
+                    onChange={(e) => setDateRange((r) => ({ ...r, from: e.target.value }))}
+                    className="rounded-md border border-[var(--sf-border-soft)]"
+                    style={{ padding: "6px 10px", fontSize: 12.5, fontFamily: "var(--sf-font-ui)" }}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10.5px] font-semibold text-[var(--sf-ink-3)] uppercase tracking-wide">To</span>
+                  <input
+                    type="date"
+                    value={dateRange.to}
+                    onChange={(e) => setDateRange((r) => ({ ...r, to: e.target.value }))}
+                    className="rounded-md border border-[var(--sf-border-soft)]"
+                    style={{ padding: "6px 10px", fontSize: 12.5, fontFamily: "var(--sf-font-ui)" }}
+                  />
+                </label>
+                <div className="flex items-center justify-end gap-2 mt-1">
+                  {dateRangeActive && (
+                    <SfButton
+                      variant="ghost"
+                      size="sm"
+                      icon={XIcon}
+                      onClick={() => {
+                        setDateRange({ from: "", to: "" })
+                      }}
+                    >
+                      Clear
+                    </SfButton>
+                  )}
+                  <SfButton variant="primary" size="sm" onClick={() => setDatePickerOpen(false)}>
+                    Apply
+                  </SfButton>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <SfFilterChip
+          icon={RotateCw}
+          active={onlyRecurring}
+          onClick={() => setOnlyRecurring((v) => !v)}
+        >
+          Recurring
+        </SfFilterChip>
+        <SfFilterChip
+          icon={UserX}
+          active={onlyUnassigned}
+          onClick={() => setOnlyUnassigned((v) => !v)}
+        >
+          Unassigned
+        </SfFilterChip>
+
         <div className="flex-1" />
         <span className="text-[11.5px] text-[var(--sf-ink-3)] font-medium hidden md:inline">Sort:</span>
         <SfFilterChip icon={Clock} active={sortMode === "time"} onClick={() => setSortMode("time")}>
@@ -446,16 +652,18 @@ const JobsV2 = () => {
               textTransform: "uppercase",
             }}
           >
-            <div style={{ width: 100 }}>Job · Time</div>
+            <div style={{ width: tabSpansMultipleDays ? 150 : 130 }}>
+              {tabSpansMultipleDays ? "Job · Date · Time" : "Job · Time"}
+            </div>
             <div className="flex-1 min-w-0">Customer · Service</div>
-            <div style={{ width: 200 }}>Address</div>
-            <div style={{ width: 140 }}>Team</div>
-            <div style={{ width: 80, textAlign: "right" }}>Value</div>
-            <div style={{ width: 120 }}>Status</div>
-            <div style={{ width: 28 }} />
+            <div style={{ width: 180 }}>Address</div>
+            <div style={{ width: 130 }}>Team</div>
+            <div style={{ width: 70, textAlign: "right" }}>Value</div>
+            <div style={{ width: 100 }}>Status</div>
+            <div style={{ width: 90 }}>Payment</div>
+            <div style={{ width: 24 }} />
           </div>
 
-          {/* Rows */}
           {loading ? (
             <div className="py-16 text-center text-[12.5px] text-[var(--sf-ink-3)]">
               Loading jobs…
@@ -470,6 +678,7 @@ const JobsV2 = () => {
                 key={j.id || i}
                 job={j}
                 isLast={i === pageRows.length - 1}
+                showDate={tabSpansMultipleDays}
                 cleanerColors={cleanerColors}
                 memberNameById={memberNameById}
                 onClick={() => navigate(`/job/${j.id}`)}
@@ -490,9 +699,29 @@ const JobsV2 = () => {
             <span>
               Showing <b className="text-[var(--sf-ink)]">{pageRows.length}</b> of {sorted.length}
               {sorted.length !== counts.all && counts.all > 0 && (
-                <> · <span className="text-[var(--sf-ink-3)]">{counts.all} total</span></>
+                <> · <span className="text-[var(--sf-ink-3)]">{counts.all} total in window</span></>
               )}
             </span>
+            <label className="inline-flex items-center gap-1.5 ml-3 text-[11.5px] text-[var(--sf-ink-3)]">
+              Per page:
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(parseInt(e.target.value, 10))}
+                className="rounded-md border border-[var(--sf-border-soft)] bg-[var(--sf-panel)]"
+                style={{
+                  padding: "3px 6px",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: "var(--sf-ink-2)",
+                  fontFamily: "var(--sf-font-ui)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
             <div className="flex-1" />
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
@@ -534,9 +763,10 @@ const JobsV2 = () => {
 
 // ── Single row ─────────────────────────────────────────────
 
-const JobRow = ({ job, isLast, cleanerColors, memberNameById, onClick }) => {
+const JobRow = ({ job, isLast, showDate, cleanerColors, memberNameById, onClick }) => {
   const j = job
-  const t = parseTime(j.service_time || j.start_time)
+  const date = jobDateStr(j)
+  const tRange = timeRangeLabel(j)
   const duration = parseInt(j.duration || j.service_duration || j.estimated_duration || 0, 10)
   const customer =
     j.customer_name ||
@@ -549,14 +779,12 @@ const JobRow = ({ job, isLast, cleanerColors, memberNameById, onClick }) => {
   const addr = j.service_address || j.customer_address || ""
   const addrFirstLine = addr.split(",")[0] || ""
   const addrCity = (j.service_city || j.customer_city || addr.split(",")[1] || "").trim()
+  const payState = paymentState(j)
 
   const assignees = assigneeIdsOf(j)
   const teamColor = assignees.length ? cleanerColors.get(assignees[0]) || "#94A3B8" : "#DC2626"
   const cleanerName = assignees.length ? memberNameById.get(assignees[0]) : null
   const otherCount = assignees.length > 1 ? assignees.length - 1 : 0
-
-  // Bedrooms / property size from common field shapes
-  const beds = j.bedrooms || j.property_bedrooms || j.beds || null
 
   return (
     <button
@@ -571,22 +799,27 @@ const JobRow = ({ job, isLast, cleanerColors, memberNameById, onClick }) => {
         fontFamily: "var(--sf-font-ui)",
       }}
     >
-      {/* Job · Time */}
-      <div style={{ width: 100 }} className="flex-shrink-0">
+      {/* Job · Date · Time */}
+      <div style={{ width: showDate ? 150 : 130 }} className="flex-shrink-0">
         <div
           className="text-[10.5px] text-[var(--sf-ink-3)] font-semibold"
           style={{ fontFamily: "var(--sf-font-mono)" }}
         >
           {idDisp}
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <span
-            className="text-[12.5px] font-bold text-[var(--sf-ink)]"
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            {t?.label.split(" ")[0] || "—"}
-          </span>
-          <span className="text-[10px] text-[var(--sf-ink-3)]">{duration ? `${duration}m` : ""}</span>
+        {showDate && (
+          <div className="text-[11px] font-semibold text-[var(--sf-ink-2)] mt-0.5">
+            {formatDateShort(date)}
+          </div>
+        )}
+        <div
+          className="text-[12px] font-bold text-[var(--sf-ink)] mt-0.5"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {tRange}
+        </div>
+        <div className="text-[10px] text-[var(--sf-ink-3)] mt-px">
+          {duration ? `${duration}m` : ""}
         </div>
       </div>
 
@@ -600,15 +833,15 @@ const JobRow = ({ job, isLast, cleanerColors, memberNameById, onClick }) => {
                 {customer}
               </span>
               {isRecurring && (
-                <SfTag color="var(--sf-purple)" bg="var(--sf-purple-soft)">↻</SfTag>
+                <SfTag color="var(--sf-purple)" bg="var(--sf-purple-soft)">↻ Recurring</SfTag>
               )}
             </div>
-            <div className="text-[11px] text-[var(--sf-ink-2)] mt-0.5 flex items-center gap-1.5 truncate">
-              <span className="truncate">{j.service_name || "Service"}</span>
-              {beds && (
+            <div className="text-[11px] text-[var(--sf-ink-2)] mt-0.5 truncate">
+              {j.service_name || "Service"}
+              {j.bedrooms && (
                 <>
-                  <span className="text-[var(--sf-ink-4)]">·</span>
-                  <span className="truncate">{beds} bd</span>
+                  <span className="text-[var(--sf-ink-4)] mx-1">·</span>
+                  <span>{j.bedrooms} bd</span>
                 </>
               )}
             </div>
@@ -618,7 +851,7 @@ const JobRow = ({ job, isLast, cleanerColors, memberNameById, onClick }) => {
 
       {/* Address */}
       <div
-        style={{ width: 200 }}
+        style={{ width: 180 }}
         className="hidden md:flex items-center gap-1.5 flex-shrink-0 pr-2 text-[11.5px] text-[var(--sf-ink-2)]"
       >
         <MapPin size={11} className="text-[var(--sf-ink-3)] flex-shrink-0" />
@@ -629,7 +862,7 @@ const JobRow = ({ job, isLast, cleanerColors, memberNameById, onClick }) => {
       </div>
 
       {/* Team */}
-      <div style={{ width: 140 }} className="hidden md:flex items-center gap-2 flex-shrink-0">
+      <div style={{ width: 130 }} className="hidden md:flex items-center gap-2 flex-shrink-0">
         {assignees.length ? (
           <>
             <span
@@ -664,7 +897,7 @@ const JobRow = ({ job, isLast, cleanerColors, memberNameById, onClick }) => {
 
       {/* Value */}
       <div
-        style={{ width: 80, textAlign: "right" }}
+        style={{ width: 70, textAlign: "right" }}
         className="hidden sm:block flex-shrink-0 text-[13px] font-semibold text-[var(--sf-ink)]"
       >
         <span style={{ fontVariantNumeric: "tabular-nums" }}>
@@ -673,11 +906,16 @@ const JobRow = ({ job, isLast, cleanerColors, memberNameById, onClick }) => {
       </div>
 
       {/* Status */}
-      <div style={{ width: 120 }} className="hidden sm:flex flex-shrink-0">
+      <div style={{ width: 100 }} className="hidden sm:flex flex-shrink-0">
         <SfStatusPill status={status} />
       </div>
 
-      <span className="text-[var(--sf-ink-3)] flex-shrink-0" style={{ width: 28, textAlign: "center" }}>
+      {/* Payment */}
+      <div style={{ width: 90 }} className="hidden md:flex flex-shrink-0">
+        <PaymentPill state={payState} />
+      </div>
+
+      <span className="text-[var(--sf-ink-3)] flex-shrink-0" style={{ width: 24, textAlign: "center" }}>
         <MoreHorizontal size={15} />
       </span>
     </button>
@@ -687,10 +925,8 @@ const JobRow = ({ job, isLast, cleanerColors, memberNameById, onClick }) => {
 // ── Pagination numbers ─────────────────────────────────────
 
 const PaginationNumbers = ({ total, current, onChange }) => {
-  // Show: first, current-1, current, current+1, last (with … gaps)
   const pages = []
   const push = (p) => { if (!pages.includes(p)) pages.push(p) }
-
   push(1)
   if (current - 1 > 2) push("…l")
   for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) push(p)
