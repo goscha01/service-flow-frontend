@@ -132,41 +132,52 @@ const jobStatusLabel = (raw) => {
 
 // Return all cleaner assignees on a job as { id, name } pairs. A multi-cleaner
 // job (a "team" in business terms) has length >= 2. Empty array = unassigned.
+// Entries are deduped by id — the same cleaner listed twice in
+// assigned_providers (a real shape we've seen in the data) shouldn't
+// inflate the team count.
 const assigneesFor = (job) => {
+  const seen = new Set()
   const out = []
+  const push = (rawId, name) => {
+    const id = rawId == null ? null : String(rawId)
+    if (!id || seen.has(id)) return
+    seen.add(id)
+    out.push({ id, name: name || "" })
+  }
   if (Array.isArray(job.assigned_providers) && job.assigned_providers.length) {
     job.assigned_providers.forEach((p) => {
       const id = p?.id || p?.team_member_id || p?.provider_id
-      if (!id) return
       const name =
         p?.name ||
         `${p?.first_name || ""} ${p?.last_name || ""}`.trim() ||
         p?.email ||
         ""
-      out.push({ id: String(id), name })
+      push(id, name)
     })
-  } else if (Array.isArray(job.team_members) && job.team_members.length) {
+  }
+  if (Array.isArray(job.team_members) && job.team_members.length) {
     job.team_members.forEach((m) => {
       const id = m?.id || m?.team_member_id
-      if (!id) return
       const name =
         m?.name ||
         `${m?.first_name || ""} ${m?.last_name || ""}`.trim() ||
         m?.email ||
         ""
-      out.push({ id: String(id), name })
+      push(id, name)
     })
-  } else if (Array.isArray(job.job_team_assignments) && job.job_team_assignments.length) {
-    job.job_team_assignments.forEach((a) => {
-      const id = a?.team_member_id || a?.id
-      if (!id) return
-      out.push({ id: String(id), name: a?.team_member_name || "" })
-    })
-  } else if (job.team_member_id) {
-    out.push({ id: String(job.team_member_id), name: job.team_member_name || "" })
-  } else if (job.assigned_to) {
-    out.push({ id: String(job.assigned_to), name: job.assigned_to_name || "" })
   }
+  if (Array.isArray(job.job_team_assignments) && job.job_team_assignments.length) {
+    job.job_team_assignments.forEach((a) => {
+      push(a?.team_member_id || a?.id, a?.team_member_name)
+    })
+  }
+  if (Array.isArray(job.team_assignments) && job.team_assignments.length) {
+    job.team_assignments.forEach((a) => {
+      push(a?.team_member_id || a?.id, a?.team_member_name)
+    })
+  }
+  if (job.team_member_id) push(job.team_member_id, job.team_member_name)
+  if (job.assigned_to) push(job.assigned_to, job.assigned_to_name)
   return out
 }
 

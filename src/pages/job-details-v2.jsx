@@ -118,6 +118,11 @@ const assigneesFor = (job) => {
       add(a?.team_member_id || a?.id, a?.team_member_name)
     })
   }
+  if (Array.isArray(job.team_assignments)) {
+    job.team_assignments.forEach((a) => {
+      add(a?.team_member_id || a?.id, a?.team_member_name)
+    })
+  }
   if (job.team_member_id) add(job.team_member_id, job.team_member_name)
   if (job.assigned_to) add(job.assigned_to, job.assigned_to_name)
   return out

@@ -161,20 +161,29 @@ const isAssigned = (job) =>
   )
 
 const assigneeIdsOf = (job) => {
+  const seen = new Set()
   const ids = []
-  if (Array.isArray(job.assigned_providers)) {
-    job.assigned_providers.forEach((p) => {
-      const id = p?.id || p?.team_member_id || p?.provider_id
-      if (id) ids.push(String(id))
-    })
-  } else if (Array.isArray(job.team_members)) {
-    job.team_members.forEach((m) => {
-      const id = m?.id || m?.team_member_id
-      if (id) ids.push(String(id))
-    })
+  const push = (raw) => {
+    if (raw == null) return
+    const id = String(raw)
+    if (seen.has(id)) return
+    seen.add(id)
+    ids.push(id)
   }
-  if (ids.length === 0 && job.team_member_id) ids.push(String(job.team_member_id))
-  if (ids.length === 0 && job.assigned_to) ids.push(String(job.assigned_to))
+  if (Array.isArray(job.assigned_providers)) {
+    job.assigned_providers.forEach((p) => push(p?.id || p?.team_member_id || p?.provider_id))
+  }
+  if (Array.isArray(job.team_members)) {
+    job.team_members.forEach((m) => push(m?.id || m?.team_member_id))
+  }
+  if (Array.isArray(job.job_team_assignments)) {
+    job.job_team_assignments.forEach((a) => push(a?.team_member_id || a?.id))
+  }
+  if (Array.isArray(job.team_assignments)) {
+    job.team_assignments.forEach((a) => push(a?.team_member_id || a?.id))
+  }
+  if (job.team_member_id) push(job.team_member_id)
+  if (job.assigned_to) push(job.assigned_to)
   return ids
 }
 
