@@ -528,6 +528,33 @@ const JobDetailsV2 = () => {
       </div>
 
       {/* Body */}
+      {tab === "invoice" ? (
+        <InvoiceTabBody
+          job={job}
+          invoice={invoice}
+          customer={customer}
+          user={user}
+          customerName={customerName}
+          serviceAddress={serviceAddress}
+          serviceCity={serviceCity}
+          payState={payState}
+          busy={busy}
+          onMarkPaid={async () => {
+            if (!invoice?.id || !user?.id) return
+            setBusy(true)
+            try {
+              await invoicesAPI.updateStatus(invoice.id, "paid", user.id)
+              await loadJob()
+            } catch (e) {
+              alert(e?.message || "Could not mark as paid.")
+            } finally {
+              setBusy(false)
+            }
+          }}
+          onOpenInvoice={() => invoice?.id && navigate(`/invoices/${invoice.id}`)}
+          onEditInvoice={() => invoice?.id && navigate(`/invoices/${invoice.id}/edit`)}
+        />
+      ) : (
       <div className="px-4 sm:px-6 lg:px-8 py-4 grid grid-cols-1 lg:grid-cols-[64fr_36fr] gap-4">
         {/* Main column */}
         <div className="flex flex-col gap-4 min-w-0">
@@ -1002,9 +1029,635 @@ const JobDetailsV2 = () => {
           </SfCard>
         </div>
       </div>
+      )}
     </div>
   )
 }
+
+// ── Invoice tab ────────────────────────────────────────────
+
+const INVOICE_STATUS_META = {
+  draft:    { label: "Draft",       c: "var(--sf-ink-2)",      bg: "var(--sf-panel-soft)", note: "Will be sent when ready" },
+  pending:  { label: "Pending",     c: "var(--sf-amber-dark)", bg: "var(--sf-amber-soft)", note: "Awaiting send" },
+  sent:     { label: "Sent",        c: "var(--sf-blue-dark)",  bg: "var(--sf-blue-soft)",  note: "Sent · awaiting payment" },
+  viewed:   { label: "Viewed",      c: "#0E7490",              bg: "var(--sf-teal-soft)",  note: "Customer viewed · awaiting payment" },
+  paid:     { label: "Paid",        c: "var(--sf-green-dark)", bg: "var(--sf-green-soft)", note: "Fully paid" },
+  overdue:  { label: "Overdue",     c: "var(--sf-red-dark)",   bg: "var(--sf-red-soft)",   note: "Past due · send reminder" },
+  void:     { label: "Void",        c: "var(--sf-ink-3)",      bg: "var(--sf-panel-soft)", note: "Voided" },
+  refunded: { label: "Refunded",    c: "var(--sf-ink-2)",      bg: "var(--sf-panel-soft)", note: "Refunded" },
+}
+
+const invoiceStatusMeta = (raw, hasInvoice) => {
+  if (!hasInvoice) return { ...INVOICE_STATUS_META.pending, label: "Not yet generated", note: "Invoice will generate once the job has a price" }
+  const k = String(raw || "").toLowerCase()
+  return INVOICE_STATUS_META[k] || INVOICE_STATUS_META.draft
+}
+
+const formatMoneyExact = (n) =>
+  `$${(Number.isFinite(n) ? n : 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`
+
+const InvoiceTabBody = ({
+  job,
+  invoice,
+  customer,
+  user,
+  customerName,
+  serviceAddress,
+  serviceCity,
+  payState,
+  busy,
+  onMarkPaid,
+  onOpenInvoice,
+  onEditInvoice,
+}) => {
+  // Build line items from job + invoice. The invoice schema in this
+  // codebase is flat (no separate line_items table), so we derive items
+  // from the job's pricing fields:
+  //   - base service price → main line
+  //   - additional_fees → "Add-ons"
+  //   - discount → negative line
+  //   - tip_amount → "Tip"
+  const baseService = parseFloat(job.service_price || 0)
+  const additionalFees = parseFloat(job.additional_fees || 0)
+  const discount = parseFloat(job.discount || 0)
+  const tip = parseFloat(job.tip_amount || 0)
+  const fallbackTotal = parseFloat(invoice?.total_amount || invoice?.amount || job.total || 0)
+
+  const items = []
+  if (baseService > 0) {
+    items.push({
+      desc: job.service_name || "Service",
+      detail: job.bedrooms ? `${job.bedrooms} bedrooms${job.bathroom_count ? ` · ${job.bathroom_count} bath` : ""}` : null,
+      qty: 1,
+      rate: baseService,
+      total: baseService,
+    })
+  } else if (fallbackTotal > 0) {
+    items.push({
+      desc: job.service_name || "Service",
+      detail: null,
+      qty: 1,
+      rate: fallbackTotal,
+      total: fallbackTotal,
+    })
+  }
+  if (additionalFees > 0) {
+    items.push({ desc: "Add-ons", detail: null, qty: 1, rate: additionalFees, total: additionalFees })
+  }
+  if (discount > 0) {
+    items.push({ desc: "Discount", detail: null, qty: 1, rate: -discount, total: -discount })
+  }
+  if (tip > 0) {
+    items.push({ desc: "Tip", detail: null, qty: 1, rate: tip, total: tip })
+  }
+  const subtotal = items.reduce((s, it) => s + it.total, 0)
+  const tax = parseFloat(invoice?.tax_amount || 0)
+  const total = invoice?.total_amount != null
+    ? parseFloat(invoice.total_amount)
+    : (subtotal + tax)
+
+  const meta = invoiceStatusMeta(invoice?.status || (payState === "paid" ? "paid" : payState === "unpaid" ? "sent" : "draft"), Boolean(invoice))
+  const isPaid = payState === "paid"
+
+  const invoiceCode = invoice?.id ? `INV-${String(invoice.id).slice(-4)}` : "—"
+  const issuedDate = invoice?.created_at
+    ? new Date(invoice.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : "—"
+  const dueDate = invoice?.due_date
+    ? new Date(invoice.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : "—"
+  const businessName = user?.business_name || user?.businessName || "Service Flow"
+  const businessEmail = user?.email
+  const businessPhone = user?.phone || user?.business_phone
+  const businessAddress = user?.business_address || user?.address
+
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 py-4 grid grid-cols-1 lg:grid-cols-[64fr_36fr] gap-4 items-start">
+      {/* Main column */}
+      <div className="flex flex-col gap-4 min-w-0">
+        <SfCard padding={0} className="overflow-hidden">
+          {/* Status ribbon */}
+          <div
+            className="flex items-center gap-2.5 px-5 py-3 border-b border-[var(--sf-border-soft)]"
+            style={{ background: meta.bg }}
+          >
+            <DollarSign size={15} style={{ color: meta.c }} />
+            <span className="text-[13px] font-bold" style={{ color: meta.c }}>
+              {meta.label}
+            </span>
+            <span className="text-[12px] text-[var(--sf-ink-2)]">· {meta.note}</span>
+            <div className="flex-1" />
+            {isPaid && invoice?.updated_at && (
+              <span
+                className="text-[11.5px] font-semibold"
+                style={{ color: "var(--sf-green-dark)", fontVariantNumeric: "tabular-nums" }}
+              >
+                Paid {new Date(invoice.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </span>
+            )}
+          </div>
+
+          {/* Header band — invoice id, dates, total */}
+          <div className="px-5 sm:px-7 pt-6">
+            <div className="flex items-start justify-between gap-5 flex-wrap mb-5">
+              <div>
+                <div
+                  className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
+                  style={{ letterSpacing: ".08em" }}
+                >
+                  Invoice
+                </div>
+                <div
+                  className="text-[20px] sm:text-[22px] font-bold text-[var(--sf-ink)] mt-0.5"
+                  style={{ fontFamily: "var(--sf-font-mono)", letterSpacing: "-0.01em" }}
+                >
+                  {invoiceCode}
+                </div>
+                <div className="flex gap-5 mt-3 flex-wrap">
+                  <InvoiceMeta label="Issued" value={issuedDate} />
+                  <InvoiceMeta
+                    label="Due"
+                    value={dueDate}
+                    valueClass={meta.label === "Overdue" ? "text-[var(--sf-red-dark)]" : undefined}
+                  />
+                  <InvoiceMeta label="Linked to job" value={`#${String(job.id).slice(-4)}`} mono />
+                </div>
+              </div>
+              <div className="text-right">
+                <div
+                  className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
+                  style={{ letterSpacing: ".06em" }}
+                >
+                  Total due
+                </div>
+                <div
+                  className="text-[28px] sm:text-[32px] font-bold text-[var(--sf-ink)] leading-none mt-1"
+                  style={{
+                    letterSpacing: "-0.025em",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {formatMoneyExact(total)}
+                </div>
+                {isPaid && (
+                  <div
+                    className="inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase"
+                    style={{
+                      background: "var(--sf-green-soft)",
+                      color: "var(--sf-green-dark)",
+                      border: "1px solid rgba(22,163,74,.3)",
+                      letterSpacing: ".04em",
+                    }}
+                  >
+                    <CheckCircle2 size={11} /> Paid in full
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* From / To */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pb-5 border-b border-[var(--sf-border-soft)]">
+              <div>
+                <div
+                  className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)] mb-1.5"
+                  style={{ letterSpacing: ".04em" }}
+                >
+                  From
+                </div>
+                <div className="text-[13.5px] font-bold text-[var(--sf-ink)]">{businessName}</div>
+                <div className="text-[11.5px] text-[var(--sf-ink-2)] mt-1 leading-relaxed">
+                  {businessAddress && <>{businessAddress}<br /></>}
+                  {businessEmail}
+                  {businessEmail && businessPhone && " · "}
+                  {businessPhone}
+                </div>
+              </div>
+              <div>
+                <div
+                  className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)] mb-1.5"
+                  style={{ letterSpacing: ".04em" }}
+                >
+                  Bill to
+                </div>
+                <div className="flex items-center gap-2">
+                  <SfAvatar initials={sfInitials(customerName)} color="var(--sf-ink)" size={24} />
+                  <span className="text-[13.5px] font-bold text-[var(--sf-ink)] truncate">{customerName}</span>
+                  {customer?.tags?.includes?.("VIP") && (
+                    <SfTag color="var(--sf-purple)" bg="var(--sf-purple-soft)">VIP</SfTag>
+                  )}
+                </div>
+                <div className="text-[11.5px] text-[var(--sf-ink-2)] mt-1.5 leading-relaxed">
+                  {serviceAddress && <>{serviceAddress}<br /></>}
+                  {serviceCity && <>{serviceCity}<br /></>}
+                  {customer?.email}
+                  {customer?.email && customer?.phone && " · "}
+                  {customer?.phone}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Line items */}
+          <div className="px-5 sm:px-7 pb-6 pt-1">
+            <div
+              className="flex items-center py-2 border-b-[1.5px] border-[var(--sf-ink)] text-[10.5px] font-bold uppercase text-[var(--sf-ink)]"
+              style={{ letterSpacing: ".05em" }}
+            >
+              <div className="flex-1">Description</div>
+              <div style={{ width: 60, textAlign: "center" }}>Qty</div>
+              <div style={{ width: 90, textAlign: "right" }}>Rate</div>
+              <div style={{ width: 100, textAlign: "right" }}>Amount</div>
+            </div>
+            {items.length === 0 ? (
+              <div className="py-6 text-center text-[12.5px] text-[var(--sf-ink-3)]">
+                No line items yet — set a service price on the job to generate the invoice.
+              </div>
+            ) : (
+              items.map((it, i) => (
+                <div
+                  key={i}
+                  className="flex items-start py-3 border-b border-[var(--sf-border-soft)] text-[12.5px]"
+                >
+                  <div className="flex-1 min-w-0 pr-3">
+                    <div
+                      className="text-[13px] font-semibold"
+                      style={{ color: it.total < 0 ? "var(--sf-green-dark)" : "var(--sf-ink)" }}
+                    >
+                      {it.desc}
+                    </div>
+                    {it.detail && (
+                      <div className="text-[11px] text-[var(--sf-ink-3)] mt-0.5">{it.detail}</div>
+                    )}
+                  </div>
+                  <div
+                    style={{ width: 60, textAlign: "center", fontVariantNumeric: "tabular-nums" }}
+                    className="text-[12.5px] text-[var(--sf-ink-2)] mt-0.5"
+                  >
+                    {it.qty}
+                  </div>
+                  <div
+                    style={{ width: 90, textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+                    className="text-[12.5px] text-[var(--sf-ink-2)] mt-0.5"
+                  >
+                    {it.rate < 0 ? `-${formatMoneyExact(Math.abs(it.rate))}` : formatMoneyExact(it.rate)}
+                  </div>
+                  <div
+                    style={{
+                      width: 100,
+                      textAlign: "right",
+                      fontVariantNumeric: "tabular-nums",
+                      color: it.total < 0 ? "var(--sf-green-dark)" : "var(--sf-ink)",
+                    }}
+                    className="text-[13px] font-bold mt-0.5"
+                  >
+                    {it.total < 0 ? `-${formatMoneyExact(Math.abs(it.total))}` : formatMoneyExact(it.total)}
+                  </div>
+                </div>
+              ))
+            )}
+
+            {/* Totals */}
+            {items.length > 0 && (
+              <div className="flex justify-end mt-3">
+                <div style={{ width: 280 }}>
+                  <TotalsRow label="Subtotal" value={formatMoneyExact(subtotal)} />
+                  {tax > 0 && (
+                    <TotalsRow label="Sales tax" value={formatMoneyExact(tax)} />
+                  )}
+                  <div
+                    className="flex items-baseline py-3 mt-2"
+                    style={{ borderTop: "1.5px solid var(--sf-ink)" }}
+                  >
+                    <span className="flex-1 text-[13px] font-bold text-[var(--sf-ink)]">Total</span>
+                    <span
+                      className="text-[20px] font-bold text-[var(--sf-ink)]"
+                      style={{ letterSpacing: "-0.015em", fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {formatMoneyExact(total)}
+                    </span>
+                  </div>
+                  {isPaid && (
+                    <TotalsRow
+                      label="Amount paid"
+                      value={`-${formatMoneyExact(total)}`}
+                      bold
+                      tone="var(--sf-green-dark)"
+                    />
+                  )}
+                  <div
+                    className="flex items-center py-2 mt-1"
+                    style={{ borderTop: "1px solid var(--sf-border-soft)" }}
+                  >
+                    <span
+                      className="flex-1 text-[13px] font-bold"
+                      style={{ color: isPaid ? "var(--sf-green-dark)" : "var(--sf-ink)" }}
+                    >
+                      Balance due
+                    </span>
+                    <span
+                      className="text-[20px] font-bold"
+                      style={{
+                        color: isPaid ? "var(--sf-green-dark)" : "var(--sf-ink)",
+                        letterSpacing: "-0.015em",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {formatMoneyExact(isPaid ? 0 : total)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            {(job.notes || job.customer_notes) && (
+              <div
+                className="mt-5 p-3 rounded-lg"
+                style={{
+                  background: "var(--sf-panel-alt)",
+                  border: "1px solid var(--sf-border-soft)",
+                  borderLeft: "3px solid var(--sf-blue)",
+                }}
+              >
+                <div
+                  className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)] mb-1"
+                  style={{ letterSpacing: ".04em" }}
+                >
+                  Notes
+                </div>
+                <div className="text-[12px] text-[var(--sf-ink-2)] leading-relaxed whitespace-pre-wrap">
+                  {job.notes || job.customer_notes}
+                </div>
+              </div>
+            )}
+          </div>
+        </SfCard>
+      </div>
+
+      {/* Side rail */}
+      <div className="flex flex-col gap-4 min-w-0">
+        {/* Actions */}
+        <SfCard>
+          <SfCardHeader title="Actions" />
+          <div className="flex flex-col gap-2">
+            {!isPaid && invoice && (
+              <SfButton
+                variant="primary"
+                size="md"
+                icon={DollarSign}
+                className="w-full justify-center"
+                onClick={onMarkPaid}
+                disabled={busy}
+              >
+                Record payment
+              </SfButton>
+            )}
+            <div className="flex gap-2">
+              <SfButton
+                variant="secondary"
+                size="md"
+                icon={MailIcon}
+                className="flex-1 justify-center"
+                disabled={!invoice}
+              >
+                Resend
+              </SfButton>
+              <SfButton
+                variant="secondary"
+                size="md"
+                icon={MessageSquare}
+                className="flex-1 justify-center"
+                disabled={!invoice}
+              >
+                Remind
+              </SfButton>
+            </div>
+            <div className="flex gap-2">
+              <SfButton
+                variant="secondary"
+                size="md"
+                icon={ExternalLink}
+                className="flex-1 justify-center"
+                onClick={onOpenInvoice}
+                disabled={!invoice?.id}
+              >
+                Open
+              </SfButton>
+              <SfButton
+                variant="secondary"
+                size="md"
+                icon={Copy}
+                className="flex-1 justify-center"
+                disabled={!invoice?.id}
+                onClick={() => invoice?.id && navigator.clipboard?.writeText(`${window.location.origin}/public/invoice/${invoice.id}`)}
+              >
+                Copy link
+              </SfButton>
+            </div>
+            <SfButton
+              variant="ghost"
+              size="md"
+              icon={Edit}
+              className="w-full"
+              style={{ justifyContent: "flex-start" }}
+              onClick={onEditInvoice}
+              disabled={!invoice?.id}
+            >
+              Edit invoice
+            </SfButton>
+          </div>
+        </SfCard>
+
+        {/* Payment summary */}
+        <SfCard>
+          <SfCardHeader title="Payment" subtitle="Status & method" />
+          <div
+            className="flex items-center gap-3 p-3 rounded-lg"
+            style={{
+              background: isPaid ? "var(--sf-green-soft)" : "var(--sf-amber-soft)",
+              border: `1px solid ${isPaid ? "rgba(22,163,74,.2)" : "rgba(217,119,6,.2)"}`,
+            }}
+          >
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white"
+              style={{ background: isPaid ? "var(--sf-green)" : "var(--sf-amber)" }}
+            >
+              {isPaid ? <Check size={16} strokeWidth={2.4} /> : <Clock size={15} />}
+            </div>
+            <div className="flex-1">
+              <div
+                className="text-[13px] font-bold"
+                style={{ color: isPaid ? "var(--sf-green-dark)" : "var(--sf-amber-dark)" }}
+              >
+                {isPaid ? "Paid in full" : "Awaiting payment"}
+              </div>
+              <div className="text-[11px] text-[var(--sf-ink-2)] mt-0.5">
+                {isPaid && invoice?.updated_at
+                  ? `Settled ${new Date(invoice.updated_at).toLocaleDateString()}`
+                  : invoice?.due_date
+                  ? `Due ${new Date(invoice.due_date).toLocaleDateString()}`
+                  : "—"}
+              </div>
+            </div>
+            <div
+              className="text-[15px] font-bold text-[var(--sf-ink)]"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {formatMoneyExact(isPaid ? 0 : total)}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 mt-3 text-[12px]">
+            <PaymentLine label="Method" value={job.payment_method ? capitalize(job.payment_method) : "—"} />
+            <PaymentLine
+              label="Issued"
+              value={issuedDate}
+              mono
+            />
+            <PaymentLine
+              label="Due"
+              value={dueDate}
+              mono
+            />
+            {tax > 0 && (
+              <PaymentLine
+                label="Tax"
+                value={formatMoneyExact(tax)}
+                mono
+              />
+            )}
+          </div>
+        </SfCard>
+
+        {/* Related */}
+        <SfCard>
+          <SfCardHeader title="Related" subtitle="Linked records" />
+          <div className="flex flex-col gap-2">
+            <RelatedTile
+              icon={DollarSign}
+              code={invoiceCode}
+              tone="green"
+              subtitle="This invoice"
+              onClick={onOpenInvoice}
+              disabled={!invoice?.id}
+            />
+            <RelatedTile
+              icon={UserIcon}
+              code={`#${String(job.id).slice(-4)}`}
+              tone="blue"
+              subtitle="This job"
+            />
+            {customer?.id && (
+              <RelatedTile
+                avatar={sfInitials(customerName)}
+                code={customerName}
+                tone="ink"
+                subtitle="Customer"
+                onClick={() => window.location.assign(`/customer/${customer.id}`)}
+              />
+            )}
+          </div>
+        </SfCard>
+      </div>
+    </div>
+  )
+}
+
+const InvoiceMeta = ({ label, value, mono, valueClass }) => (
+  <div>
+    <div
+      className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
+      style={{ letterSpacing: ".04em" }}
+    >
+      {label}
+    </div>
+    <div
+      className={`text-[12.5px] font-semibold text-[var(--sf-ink)] mt-0.5 ${valueClass || ""}`}
+      style={{
+        fontVariantNumeric: "tabular-nums",
+        fontFamily: mono ? "var(--sf-font-mono)" : undefined,
+      }}
+    >
+      {value}
+    </div>
+  </div>
+)
+
+const TotalsRow = ({ label, value, bold, tone }) => (
+  <div className="flex py-1 text-[12.5px]">
+    <span className="flex-1" style={{ color: tone || "var(--sf-ink-2)" }}>{label}</span>
+    <span
+      style={{
+        color: tone || "var(--sf-ink)",
+        fontWeight: bold ? 700 : 600,
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      {value}
+    </span>
+  </div>
+)
+
+const PaymentLine = ({ label, value, mono }) => (
+  <div className="flex">
+    <span className="flex-1 text-[var(--sf-ink-2)]">{label}</span>
+    <span
+      className="font-semibold text-[var(--sf-ink)]"
+      style={{
+        fontVariantNumeric: "tabular-nums",
+        fontFamily: mono ? "var(--sf-font-mono)" : undefined,
+      }}
+    >
+      {value}
+    </span>
+  </div>
+)
+
+const RELATED_TONES = {
+  green: { bg: "var(--sf-green-soft)", fg: "var(--sf-green-dark)" },
+  blue:  { bg: "var(--sf-blue-soft)",  fg: "var(--sf-blue-dark)" },
+  ink:   { bg: "var(--sf-panel-soft)", fg: "var(--sf-ink)" },
+}
+
+const RelatedTile = ({ icon: Icon, avatar, code, subtitle, tone, onClick, disabled }) => {
+  const t = RELATED_TONES[tone] || RELATED_TONES.ink
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="flex items-center gap-2.5 p-2.5 rounded-lg bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] hover:bg-[var(--sf-panel-soft)] transition-colors w-full text-left"
+      style={{
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.55 : 1,
+        fontFamily: "var(--sf-font-ui)",
+      }}
+    >
+      {Icon ? (
+        <div
+          className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
+          style={{ background: t.bg, color: t.fg }}
+        >
+          <Icon size={14} />
+        </div>
+      ) : (
+        <SfAvatar initials={avatar} color="var(--sf-ink)" size={32} />
+      )}
+      <div className="min-w-0 flex-1">
+        <div
+          className="text-[12.5px] font-bold text-[var(--sf-ink)] truncate"
+          style={{ fontFamily: Icon ? "var(--sf-font-mono)" : "var(--sf-font-ui)" }}
+        >
+          {code}
+        </div>
+        <div className="text-[11px] text-[var(--sf-ink-3)] mt-px">{subtitle}</div>
+      </div>
+      <ChevronRight size={13} className="text-[var(--sf-ink-3)] flex-shrink-0" />
+    </button>
+  )
+}
+
+const capitalize = (s) =>
+  s ? String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase() : "—"
 
 // ── Sub-components ─────────────────────────────────────────
 
