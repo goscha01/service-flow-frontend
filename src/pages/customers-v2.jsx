@@ -91,11 +91,21 @@ const tagsOf = (c, agg) => {
 
 const isVIP = (c) => tagsOf(c).some((t) => t.toLowerCase() === "vip")
 const isRecurringWith = (c, agg) => Boolean(agg?.hasRecurring)
-const isLeadStatus = (c) => (c.status || "").toLowerCase() === "lead"
-const isActive = (c) => {
+// "Lead" on the Customers page = a customer row that has no jobs yet
+// (a prospect in the customer book). The proper lead pipeline lives at
+// /leads; this just gives operators a way to see who they've added but
+// haven't booked. Customers with status='lead' (rare in this codebase
+// but supported) also qualify.
+const isLeadFor = (c, agg) => {
   const s = (c.status || "").toLowerCase()
-  if (s === "lead" || s === "inactive" || s === "archived") return false
-  return true
+  if (s === "lead") return true
+  return !agg || (agg.totalJobs ?? 0) === 0
+}
+// "Active" = has at least one non-cancelled job in the system.
+const isActiveFor = (c, agg) => {
+  const s = (c.status || "").toLowerCase()
+  if (s === "archived" || s === "inactive" || s === "lead") return false
+  return (agg?.totalJobs ?? 0) > 0
 }
 
 const TAG_PALETTE = {
@@ -232,21 +242,21 @@ const CustomersV2 = () => {
 
   const aggFor = useCallback((c) => customerAgg.get(c.id) || null, [customerAgg])
 
-  // Tab counts — Recurring uses the per-customer aggregation now
+  // Tab counts — driven by the per-customer aggregation
   const counts = useMemo(() => ({
     all:       customers.length,
-    active:    customers.filter(isActive).length,
+    active:    customers.filter((c) => isActiveFor(c, aggFor(c))).length,
     vip:       customers.filter(isVIP).length,
     recurring: customers.filter((c) => isRecurringWith(c, aggFor(c))).length,
-    leads:     customers.filter(isLeadStatus).length,
+    leads:     customers.filter((c) => isLeadFor(c, aggFor(c))).length,
   }), [customers, aggFor])
 
   const tabFiltered = useMemo(() => {
     switch (tab) {
-      case "active":    return customers.filter(isActive)
+      case "active":    return customers.filter((c) => isActiveFor(c, aggFor(c)))
       case "vip":       return customers.filter(isVIP)
       case "recurring": return customers.filter((c) => isRecurringWith(c, aggFor(c)))
-      case "leads":     return customers.filter(isLeadStatus)
+      case "leads":     return customers.filter((c) => isLeadFor(c, aggFor(c)))
       default:          return customers
     }
   }, [customers, tab, aggFor])
@@ -643,7 +653,7 @@ const CustomerRow = ({ customer, agg, isLast, selected, onToggleSelected, onClic
   const ltv = agg?.totalRevenue ?? 0
   const last = agg?.lastJobDate ?? (c.updated_at ? new Date(c.updated_at) : null)
   const rating = parseFloat(c.rating)
-  const isLead = isLeadStatus(c)
+  const isLead = isLeadFor(c, agg)
   const joined = c.created_at
 
   return (
