@@ -30,7 +30,13 @@ import {
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useLocationScope } from "../context/LocationContext"
-import { communicationsAPI } from "../services/api"
+import {
+  communicationsAPI,
+  leadbridgeAPI,
+  openPhoneAPI,
+  whatsappAPI,
+  connectedEmailAPI,
+} from "../services/api"
 import { formatTime as formatTimeShared } from "../utils/formatTime"
 import MobileHeader from "../components/mobile-header"
 import {
@@ -99,6 +105,7 @@ const CommunicationsV2 = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [conversations, setConversations] = useState([])
   const [accounts, setAccounts] = useState([])
+  const [integrations, setIntegrations] = useState({}) // per-channel connection status
   const [loadingList, setLoadingList] = useState(true)
 
   const [selectedId, setSelectedId] = useState(initialConv || null)
@@ -182,16 +189,58 @@ const CommunicationsV2 = () => {
 
   useEffect(() => { fetchConversations() }, [fetchConversations])
 
-  // Load provider accounts once
+  // Load every integration status in parallel — Communication Hub
+  // settings query all of these too, so the connection state mirrors
+  // what the user sees there. LeadBridge owns Yelp + Thumbtack;
+  // OpenPhone owns SMS + Calls; WhatsApp is its own; Connected Email
+  // is Gmail/Outlook for the Email channel.
   useEffect(() => {
     let cancelled = false
-    communicationsAPI.getProviderAccounts()
-      .then((resp) => {
-        if (cancelled) return
-        const list = Array.isArray(resp) ? resp : (resp?.accounts || [])
-        setAccounts(Array.isArray(list) ? list : [])
+    Promise.allSettled([
+      communicationsAPI.getProviderAccounts(),
+      leadbridgeAPI.getStatus(),
+      openPhoneAPI.getStatus(),
+      whatsappAPI.getStatus(),
+      connectedEmailAPI.listAccounts(),
+    ]).then(([paResp, lbResp, opResp, waResp, ceResp]) => {
+      if (cancelled) return
+      // Provider accounts (Sigcore-side roll-up)
+      const pa = paResp.status === "fulfilled" ? paResp.value : null
+      const paList = Array.isArray(pa) ? pa : (pa?.accounts || [])
+      setAccounts(Array.isArray(paList) ? paList : [])
+
+      // LeadBridge — derive Yelp / Thumbtack from accounts list
+      const lb = lbResp.status === "fulfilled" ? lbResp.value : null
+      const lbConnected = !!lb?.connected
+      const lbAccounts = Array.isArray(lb?.accounts) ? lb.accounts : []
+      const hasYelp = lbConnected && lbAccounts.some((a) => String(a.channel || a.provider || "").toLowerCase().includes("yelp"))
+      const hasThumb = lbConnected && lbAccounts.some((a) => String(a.channel || a.provider || "").toLowerCase().includes("thumb"))
+
+      // OpenPhone — SMS + Calls
+      const op = opResp.status === "fulfilled" ? opResp.value : null
+      const opConnected = !!op?.connected
+
+      // WhatsApp
+      const wa = waResp.status === "fulfilled" ? waResp.value : null
+      const waConnected = !!wa?.connected
+
+      // Connected Email (Gmail / Outlook)
+      const ce = ceResp.status === "fulfilled" ? ceResp.value : null
+      const ceAccounts = Array.isArray(ce?.accounts) ? ce.accounts : []
+      const emailConnected = ceAccounts.length > 0
+
+      setIntegrations({
+        sms:       { connected: opConnected, sub: opConnected ? `${op?.phoneNumbers?.length || 1} number${op?.phoneNumbers?.length === 1 ? "" : "s"}` : null },
+        whatsapp:  { connected: waConnected, sub: waConnected ? (wa?.phoneNumber || "Connected") : null },
+        email:     { connected: emailConnected, sub: emailConnected ? `${ceAccounts.length} mailbox${ceAccounts.length === 1 ? "" : "es"}` : null },
+        yelp:      { connected: hasYelp, sub: hasYelp ? "via LeadBridge" : null },
+        thumbtack: { connected: hasThumb, sub: hasThumb ? "via LeadBridge" : null },
+        call:      { connected: opConnected, sub: opConnected ? "via OpenPhone" : null },
+        // Special LeadBridge meta so we can show its overall status if
+        // neither Yelp nor Thumbtack profile is configured yet.
+        _leadbridge: { connected: lbConnected, accounts: lbAccounts.length },
       })
-      .catch(() => setAccounts([]))
+    })
     return () => { cancelled = true }
   }, [user?.id])
 
@@ -322,22 +371,32 @@ const CommunicationsV2 = () => {
     return counts
   }, [conversations, customFolders])
 
-  // Channel connection status — which channels have at least one
-  // provider account active. Falls back to inferring from the
-  // conversation list (if conversations exist for a channel, treat
-  // the channel as "in use" even if accounts API didn't list it).
+  // Channel connection status. Priority of signals:
+  //   1. integrations.{channel}.connected (per-channel integration
+  //      check — LB for Yelp/Thumbtack, OpenPhone for SMS/Call,
+  //      WhatsApp for WhatsApp, Connected Email for Email).
+  //   2. provider-accounts (Sigcore-side roll-up) — handles channels
+  //      we didn't query directly.
+  //   3. Conversations exist for the channel → "in use".
   const channelStatus = useMemo(() => {
     const status = {}
+    // 1) Integrations
+    Object.entries(integrations).forEach(([k, v]) => {
+      if (v?.connected) status[k] = "connected"
+    })
+    // 2) Sigcore provider accounts as a safety net
     accounts.forEach((a) => {
       const k = (a.channel || "").toLowerCase()
-      if (k) status[k] = "connected"
+      if (k && !status[k]) status[k] = "connected"
     })
+    // 3) Conversations imply "in use" (we have history even without
+    //    a current active integration row).
     conversations.forEach((c) => {
       const k = (c.channel || "").toLowerCase()
       if (k && !status[k]) status[k] = "in_use"
     })
     return status
-  }, [accounts, conversations])
+  }, [integrations, accounts, conversations])
 
   const selectedConv = useMemo(
     () => conversations.find((c) => String(c.id) === String(selectedId)) || null,
@@ -436,6 +495,7 @@ const CommunicationsV2 = () => {
             {CHANNEL_CATALOG.map((c) => {
               const Icon = c.icon
               const state = channelStatus[c.id]
+              const integ = integrations[c.id]
               const connected = state === "connected"
               const inUse = state === "in_use"
               const dotColor = connected
@@ -443,6 +503,11 @@ const CommunicationsV2 = () => {
                 : inUse
                 ? "var(--sf-amber)"
                 : "var(--sf-ink-4)"
+              const subtitle = connected
+                ? (integ?.sub || c.desc)
+                : inUse
+                ? `${c.desc} (history only)`
+                : c.desc + " · not connected"
               return (
                 <div key={c.id} className="flex items-center gap-2.5" style={{ padding: "7px 10px" }}>
                   <div
@@ -462,8 +527,11 @@ const CommunicationsV2 = () => {
                         title={connected ? "Connected" : inUse ? "In use" : "Not connected"}
                       />
                     </div>
-                    <div className="text-[10px] text-[var(--sf-ink-3)] mt-px truncate">
-                      {connected ? c.desc : inUse ? c.desc : "Not connected"}
+                    <div
+                      className="text-[10px] text-[var(--sf-ink-3)] mt-px truncate"
+                      title={subtitle}
+                    >
+                      {subtitle}
                     </div>
                   </div>
                 </div>
