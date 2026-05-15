@@ -60,6 +60,8 @@ import {
 const formatMoney = (n) =>
   `$${(Number.isFinite(n) ? n : 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
+const digitsOnly = (s) => String(s || "").replace(/\D/g, "")
+
 const jobDateStr = (j) => String(j.scheduled_date || "").split("T")[0].split(" ")[0]
 const today = () => {
   const d = new Date()
@@ -169,7 +171,25 @@ const CustomerDetailsV2 = () => {
       setJobs(jobsList.filter((j) => String(j.customer_id) === String(customerId)))
       setInvoices(invList.filter((i) => String(i.customer_id) === String(customerId)))
       setEstimates(estList.filter((e) => String(e.customer_id) === String(customerId)))
-      setConversations(convList.filter((c) => String(c.customer_id) === String(customerId)))
+      // Conversations API returns camelCase. Match by customerId, OR
+      // by phone (when CRM linkage isn't stamped yet — many
+      // conversations are anchored on participant phone only).
+      const custPhone = digitsOnly(cust?.phone)
+      const custEmail = (cust?.email || "").toLowerCase()
+      setConversations(
+        convList.filter((c) => {
+          if (String(c.customerId ?? c.customer_id) === String(customerId)) return true
+          if (custPhone) {
+            const fp = digitsOnly(c.fallbackIdentifier || c.participantPhone || "")
+            if (fp && fp.endsWith(custPhone.slice(-10))) return true
+          }
+          if (custEmail) {
+            const ce = String(c.participantEmail || c.fallbackIdentifier || "").toLowerCase()
+            if (ce && ce === custEmail) return true
+          }
+          return false
+        })
+      )
     } finally {
       setLoading(false)
     }
@@ -1746,98 +1766,187 @@ const PropertiesTab = ({ properties, customer }) => {
 // ── Messages tab ───────────────────────────────────────────
 
 const MessagesTab = ({ conversations, onOpen }) => {
-  if (!conversations.length) {
-    return (
-      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-2xl">
+  const [composeChannel, setComposeChannel] = useState("sms")
+  const [composeText, setComposeText] = useState("")
+  const [sending, setSending] = useState(false)
+
+  const primaryConv = conversations[0]
+
+  const onSend = async () => {
+    if (!composeText.trim()) return
+    if (!primaryConv?.id) {
+      alert(
+        "There's no existing conversation to send into yet. Open the customer in /communications and start a thread there — full per-customer send (incl. opening a new thread) lands with the inbox redesign next slice."
+      )
+      return
+    }
+    setSending(true)
+    try {
+      await communicationsAPI.sendMessage(primaryConv.id, {
+        body: composeText.trim(),
+        channel: composeChannel,
+      })
+      setComposeText("")
+    } catch (e) {
+      alert(e?.response?.data?.error || e?.message || "Could not send the message.")
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+      {/* Compose */}
+      <SfCard>
+        <SfCardHeader title="Send a message" subtitle={primaryConv ? `Thread: ${primaryConv.displayName || primaryConv.fallbackIdentifier || "—"}` : "No existing thread yet"} />
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            onClick={() => setComposeChannel("sms")}
+            className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
+            style={{
+              background: composeChannel === "sms" ? "var(--sf-blue-soft)" : "var(--sf-panel-soft)",
+              color: composeChannel === "sms" ? "var(--sf-blue-dark)" : "var(--sf-ink-2)",
+              border: "1px solid " + (composeChannel === "sms" ? "var(--sf-blue-soft-2)" : "var(--sf-border-soft)"),
+              cursor: "pointer",
+            }}
+          >
+            SMS
+          </button>
+          <button
+            onClick={() => setComposeChannel("email")}
+            className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
+            style={{
+              background: composeChannel === "email" ? "var(--sf-purple-soft)" : "var(--sf-panel-soft)",
+              color: composeChannel === "email" ? "var(--sf-purple)" : "var(--sf-ink-2)",
+              border: "1px solid " + (composeChannel === "email" ? "rgba(124,58,237,.25)" : "var(--sf-border-soft)"),
+              cursor: "pointer",
+            }}
+          >
+            Email
+          </button>
+        </div>
+        <textarea
+          value={composeText}
+          onChange={(e) => setComposeText(e.target.value)}
+          placeholder={`Type your ${composeChannel === "email" ? "email" : "SMS"}…`}
+          rows={3}
+          className="w-full rounded-md bg-[var(--sf-panel)]"
+          style={{
+            border: "1.5px solid var(--sf-border-soft)",
+            padding: "10px 12px",
+            fontSize: 13,
+            fontFamily: "var(--sf-font-ui)",
+            resize: "vertical",
+          }}
+        />
+        <div className="flex justify-end mt-2">
+          <SfButton variant="primary" size="md" onClick={onSend} disabled={sending || !composeText.trim()}>
+            {sending ? "Sending…" : "Send"}
+          </SfButton>
+        </div>
+        {!primaryConv && (
+          <div className="text-[11px] text-[var(--sf-ink-3)] mt-2 leading-snug">
+            No conversation linked to this customer yet — sending requires an existing thread.
+            New-thread creation lands with the inbox redesign.
+          </div>
+        )}
+      </SfCard>
+
+      {/* Conversations list */}
+      {conversations.length === 0 ? (
         <SfCard>
           <EmptyRow
             icon={MessageSquare}
             title="No messages yet"
-            subtitle="SMS, email, and review threads with this customer will appear here once the customer has sent or received a message."
+            subtitle="SMS, email, and review threads with this customer will appear here once a message is sent or received."
           />
         </SfCard>
-      </div>
-    )
-  }
-  return (
-    <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
-      <SfCard padding={0}>
-        <div className="px-4 py-3 flex items-center border-b border-[var(--sf-border-soft)]">
-          <MessageSquare size={14} className="text-[var(--sf-ink-3)] mr-2" />
-          <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
-            Conversations · {conversations.length}
+      ) : (
+        <SfCard padding={0}>
+          <div className="px-4 py-3 flex items-center border-b border-[var(--sf-border-soft)]">
+            <MessageSquare size={14} className="text-[var(--sf-ink-3)] mr-2" />
+            <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
+              Conversations · {conversations.length}
+            </div>
           </div>
-        </div>
-        {conversations.map((conv, i, arr) => {
-          const channel = (conv.channel || "").toLowerCase()
-          const meta =
-            channel === "email"
-              ? { c: "var(--sf-purple)", bg: "var(--sf-purple-soft)", label: "Email" }
-              : channel === "review"
-              ? { c: "var(--sf-amber-dark)", bg: "var(--sf-amber-soft)", label: "Review" }
-              : { c: "var(--sf-blue-dark)", bg: "var(--sf-blue-soft)", label: "SMS" }
-          const unread = conv.unread_count > 0
-          return (
-            <button
-              key={conv.id}
-              onClick={() => onOpen?.(conv.id)}
-              className="w-full text-left flex items-start gap-3 px-4 py-3 hover:bg-[var(--sf-panel-alt)] transition-colors"
-              style={{
-                borderBottom: i === arr.length - 1 ? "none" : "1px solid var(--sf-border-soft)",
-                background: unread ? "var(--sf-blue-soft)" : "transparent",
-                borderLeft: unread ? "3px solid var(--sf-blue)" : "3px solid transparent",
-                cursor: "pointer",
-                border: "none",
-                fontFamily: "var(--sf-font-ui)",
-              }}
-            >
-              <div
-                className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
-                style={{ background: meta.bg, color: meta.c }}
+          {conversations.map((conv, i, arr) => {
+            const channel = (conv.channel || "").toLowerCase()
+            const meta =
+              channel === "email"
+                ? { c: "var(--sf-purple)", bg: "var(--sf-purple-soft)", label: "Email" }
+                : channel === "review"
+                ? { c: "var(--sf-amber-dark)", bg: "var(--sf-amber-soft)", label: "Review" }
+                : { c: "var(--sf-blue-dark)", bg: "var(--sf-blue-soft)", label: "SMS" }
+            const unreadN = conv.unreadCount ?? conv.unread_count ?? 0
+            const unread = unreadN > 0
+            const lastEvent = conv.lastEventAt || conv.last_event_at
+            const lastPreview = conv.lastPreview || conv.last_preview
+            const primaryLabel = conv.displayName || conv.fallbackIdentifier || "—"
+            return (
+              <button
+                key={conv.id}
+                onClick={() => onOpen?.(conv.id)}
+                className="w-full text-left flex items-start gap-3 px-4 py-3 hover:bg-[var(--sf-panel-alt)] transition-colors"
+                style={{
+                  borderBottom: i === arr.length - 1 ? "none" : "1px solid var(--sf-border-soft)",
+                  background: unread ? "var(--sf-blue-soft)" : "transparent",
+                  borderLeft: unread ? "3px solid var(--sf-blue)" : "3px solid transparent",
+                  cursor: "pointer",
+                  border: "none",
+                  fontFamily: "var(--sf-font-ui)",
+                }}
               >
-                <MessageSquare size={15} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <SfTag color={meta.c} bg={meta.bg}>{meta.label}</SfTag>
-                  {unread && (
-                    <SfTag color="var(--sf-red-dark)" bg="var(--sf-red-soft)">
-                      {conv.unread_count} unread
-                    </SfTag>
-                  )}
-                  <div className="flex-1" />
-                  <span
-                    className="text-[10.5px] text-[var(--sf-ink-3)]"
-                    style={{ fontFamily: "var(--sf-font-mono)" }}
-                  >
-                    {conv.last_event_at
-                      ? new Date(conv.last_event_at).toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })
-                      : "—"}
-                  </span>
+                <div
+                  className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
+                  style={{ background: meta.bg, color: meta.c }}
+                >
+                  <MessageSquare size={15} />
                 </div>
-                {conv.last_preview && (
-                  <div
-                    className="text-[12.5px] text-[var(--sf-ink-2)] mt-1 line-clamp-2"
-                    style={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {conv.last_preview}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[13px] font-semibold text-[var(--sf-ink)] truncate">
+                      {primaryLabel}
+                    </span>
+                    <SfTag color={meta.c} bg={meta.bg}>{meta.label}</SfTag>
+                    {unread && (
+                      <SfTag color="var(--sf-red-dark)" bg="var(--sf-red-soft)">
+                        {unreadN} unread
+                      </SfTag>
+                    )}
+                    <div className="flex-1" />
+                    <span
+                      className="text-[10.5px] text-[var(--sf-ink-3)]"
+                      style={{ fontFamily: "var(--sf-font-mono)" }}
+                    >
+                      {lastEvent
+                        ? new Date(lastEvent).toLocaleString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })
+                        : "—"}
+                    </span>
                   </div>
-                )}
-              </div>
-            </button>
-          )
-        })}
-      </SfCard>
+                  {lastPreview && (
+                    <div
+                      className="text-[12.5px] text-[var(--sf-ink-2)] mt-1"
+                      style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {lastPreview}
+                    </div>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </SfCard>
+      )}
     </div>
   )
 }
@@ -2049,12 +2158,14 @@ const buildActivityEvents = ({ jobs, invoices, conversations, estimates, custome
     }
   })
   conversations.forEach((c) => {
-    if (!c.last_event_at) return
+    const when = c.lastEventAt || c.last_event_at
+    if (!when) return
+    const preview = c.lastPreview || c.last_preview
     out.push({
       group: "messages",
-      title: `${capitalize(c.channel || "SMS")} thread`,
-      description: c.last_preview ? c.last_preview.slice(0, 120) : null,
-      when: new Date(c.last_event_at),
+      title: `${capitalize(c.channel || "SMS")} thread${c.displayName ? ` · ${c.displayName}` : ""}`,
+      description: preview ? preview.slice(0, 120) : null,
+      when: new Date(when),
       icon: MessageSquare,
       color: "#0E7490",
     })
