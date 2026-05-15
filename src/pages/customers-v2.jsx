@@ -91,21 +91,15 @@ const tagsOf = (c, agg) => {
 
 const isVIP = (c) => tagsOf(c).some((t) => t.toLowerCase() === "vip")
 const isRecurringWith = (c, agg) => Boolean(agg?.hasRecurring)
-// "Lead" on the Customers page = a customer row that has no jobs yet
-// (a prospect in the customer book). The proper lead pipeline lives at
-// /leads; this just gives operators a way to see who they've added but
-// haven't booked. Customers with status='lead' (rare in this codebase
-// but supported) also qualify.
-const isLeadFor = (c, agg) => {
+// "Active" = the customer record itself is marked active in the DB.
+// In this codebase the customers.status enum carries 'active' or
+// 'archived' (no 'lead' rows — leads live in the separate leads
+// table behind /leads). Treat a NULL status as active too, since
+// some legacy rows weren't backfilled.
+const isActiveFor = (c) => {
   const s = (c.status || "").toLowerCase()
-  if (s === "lead") return true
-  return !agg || (agg.totalJobs ?? 0) === 0
-}
-// "Active" = has at least one non-cancelled job in the system.
-const isActiveFor = (c, agg) => {
-  const s = (c.status || "").toLowerCase()
-  if (s === "archived" || s === "inactive" || s === "lead") return false
-  return (agg?.totalJobs ?? 0) > 0
+  if (s === "archived" || s === "inactive") return false
+  return true
 }
 
 const TAG_PALETTE = {
@@ -130,7 +124,6 @@ const TABS = [
   { id: "active",    label: "Active" },
   { id: "vip",       label: "VIP" },
   { id: "recurring", label: "Recurring" },
-  { id: "leads",     label: "Leads" },
 ]
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
@@ -242,21 +235,19 @@ const CustomersV2 = () => {
 
   const aggFor = useCallback((c) => customerAgg.get(c.id) || null, [customerAgg])
 
-  // Tab counts — driven by the per-customer aggregation
+  // Tab counts — Recurring uses the per-customer aggregation
   const counts = useMemo(() => ({
     all:       customers.length,
-    active:    customers.filter((c) => isActiveFor(c, aggFor(c))).length,
+    active:    customers.filter(isActiveFor).length,
     vip:       customers.filter(isVIP).length,
     recurring: customers.filter((c) => isRecurringWith(c, aggFor(c))).length,
-    leads:     customers.filter((c) => isLeadFor(c, aggFor(c))).length,
   }), [customers, aggFor])
 
   const tabFiltered = useMemo(() => {
     switch (tab) {
-      case "active":    return customers.filter((c) => isActiveFor(c, aggFor(c)))
+      case "active":    return customers.filter(isActiveFor)
       case "vip":       return customers.filter(isVIP)
       case "recurring": return customers.filter((c) => isRecurringWith(c, aggFor(c)))
-      case "leads":     return customers.filter((c) => isLeadFor(c, aggFor(c)))
       default:          return customers
     }
   }, [customers, tab, aggFor])
@@ -653,7 +644,6 @@ const CustomerRow = ({ customer, agg, isLast, selected, onToggleSelected, onClic
   const ltv = agg?.totalRevenue ?? 0
   const last = agg?.lastJobDate ?? (c.updated_at ? new Date(c.updated_at) : null)
   const rating = parseFloat(c.rating)
-  const isLead = isLeadFor(c, agg)
   const joined = c.created_at
 
   return (
@@ -688,7 +678,7 @@ const CustomerRow = ({ customer, agg, isLast, selected, onToggleSelected, onClic
       <div className="flex-1 min-w-0 flex items-center gap-2.5">
         <SfAvatar
           initials={sfInitials(name)}
-          color={isLead ? "var(--sf-teal)" : "var(--sf-ink)"}
+          color="var(--sf-ink)"
           size={32}
         />
         <div className="min-w-0">
