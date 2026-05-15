@@ -15,6 +15,7 @@ import { useLocationScope, filterByLocation } from "../context/LocationContext"
 import { jobsAPI, teamAPI, invoicesAPI, leadsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import MobileHeader from "../components/mobile-header"
+import JobsMap from "../components/jobs-map"
 import {
   SfCard,
   SfCardHeader,
@@ -310,8 +311,6 @@ const DashboardV2 = () => {
     return todayJobs
   }, [todayJobs, queueFilter])
 
-  const teamForDisplay = useMemo(() => teamMembers.slice(0, 5), [teamMembers])
-
   // Unique cleaners with at least one job today (for the greeting line)
   const cleanersOnDuty = useMemo(() => {
     const ids = new Set()
@@ -458,15 +457,21 @@ const DashboardV2 = () => {
             onJobClick={(id) => navigate(`/job/${id}`)}
             onSeeAll={() => navigate("/jobs")}
           />
+          <RoutesMapCard
+            jobs={todayJobs}
+            teamMembers={teamMembers}
+            onFullMap={() => navigate("/staff-locations")}
+          />
         </div>
         <div className="flex flex-col gap-4 min-w-0">
-          <TeamOnShiftCard
-            members={teamForDisplay}
-            jobs={todayJobs}
-            onMember={(id) => navigate(`/team/${id}`)}
-            onSeeMap={() => navigate("/staff-locations")}
-          />
           <HotLeadsCard leads={recentLeads} onSeePipeline={() => navigate("/leads")} />
+          <ActivityCard
+            jobs={jobs}
+            leads={leads}
+            invoices={invoices}
+            teamMembers={teamMembers}
+            onSeeAll={() => navigate("/jobs")}
+          />
         </div>
       </div>
     </div>
@@ -548,7 +553,7 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
       return {
         ...row,
         label: resolved || "Team member",
-        color: row.id === "unassigned" ? "var(--sf-red)" : sfTeamColor(stableHash(row.id)),
+        color: row.id === "unassigned" ? "#DC2626" : sfTeamColor(stableHash(row.id)),
       }
     })
   }, [jobs, resolveName])
@@ -630,8 +635,8 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                   </div>
                 </div>
                 <div
-                  className="relative flex-1 h-9 rounded-md"
-                  style={{ background: "var(--sf-panel-alt)", border: "1px solid var(--sf-border-soft)" }}
+                  className="relative flex-1 rounded-md"
+                  style={{ height: 44, background: "var(--sf-panel-alt)", border: "1px solid var(--sf-border-soft)" }}
                 >
                   {/* hour grid lines */}
                   {hours.slice(1).map((h, j) => (
@@ -718,6 +723,16 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                       ? (undertimeMins / duration) * 100
                       : 0
 
+                    // Block styling: fully filled rectangle in the cleaner's color.
+                    // Live (en-route / in-progress) → solid color + white text.
+                    // Completed → solid color + white text (the job is done).
+                    // Scheduled/upcoming → 18% tint of the color + dark ink text so the
+                    //   customer name reads clearly against the panel background.
+                    const isFilled = isLive || isCompleted
+                    const blockBg = isFilled ? row.color : `${row.color}2e` // 2e ≈ 18% alpha
+                    const blockFg = isFilled ? "#fff" : "var(--sf-ink)"
+                    const subFg = isFilled ? "rgba(255,255,255,.88)" : "var(--sf-ink-2)"
+
                     return (
                       <span key={`${row.id}-${j.id}`} className="contents">
                         <button
@@ -728,11 +743,11 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                             bottom: 3,
                             left: `${left}%`,
                             width: `${widthPct}%`,
-                            background: isLive ? row.color : `${row.color}1f`,
+                            background: blockBg,
                             borderLeft: `3px solid ${row.color}`,
-                            color: isLive ? "#fff" : row.color,
+                            color: blockFg,
                             borderRadius: overtimeMins ? "5px 0 0 5px" : 5,
-                            padding: "3px 7px",
+                            padding: "3px 8px",
                             fontSize: 11,
                             fontWeight: 600,
                             fontFamily: "var(--sf-font-ui)",
@@ -744,13 +759,12 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                           {/* undertime: shade the unused trailing slice of the block */}
                           {undertimeMins > 0 && (
                             <span
-                              className="absolute top-0 bottom-0 right-0"
+                              className="absolute top-0 bottom-0 right-0 pointer-events-none"
                               style={{
                                 width: `${undertimePctOfBlock}%`,
                                 background:
-                                  "repeating-linear-gradient(45deg, rgba(22,163,74,.18) 0 4px, rgba(22,163,74,.05) 4px 8px)",
-                                borderLeft: "1px dashed rgba(22,163,74,.5)",
-                                pointerEvents: "none",
+                                  "repeating-linear-gradient(45deg, rgba(22,163,74,.32) 0 5px, rgba(22,163,74,.10) 5px 10px)",
+                                borderLeft: "1px dashed rgba(22,163,74,.55)",
                               }}
                             />
                           )}
@@ -760,15 +774,15 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                             <span
                               className="absolute top-[2px] right-[3px] flex items-center justify-center"
                               style={{
-                                minWidth: 14,
+                                minWidth: 15,
                                 height: 14,
                                 padding: "0 3px",
                                 borderRadius: 7,
                                 fontSize: 9,
                                 fontWeight: 700,
                                 fontFamily: "var(--sf-font-mono)",
-                                background: isLive ? "rgba(255,255,255,.25)" : `${row.color}33`,
-                                color: isLive ? "#fff" : row.color,
+                                background: isFilled ? "rgba(255,255,255,.25)" : `${row.color}55`,
+                                color: isFilled ? "#fff" : row.color,
                                 letterSpacing: "0",
                               }}
                             >
@@ -777,20 +791,29 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                           )}
 
                           <span
-                            className="whitespace-nowrap overflow-hidden text-ellipsis"
-                            style={{ lineHeight: 1.1 }}
+                            className="whitespace-nowrap overflow-hidden text-ellipsis relative z-[1]"
+                            style={{
+                              lineHeight: 1.15,
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              letterSpacing: "-0.005em",
+                              paddingRight: isTeamJob ? 18 : 0,
+                            }}
                           >
                             {blockTitle}
                           </span>
-                          <span style={{ fontSize: 9.5, opacity: 0.85, fontWeight: 500 }}>
+                          <span
+                            className="whitespace-nowrap overflow-hidden text-ellipsis relative z-[1]"
+                            style={{ fontSize: 10, fontWeight: 500, color: subFg, marginTop: 1 }}
+                          >
                             {start.label} · {planned || duration}m
                             {overtimeMins > 0 && (
-                              <span style={{ marginLeft: 4, color: isLive ? "#fff" : "var(--sf-red-dark)", fontWeight: 700 }}>
+                              <span style={{ marginLeft: 4, color: isFilled ? "#FFE2E2" : "var(--sf-red-dark)", fontWeight: 700 }}>
                                 +{overtimeMins}m
                               </span>
                             )}
                             {undertimeMins > 0 && (
-                              <span style={{ marginLeft: 4, color: isLive ? "#fff" : "var(--sf-green-dark)", fontWeight: 700 }}>
+                              <span style={{ marginLeft: 4, color: isFilled ? "#D4FBE2" : "var(--sf-green-dark)", fontWeight: 700 }}>
                                 −{undertimeMins}m
                               </span>
                             )}
@@ -800,16 +823,15 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                         {/* overtime extension (red striped) past the planned end */}
                         {overtimeMins > 0 && (
                           <span
-                            className="absolute"
+                            className="absolute pointer-events-none"
                             style={{
                               top: 3,
                               bottom: 3,
                               left: `${left + widthPct}%`,
                               width: `${overtimePct}%`,
                               background:
-                                "repeating-linear-gradient(45deg, var(--sf-red) 0 6px, var(--sf-red-dark) 6px 12px)",
+                                "repeating-linear-gradient(45deg, #DC2626 0 6px, #B91C1C 6px 12px)",
                               borderRadius: "0 5px 5px 0",
-                              pointerEvents: "none",
                             }}
                             title={`+${overtimeMins}m overtime`}
                           />
@@ -868,7 +890,7 @@ const JobQueueCard = ({ jobs, totalToday, filter, setFilter, unassignedCount, li
           const value = parseFloat(j.total || j.service_price || 0)
           const idDisplay = j.id ? `#${String(j.id).slice(-4)}` : ""
           const status = jobStatusLabel(j.status)
-          const teamColor = isAssigned(j) ? sfTeamColor(i) : "var(--sf-red)"
+          const teamColor = isAssigned(j) ? sfTeamColor(i) : "#DC2626"
           return (
             <button
               key={j.id || i}
@@ -955,68 +977,201 @@ const JobQueueCard = ({ jobs, totalToday, filter, setFilter, unassignedCount, li
   </SfCard>
 )
 
-// ── Team on shift ──────────────────────────────────────────
+// ── Today's routes (map) ───────────────────────────────────
 
-const TeamOnShiftCard = ({ members, jobs, onMember, onSeeMap }) => {
-  const statusOf = (memberId) => {
-    const m = jobs.find((j) => {
-      const k = j.team_member_id || j.assigned_to
-      return k === memberId
+const RoutesMapCard = ({ jobs, teamMembers, onFullMap }) => {
+  const active = jobs.length
+  return (
+    <SfCard padding={0}>
+      <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-[var(--sf-border-soft)]">
+        <div className="min-w-0 flex-1">
+          <div className="text-[13.5px] font-semibold text-[var(--sf-ink)]">Today's routes</div>
+          <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-0.5">
+            {active === 0 ? "No jobs to map" : `${active} ${active === 1 ? "job" : "jobs"} · live tracking`}
+          </div>
+        </div>
+        <SfButton variant="ghost" size="sm" iconRight={ArrowRight} onClick={onFullMap}>
+          Full map
+        </SfButton>
+      </div>
+      <div style={{ height: 280 }}>
+        {jobs.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-[12.5px] text-[var(--sf-ink-3)]">
+            No jobs scheduled for today.
+          </div>
+        ) : (
+          <JobsMap jobs={jobs} teamMembers={teamMembers} />
+        )}
+      </div>
+    </SfCard>
+  )
+}
+
+// ── Activity feed ──────────────────────────────────────────
+
+const formatRelative = (date) => {
+  if (!date) return ""
+  const d = typeof date === "string" ? new Date(date) : date
+  if (isNaN(d)) return ""
+  const diff = Date.now() - d.getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
+const ActivityCard = ({ jobs, leads, invoices, teamMembers, onSeeAll }) => {
+  // Build a unified, sorted activity feed from the data we already have
+  // on the page. Each entry has kind, when, who, text, optional amount.
+  const memberNameById = useMemo(() => {
+    const map = new Map()
+    teamMembers.forEach((m) => {
+      if (m?.id == null) return
+      const n = m.name || `${m.first_name || ""} ${m.last_name || ""}`.trim() || m.email
+      if (n) map.set(String(m.id), n)
     })
-    const raw = (m?.status || "").toLowerCase()
-    if (raw === "en route" || raw === "en_route") return { label: "En route",  c: "var(--sf-blue-dark)",  bg: "var(--sf-blue-soft)" }
-    if (raw === "in progress" || raw === "in_progress" || raw === "onsite") return { label: "On site",   c: "var(--sf-green-dark)", bg: "var(--sf-green-soft)" }
-    if (m) return { label: "Scheduled", c: "var(--sf-ink-2)", bg: "var(--sf-panel-soft)" }
-    return { label: "Off today", c: "var(--sf-ink-3)", bg: "var(--sf-panel-alt)" }
+    return map
+  }, [teamMembers])
+
+  const entries = useMemo(() => {
+    const out = []
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+    jobs.forEach((j) => {
+      const status = (j.status || "").toLowerCase()
+      const customer = j.customer_name || `${j.customer_first_name || ""} ${j.customer_last_name || ""}`.trim() || "a job"
+      const cleanerId = j.team_member_id || j.assigned_to
+      const cleaner = cleanerId ? memberNameById.get(String(cleanerId)) : null
+      const idDisp = j.id ? `#${String(j.id).slice(-4)}` : ""
+
+      if ((status === "completed" || status === "complete" || status === "done") && (j.completed_at || j.end_time || j.updated_at)) {
+        const when = new Date(j.completed_at || j.end_time || j.updated_at)
+        if (when.getTime() > cutoff) {
+          out.push({
+            kind: "completed",
+            when,
+            who: cleaner || "Job",
+            text: cleaner ? `completed ${customer}'s job ${idDisp}` : `${customer}'s job ${idDisp} completed`,
+          })
+        }
+      } else if (status === "en route" || status === "en_route") {
+        const when = new Date(j.updated_at || j.start_time || Date.now())
+        out.push({
+          kind: "enroute",
+          when,
+          who: cleaner || "Cleaner",
+          text: `en route to ${customer}`,
+        })
+      } else if (status === "in progress" || status === "in_progress") {
+        const when = new Date(j.start_time || j.updated_at || Date.now())
+        out.push({
+          kind: "started",
+          when,
+          who: cleaner || "Cleaner",
+          text: `started ${customer}'s job ${idDisp}`,
+        })
+      } else if (status === "cancelled" || status === "canceled") {
+        const when = new Date(j.cancelled_at || j.updated_at)
+        if (when.getTime() > cutoff) {
+          out.push({
+            kind: "cancelled",
+            when,
+            who: customer,
+            text: `cancelled · ${idDisp}`,
+          })
+        }
+      }
+    })
+
+    leads.forEach((l) => {
+      const when = new Date(l.created_at || l.createdAt)
+      if (isNaN(when) || when.getTime() < cutoff) return
+      const name = l.name || `${l.first_name || ""} ${l.last_name || ""}`.trim() || "Lead"
+      out.push({
+        kind: "lead",
+        when,
+        who: "New lead",
+        text: `${name}${l.source ? ` · ${l.source}` : ""}`,
+        amount: l.estimated_value || l.value,
+      })
+    })
+
+    invoices.forEach((inv) => {
+      if ((inv.status || "").toLowerCase() === "paid" && (inv.paid_at || inv.updated_at)) {
+        const when = new Date(inv.paid_at || inv.updated_at)
+        if (when.getTime() > cutoff) {
+          out.push({
+            kind: "paid",
+            when,
+            who: "Invoice",
+            text: `#${String(inv.id || "").slice(-4)} paid`,
+            amount: inv.total_amount || inv.amount || inv.total,
+          })
+        }
+      }
+    })
+
+    return out.sort((a, b) => b.when.getTime() - a.when.getTime()).slice(0, 8)
+  }, [jobs, leads, invoices, memberNameById])
+
+  const ICON_META = {
+    completed: { icon: "✓", c: "#15803D", bg: "#ECFDF5" },
+    started:   { icon: "▶", c: "#1E40AF", bg: "#EEF4FF" },
+    enroute:   { icon: "→", c: "#1E40AF", bg: "#EEF4FF" },
+    cancelled: { icon: "×", c: "#B91C1C", bg: "#FEE2E2" },
+    lead:      { icon: "★", c: "#0E7490", bg: "#CFFAFE" },
+    paid:      { icon: "$", c: "#15803D", bg: "#ECFDF5" },
   }
 
   return (
     <SfCard>
       <SfCardHeader
-        title="Team on shift"
+        title="Activity"
         right={
-          <SfButton variant="ghost" size="sm" iconRight={ArrowRight} onClick={onSeeMap}>
-            Map
+          <SfButton variant="ghost" size="sm" iconRight={ArrowRight} onClick={onSeeAll}>
+            See all
           </SfButton>
         }
       />
-      {members.length === 0 ? (
+      {entries.length === 0 ? (
         <div className="py-6 text-center text-[12.5px] text-[var(--sf-ink-3)]">
-          No team members yet.
+          No recent activity.
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {members.map((m, i) => {
-            const name = m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : m.name || m.email || "Team member"
-            const s = statusOf(m.id)
-            const color = sfTeamColor(i)
+          {entries.map((e, i) => {
+            const m = ICON_META[e.kind] || ICON_META.completed
             return (
-              <button
-                key={m.id || i}
-                onClick={() => onMember(m.id)}
-                className="flex items-center gap-2.5 text-left w-full bg-transparent border-none cursor-pointer py-1"
-              >
-                <SfAvatarStack items={[{ initials: sfInitials(name), color }]} size={28} />
+              <div key={i} className="flex items-start gap-2.5">
+                <div
+                  className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 text-[13px] font-bold"
+                  style={{ background: m.bg, color: m.c, border: `1px solid ${m.c}22` }}
+                >
+                  {m.icon}
+                </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] font-semibold text-[var(--sf-ink)] leading-tight truncate">
-                    {name}
+                  <div className="text-[12.5px] text-[var(--sf-ink)] leading-tight">
+                    <span className="font-semibold">{e.who}</span>{" "}
+                    <span className="text-[var(--sf-ink-2)]">{e.text}</span>
                   </div>
-                  <div className="text-[10.5px] text-[var(--sf-ink-3)] mt-px truncate">
-                    {m.role || "Cleaner"}
+                  <div className="text-[10.5px] text-[var(--sf-ink-3)] mt-px">
+                    {formatRelative(e.when)}
                   </div>
                 </div>
-                <span
-                  className="text-[10.5px] font-semibold rounded"
-                  style={{
-                    color: s.c,
-                    background: s.bg,
-                    padding: "3px 8px",
-                    border: `1px solid ${s.c}22`,
-                  }}
-                >
-                  {s.label}
-                </span>
-              </button>
+                {e.amount && (
+                  <div
+                    className="text-[11.5px] font-semibold flex-shrink-0"
+                    style={{
+                      color: e.kind === "paid" || e.kind === "lead" ? "#15803D" : "var(--sf-ink-2)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {formatMoneyExact(parseFloat(e.amount) || 0)}
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>

@@ -378,12 +378,14 @@ export const sfInitials = (name) => {
 }
 
 // ── Team color cycle (A → E) ───────────────────────────────
+// Raw hex so callers can compose with alpha (`${color}26` etc.). The
+// matching CSS vars in index.css still exist for static styling needs.
 const TEAM_COLORS = [
-  "var(--sf-team-a)",
-  "var(--sf-team-b)",
-  "var(--sf-team-c)",
-  "var(--sf-team-d)",
-  "var(--sf-team-e)",
+  "#2563EB", // A — blue
+  "#16A34A", // B — green
+  "#D97706", // C — amber
+  "#7C3AED", // D — purple
+  "#0891B2", // E — teal
 ]
 export const sfTeamColor = (idx) => TEAM_COLORS[(idx ?? 0) % TEAM_COLORS.length]
 
