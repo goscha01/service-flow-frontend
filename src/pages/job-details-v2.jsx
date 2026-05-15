@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import {
   ArrowLeft,
@@ -25,6 +25,8 @@ import {
   DollarSign,
   User as UserIcon,
   ChevronDown,
+  MoreHorizontal,
+  Trash2,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI, teamAPI, customersAPI, invoicesAPI } from "../services/api"
@@ -173,6 +175,20 @@ const JobDetailsV2 = () => {
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [showLeadPicker, setShowLeadPicker] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const moreMenuRef = useRef(null)
+
+  // Close more-actions menu on outside click
+  useEffect(() => {
+    if (!showMoreMenu) return
+    const onClick = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setShowMoreMenu(false)
+      }
+    }
+    document.addEventListener("mousedown", onClick)
+    return () => document.removeEventListener("mousedown", onClick)
+  }, [showMoreMenu])
 
   const loadJob = useCallback(async () => {
     if (!jobId) return
@@ -253,6 +269,24 @@ const JobDetailsV2 = () => {
     } catch (e) {
       alert(e?.message || "Could not cancel the job.")
     } finally {
+      setBusy(false)
+    }
+  }
+
+  const onDelete = async () => {
+    if (!job) return
+    setShowMoreMenu(false)
+    const confirmed = window.confirm(
+      "Delete this job permanently? This removes the booking and any related ledger entries. " +
+        "Prefer Cancel if you just want to keep the record but stop the job."
+    )
+    if (!confirmed) return
+    setBusy(true)
+    try {
+      await jobsAPI.delete(job.id)
+      navigate("/jobs")
+    } catch (e) {
+      alert(e?.message || "Could not delete the job.")
       setBusy(false)
     }
   }
@@ -421,6 +455,34 @@ const JobDetailsV2 = () => {
                 Mark complete
               </SfButton>
             )}
+
+            {/* More actions menu */}
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                onClick={() => setShowMoreMenu((v) => !v)}
+                aria-label="More actions"
+                disabled={busy}
+                className="w-9 h-9 inline-flex items-center justify-center rounded-[8px] bg-[var(--sf-panel)] border border-[var(--sf-border-2)] text-[var(--sf-ink-2)] hover:bg-[var(--sf-panel-soft)] transition-colors"
+                style={{ cursor: busy ? "not-allowed" : "pointer" }}
+              >
+                <MoreHorizontal size={16} strokeWidth={2} />
+              </button>
+              {showMoreMenu && (
+                <div
+                  className="absolute right-0 top-full mt-1.5 w-48 rounded-[10px] bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] py-1.5 z-50"
+                  style={{ boxShadow: "var(--sf-shadow-l)" }}
+                >
+                  <button
+                    onClick={onDelete}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[12.5px] font-medium hover:bg-[var(--sf-red-soft)] transition-colors"
+                    style={{ color: "var(--sf-red-dark)" }}
+                  >
+                    <Trash2 size={14} strokeWidth={1.85} />
+                    Delete job
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
