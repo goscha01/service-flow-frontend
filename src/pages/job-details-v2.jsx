@@ -551,6 +551,35 @@ const JobDetailsV2 = () => {
               setBusy(false)
             }
           }}
+          onGenerateInvoice={async (payload) => {
+            if (!user?.id || !job?.id) return
+            const customerId = job.customer_id || customer?.id
+            if (!customerId) {
+              alert("This job has no customer linked — set a customer before generating the invoice.")
+              return
+            }
+            if (!(payload.totalAmount > 0)) {
+              alert("Set a service price on the job before generating the invoice.")
+              return
+            }
+            setBusy(true)
+            try {
+              await invoicesAPI.create({
+                userId: user.id,
+                customerId,
+                jobId: job.id,
+                totalAmount: payload.totalAmount,
+                taxAmount: payload.taxAmount || 0,
+                status: "draft",
+                dueDate: payload.dueDate,
+              })
+              await loadJob()
+            } catch (e) {
+              alert(e?.response?.data?.error || e?.message || "Could not generate the invoice.")
+            } finally {
+              setBusy(false)
+            }
+          }}
           onOpenInvoice={() => invoice?.id && navigate(`/invoices/${invoice.id}`)}
           onEditInvoice={() => invoice?.id && navigate(`/invoices/${invoice.id}/edit`)}
         />
@@ -1076,6 +1105,7 @@ const InvoiceTabBody = ({
   payState,
   busy,
   onMarkPaid,
+  onGenerateInvoice,
   onOpenInvoice,
   onEditInvoice,
 }) => {
@@ -1426,8 +1456,23 @@ const InvoiceTabBody = ({
                 size="md"
                 icon={Plus}
                 className="w-full justify-center"
-                disabled
-                title="Coming in the next slice — will call invoicesAPI.create with the job's pricing"
+                disabled={busy}
+                onClick={() => {
+                  const dueDate = (() => {
+                    // Default Net-14 from the job's scheduled date (or today).
+                    const base = job.scheduled_date
+                      ? new Date(String(job.scheduled_date).includes("T") ? job.scheduled_date : String(job.scheduled_date).replace(" ", "T"))
+                      : new Date()
+                    if (isNaN(base)) return null
+                    base.setDate(base.getDate() + 14)
+                    return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`
+                  })()
+                  onGenerateInvoice?.({
+                    totalAmount: Number(total.toFixed(2)),
+                    taxAmount: tax > 0 ? Number(tax.toFixed(2)) : 0,
+                    dueDate,
+                  })
+                }}
               >
                 Generate invoice
               </SfButton>
