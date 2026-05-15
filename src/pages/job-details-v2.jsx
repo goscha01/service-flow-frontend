@@ -138,6 +138,34 @@ const teamLeadId = (job) =>
   job?.primary_team_member_id ??
   null
 
+// Derive where this job originated from. Surfaces the relevant fields
+// the various source systems stamp on a job:
+//   - zenbooker_id → "Zenbooker"
+//   - lead_id      → "Lead"
+//   - booking_id   → "Online booking" (public widget)
+//   - imported_*   → "Imported"
+//   - source       → freeform string set on creation
+//   - everything else → "Manual"
+const jobSource = (j) => {
+  if (!j) return null
+  if (j.zenbooker_id) return { label: "Zenbooker", detail: j.zenbooker_id, kind: "zenbooker" }
+  if (j.leadbridge_id || j.lb_id) return { label: "LeadBridge", detail: j.leadbridge_id || j.lb_id, kind: "leadbridge" }
+  if (j.lead_id) return { label: "Lead conversion", detail: `Lead #${String(j.lead_id).slice(-4)}`, kind: "lead" }
+  if (j.booking_id || j.booking_request_id) return { label: "Online booking", detail: j.booking_id || j.booking_request_id, kind: "booking" }
+  if (j.imported_at || j.imported_from || j.import_source) {
+    return { label: "Imported", detail: j.imported_from || j.import_source || "—", kind: "import" }
+  }
+  if (j.source && String(j.source).trim()) {
+    const raw = String(j.source).trim()
+    return { label: raw.charAt(0).toUpperCase() + raw.slice(1), detail: null, kind: "freeform" }
+  }
+  if (j.created_via) {
+    const raw = String(j.created_via).trim()
+    return { label: raw.charAt(0).toUpperCase() + raw.slice(1), detail: null, kind: "freeform" }
+  }
+  return { label: "Manual", detail: null, kind: "manual" }
+}
+
 const paymentState = (j) => {
   const total = parseFloat(j.total || j.service_price || 0)
   if (total === 0) return null
@@ -601,6 +629,22 @@ const JobDetailsV2 = () => {
                     label="Recurrence"
                     value={isRecurring ? (job.recurring_frequency || "Recurring") : "One-time"}
                   />
+                  <DetailItem
+                    label="Source"
+                    value={<SourceDisplay source={jobSource(job)} />}
+                  />
+                  <DetailItem
+                    label="Created"
+                    value={
+                      job.created_at
+                        ? new Date(job.created_at).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "—"
+                    }
+                  />
                 </div>
 
                 {/* Customer note */}
@@ -963,6 +1007,49 @@ const JobDetailsV2 = () => {
 }
 
 // ── Sub-components ─────────────────────────────────────────
+
+const SOURCE_STYLE = {
+  zenbooker:  { dot: "#7C3AED", bg: "var(--sf-purple-soft)", fg: "#7C3AED" },
+  leadbridge: { dot: "#0891B2", bg: "var(--sf-teal-soft)",   fg: "#0E7490" },
+  lead:       { dot: "#D97706", bg: "var(--sf-amber-soft)",  fg: "var(--sf-amber-dark)" },
+  booking:    { dot: "#2563EB", bg: "var(--sf-blue-soft)",   fg: "var(--sf-blue-dark)" },
+  import:     { dot: "#5F6775", bg: "var(--sf-panel-soft)",  fg: "var(--sf-ink-2)" },
+  manual:     { dot: "#94A3B8", bg: "var(--sf-panel-soft)",  fg: "var(--sf-ink-2)" },
+  freeform:   { dot: "#16A34A", bg: "var(--sf-green-soft)",  fg: "var(--sf-green-dark)" },
+}
+
+const SourceDisplay = ({ source }) => {
+  if (!source) return <span className="text-[var(--sf-ink-3)]">—</span>
+  const s = SOURCE_STYLE[source.kind] || SOURCE_STYLE.manual
+  return (
+    <span className="inline-flex items-center gap-2 flex-wrap">
+      <span
+        className="inline-flex items-center gap-1.5 px-2 py-[3px] rounded-full"
+        style={{
+          background: s.bg,
+          color: s.fg,
+          fontSize: 11.5,
+          fontWeight: 600,
+          border: `1px solid ${s.dot}25`,
+        }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }} />
+        {source.label}
+      </span>
+      {source.detail && (
+        <span
+          className="text-[10.5px] text-[var(--sf-ink-3)]"
+          style={{ fontFamily: "var(--sf-font-mono)" }}
+          title={String(source.detail)}
+        >
+          {String(source.detail).length > 16
+            ? `…${String(source.detail).slice(-12)}`
+            : String(source.detail)}
+        </span>
+      )}
+    </span>
+  )
+}
 
 const DetailItem = ({ label, value }) => (
   <div>
