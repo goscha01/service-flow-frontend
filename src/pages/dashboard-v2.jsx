@@ -437,6 +437,7 @@ const DashboardV2 = () => {
       <div className="px-4 sm:px-6 lg:px-8 pb-3">
         <ScheduleTimelineCard
           jobs={todayJobs}
+          teamMembers={teamMembers}
           scheduleView={scheduleView}
           setScheduleView={setScheduleView}
           onJobClick={(id) => navigate(`/job/${id}`)}
@@ -474,7 +475,34 @@ const DashboardV2 = () => {
 
 // ── Schedule timeline ──────────────────────────────────────
 
-const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick, onOpenSchedule }) => {
+const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setScheduleView, onJobClick, onOpenSchedule }) => {
+  // Build an id → display-name lookup so timeline rows show the actual
+  // cleaner instead of a generic "Team member" fallback. Jobs in this
+  // codebase carry team_member_id but not the name — the name lives on
+  // the team_members rows we already fetched.
+  const memberNameById = useMemo(() => {
+    const map = new Map()
+    teamMembers.forEach((m) => {
+      if (m?.id == null) return
+      const name =
+        m.name ||
+        `${m.first_name || ""} ${m.last_name || ""}`.trim() ||
+        m.email ||
+        ""
+      if (name) map.set(String(m.id), name)
+    })
+    return map
+  }, [teamMembers])
+
+  const resolveName = useCallback(
+    (id, fallback) => {
+      if (!id) return fallback || ""
+      const looked = memberNameById.get(String(id))
+      return looked || fallback || ""
+    },
+    [memberNameById]
+  )
+
   // Hour range: derive from jobs, clamp to a sensible default
   const startHr = 7
   const endHr = 19
@@ -515,15 +543,15 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
       if (b.id === "unassigned") return -1
       return 0
     })
-    return arr.map((row) => ({
-      ...row,
-      label:
-        row.id === "unassigned"
-          ? "Unassigned"
-          : row.name || "Team member",
-      color: row.id === "unassigned" ? "var(--sf-red)" : sfTeamColor(stableHash(row.id)),
-    }))
-  }, [jobs])
+    return arr.map((row) => {
+      const resolved = row.id === "unassigned" ? "Unassigned" : resolveName(row.id, row.name)
+      return {
+        ...row,
+        label: resolved || "Team member",
+        color: row.id === "unassigned" ? "var(--sf-red)" : sfTeamColor(stableHash(row.id)),
+      }
+    })
+  }, [jobs, resolveName])
 
   const cleanerRowCount = rows.filter((r) => r.id !== "unassigned").length
   const teamJobCount = jobs.filter((j) => assigneesFor(j).length >= 2).length
@@ -660,15 +688,16 @@ const ScheduleTimelineCard = ({ jobs, scheduleView, setScheduleView, onJobClick,
                     const teamSize = j._teamSize ?? 1
                     const isTeamJob = teamSize >= 2
                     const lead = isTeamJob ? teamLeadFor(j) : null
+                    const leadName = lead ? resolveName(lead.id, lead.name) : ""
                     const isLead = lead && String(lead.id) === String(row.id)
                     const customer = j.customer_first_name || (j.customer_name || "").split(" ")[0] || "—"
 
                     // Block label varies by team role on this row.
                     let blockTitle
                     if (isTeamJob && lead && isLead) {
-                      blockTitle = `${firstName(lead.name) || "Team"}'s team · ${customer}`
+                      blockTitle = `${firstName(leadName) || "Team"}'s team · ${customer}`
                     } else if (isTeamJob && lead && !isLead) {
-                      blockTitle = `w/ ${firstName(lead.name) || "team"} · ${customer}`
+                      blockTitle = `w/ ${firstName(leadName) || "team"} · ${customer}`
                     } else if (isTeamJob) {
                       blockTitle = `Team · ${customer}`
                     } else {
