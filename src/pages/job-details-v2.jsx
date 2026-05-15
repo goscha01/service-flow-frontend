@@ -1047,10 +1047,19 @@ const INVOICE_STATUS_META = {
   refunded: { label: "Refunded",    c: "var(--sf-ink-2)",      bg: "var(--sf-panel-soft)", note: "Refunded" },
 }
 
-const invoiceStatusMeta = (raw, hasInvoice) => {
-  if (!hasInvoice) return { ...INVOICE_STATUS_META.pending, label: "Not yet generated", note: "Invoice will generate once the job has a price" }
-  const k = String(raw || "").toLowerCase()
-  return INVOICE_STATUS_META[k] || INVOICE_STATUS_META.draft
+const invoiceStatusMeta = (raw, hasInvoice, jobHasPrice, jobPaid) => {
+  if (hasInvoice) {
+    const k = String(raw || "").toLowerCase()
+    return INVOICE_STATUS_META[k] || INVOICE_STATUS_META.draft
+  }
+  // No invoice row yet — derive a sensible state from the job itself.
+  if (jobPaid) {
+    return { ...INVOICE_STATUS_META.paid, note: "Marked paid on the job — no formal invoice generated" }
+  }
+  if (jobHasPrice) {
+    return { ...INVOICE_STATUS_META.draft, note: "Drafted from the job — Generate invoice when ready to bill" }
+  }
+  return { ...INVOICE_STATUS_META.pending, label: "Not yet priced", note: "Set a service price on the job to draft the invoice" }
 }
 
 const formatMoneyExact = (n) =>
@@ -1116,10 +1125,21 @@ const InvoiceTabBody = ({
     ? parseFloat(invoice.total_amount)
     : (subtotal + tax)
 
-  const meta = invoiceStatusMeta(invoice?.status || (payState === "paid" ? "paid" : payState === "unpaid" ? "sent" : "draft"), Boolean(invoice))
-  const isPaid = payState === "paid"
+  const jobHasPrice = baseService > 0 || fallbackTotal > 0 || total > 0
+  const jobPaid = payState === "paid"
+  const meta = invoiceStatusMeta(
+    invoice?.status || (jobPaid ? "paid" : "draft"),
+    Boolean(invoice),
+    jobHasPrice,
+    jobPaid
+  )
+  const isPaid = jobPaid
 
-  const invoiceCode = invoice?.id ? `INV-${String(invoice.id).slice(-4)}` : "—"
+  const invoiceCode = invoice?.id
+    ? `INV-${String(invoice.id).slice(-4)}`
+    : jobHasPrice
+    ? `Draft · #${String(job.id).slice(-4)}`
+    : "—"
   const issuedDate = invoice?.created_at
     ? new Date(invoice.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
     : "—"
@@ -1400,6 +1420,18 @@ const InvoiceTabBody = ({
         <SfCard>
           <SfCardHeader title="Actions" />
           <div className="flex flex-col gap-2">
+            {!invoice && jobHasPrice && (
+              <SfButton
+                variant="primary"
+                size="md"
+                icon={Plus}
+                className="w-full justify-center"
+                disabled
+                title="Coming in the next slice — will call invoicesAPI.create with the job's pricing"
+              >
+                Generate invoice
+              </SfButton>
+            )}
             {!isPaid && invoice && (
               <SfButton
                 variant="primary"
