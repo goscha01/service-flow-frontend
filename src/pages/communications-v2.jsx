@@ -21,6 +21,12 @@ import {
   PhoneOutgoing,
   PhoneMissed,
   Check,
+  Plus,
+  X,
+  ChevronDown,
+  Sparkles,
+  Trash2,
+  Phone as PhoneIcon,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useLocationScope } from "../context/LocationContext"
@@ -53,13 +59,31 @@ import {
  */
 
 const FOLDERS = [
-  { id: "all",     label: "All",     icon: InboxIcon },
-  { id: "unread",  label: "Unread",  icon: MessageSquare, urgent: true },
-  { id: "sms",     label: "SMS",     icon: MessageSquare, channel: "sms" },
-  { id: "email",   label: "Email",   icon: MailIcon,      channel: "email" },
-  { id: "reviews", label: "Reviews", icon: Star,          channel: "review" },
-  { id: "archive", label: "Archive", icon: Archive,       archived: true },
+  { id: "all",     label: "All",      icon: InboxIcon, builtin: true },
+  { id: "unread",  label: "Unread",   icon: MessageSquare, urgent: true, builtin: true },
+  { id: "sms",     label: "SMS",      icon: MessageSquare, channel: "sms",      builtin: true },
+  { id: "whatsapp",label: "WhatsApp", icon: MessageSquare, channel: "whatsapp", builtin: true },
+  { id: "email",   label: "Email",    icon: MailIcon,      channel: "email",    builtin: true },
+  { id: "reviews", label: "Reviews",  icon: Star,          channel: "review",   builtin: true },
+  { id: "thumbtack", label: "Thumbtack", icon: Briefcase,  channel: "thumbtack",builtin: true },
+  { id: "yelp",    label: "Yelp",     icon: Star,          channel: "yelp",     builtin: true },
+  { id: "archive", label: "Archive",  icon: Archive,       archived: true,      builtin: true },
 ]
+
+// Channel catalog — every channel type the app supports, whether or
+// not the user has actually connected an account for it. The icon
+// + color is the visual identity; the count comes from the live
+// conversation list at render time.
+const CHANNEL_CATALOG = [
+  { id: "sms",       label: "SMS",       icon: MessageSquare, c: "var(--sf-green)",  desc: "Twilio / OpenPhone" },
+  { id: "whatsapp",  label: "WhatsApp",  icon: MessageSquare, c: "#25D366",          desc: "WhatsApp Business" },
+  { id: "email",     label: "Email",     icon: MailIcon,      c: "var(--sf-blue)",   desc: "Gmail / Outlook" },
+  { id: "review",    label: "Yelp",      icon: Star,          c: "#C41200",          desc: "Yelp reviews" },
+  { id: "thumbtack", label: "Thumbtack", icon: Briefcase,     c: "#1A73E8",          desc: "Thumbtack inbox" },
+  { id: "call",      label: "Calls",     icon: PhoneIcon,     c: "var(--sf-purple)", desc: "Inbound + outbound calls" },
+]
+
+const CUSTOM_FOLDERS_KEY = "serviceflow.inbox.customFolders"
 
 const CommunicationsV2 = () => {
   const { user } = useAuth()
@@ -82,8 +106,26 @@ const CommunicationsV2 = () => {
   const [detailLoading, setDetailLoading] = useState(false)
 
   const [composeText, setComposeText] = useState("")
+  const [composeChannel, setComposeChannel] = useState(null)
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef(null)
+
+  // Custom folders — user-defined, persisted to localStorage. Each
+  // folder is { id, label, channels: [...channel ids] }. When active
+  // they filter the conversation list to ANY of their channels.
+  const [customFolders, setCustomFolders] = useState(() => {
+    try {
+      const raw = localStorage.getItem(CUSTOM_FOLDERS_KEY)
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const persistFolders = useCallback((next) => {
+    setCustomFolders(next)
+    try { localStorage.setItem(CUSTOM_FOLDERS_KEY, JSON.stringify(next)) } catch {}
+  }, [])
 
   // URL sync
   useEffect(() => {
@@ -107,19 +149,27 @@ const CommunicationsV2 = () => {
     if (!user?.id) return
     setLoadingList(true)
     try {
-      const f = FOLDERS.find((x) => x.id === folder)
+      const builtIn = FOLDERS.find((x) => x.id === folder)
+      const custom = customFolders.find((x) => x.id === folder)
       const params = {}
       if (folder === "unread") params.filter = "unread"
-      if (f?.channel) params.channel = f.channel
-      if (f?.archived) params.archived = "true"
+      // Built-in single-channel folders pass the channel param.
+      // Custom folders (potentially multi-channel) skip the param and
+      // post-filter client-side below.
+      if (builtIn?.channel) params.channel = builtIn.channel
+      if (builtIn?.archived) params.archived = "true"
       if (debouncedSearch) params.search = debouncedSearch
       if (locationId && locationId !== "all") params.locationId = locationId
       const resp = await communicationsAPI.getConversations(params)
-      const list = Array.isArray(resp)
+      let list = Array.isArray(resp)
         ? resp
         : Array.isArray(resp?.conversations)
         ? resp.conversations
         : []
+      if (custom && Array.isArray(custom.channels) && custom.channels.length > 0) {
+        const set = new Set(custom.channels)
+        list = list.filter((c) => set.has((c.channel || "").toLowerCase()))
+      }
       setConversations(list)
       // Auto-select first if nothing currently selected
       if (!selectedId && list.length > 0) {
@@ -128,7 +178,7 @@ const CommunicationsV2 = () => {
     } finally {
       setLoadingList(false)
     }
-  }, [user?.id, folder, debouncedSearch, locationId, selectedId])
+  }, [user?.id, folder, debouncedSearch, locationId, selectedId, customFolders])
 
   useEffect(() => { fetchConversations() }, [fetchConversations])
 
@@ -177,12 +227,47 @@ const CommunicationsV2 = () => {
     })
   }, [detail])
 
+  // Channel of the most recent message (or fallback to conversation
+  // channel). This is the default "Sending as" channel — the user
+  // can override via the dropdown.
+  const latestChannel = useMemo(() => {
+    const events = detail?.events || []
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i]
+      const t = e.type || ""
+      if (t.startsWith("message_") && e.channel) return e.channel.toLowerCase()
+    }
+    return (detail?.conversation?.channel || conversations.find((c) => String(c.id) === String(selectedId))?.channel || "sms").toLowerCase()
+  }, [detail, conversations, selectedId])
+
+  // Reset compose channel when the selected thread changes
+  useEffect(() => { setComposeChannel(null) }, [selectedId])
+  const effectiveSendChannel = composeChannel || latestChannel
+
+  // Channels available to send on for the active thread. Preference:
+  // detail.availableSendChannels (server-provided) → channels seen in
+  // events → conversation.channel.
+  const availableSendChannels = useMemo(() => {
+    if (Array.isArray(detail?.availableSendChannels) && detail.availableSendChannels.length) {
+      return Array.from(new Set(detail.availableSendChannels.map((c) => c.toLowerCase())))
+    }
+    const set = new Set()
+    ;(detail?.events || []).forEach((e) => {
+      const t = e.type || ""
+      if (t.startsWith("message_") && e.channel) set.add(e.channel.toLowerCase())
+    })
+    const convCh = conversations.find((c) => String(c.id) === String(selectedId))?.channel
+    if (convCh) set.add(String(convCh).toLowerCase())
+    if (!set.size) set.add("sms")
+    return Array.from(set)
+  }, [detail, conversations, selectedId])
+
   const onSend = async () => {
     const text = composeText.trim()
     if (!text || !selectedId || sending) return
     setSending(true)
     try {
-      await communicationsAPI.sendMessage(selectedId, { text, channel: detail?.conversation?.channel || "sms" })
+      await communicationsAPI.sendMessage(selectedId, { text, channel: effectiveSendChannel })
       setComposeText("")
       // Refresh detail
       const fresh = await communicationsAPI.getConversation(selectedId, { limit: 100 })
@@ -209,20 +294,50 @@ const CommunicationsV2 = () => {
     }
   }
 
-  // Compute folder counts client-side from the current list
+  // Compute folder counts client-side from the current list. Custom
+  // folder counts are computed off the union of their channels.
   const folderCounts = useMemo(() => {
-    const counts = { all: 0, unread: 0, sms: 0, email: 0, reviews: 0, archive: 0 }
+    const counts = {
+      all: 0, unread: 0,
+      sms: 0, whatsapp: 0, email: 0,
+      reviews: 0, thumbtack: 0, yelp: 0,
+      archive: 0,
+    }
     conversations.forEach((c) => {
       counts.all += 1
       if ((c.unreadCount ?? 0) > 0) counts.unread += 1
       const ch = (c.channel || "").toLowerCase()
       if (ch === "sms") counts.sms += 1
+      else if (ch === "whatsapp") counts.whatsapp += 1
       else if (ch === "email") counts.email += 1
       else if (ch === "review") counts.reviews += 1
+      else if (ch === "thumbtack") counts.thumbtack += 1
+      else if (ch === "yelp") counts.yelp += 1
       if (c.isArchived) counts.archive += 1
     })
+    customFolders.forEach((f) => {
+      const set = new Set(f.channels || [])
+      counts[f.id] = conversations.filter((c) => set.has((c.channel || "").toLowerCase())).length
+    })
     return counts
-  }, [conversations])
+  }, [conversations, customFolders])
+
+  // Channel connection status — which channels have at least one
+  // provider account active. Falls back to inferring from the
+  // conversation list (if conversations exist for a channel, treat
+  // the channel as "in use" even if accounts API didn't list it).
+  const channelStatus = useMemo(() => {
+    const status = {}
+    accounts.forEach((a) => {
+      const k = (a.channel || "").toLowerCase()
+      if (k) status[k] = "connected"
+    })
+    conversations.forEach((c) => {
+      const k = (c.channel || "").toLowerCase()
+      if (k && !status[k]) status[k] = "in_use"
+    })
+    return status
+  }, [accounts, conversations])
 
   const selectedConv = useMemo(
     () => conversations.find((c) => String(c.id) === String(selectedId)) || null,
@@ -269,80 +384,91 @@ const CommunicationsV2 = () => {
         {/* Folders rail */}
         <div className="hidden md:flex flex-col gap-3.5" style={{ width: 200, flexShrink: 0 }}>
           <SfCard padding={"10px 8px"}>
-            <SectionLabel>Folders</SectionLabel>
-            {FOLDERS.map((f) => {
-              const active = folder === f.id
-              const Icon = f.icon
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => { setFolder(f.id); setSelectedId(null); }}
-                  className="flex items-center gap-2.5 w-full text-left rounded-md"
-                  style={{
-                    padding: "7px 10px",
-                    background: active ? "var(--sf-blue-soft)" : "transparent",
-                    color: active ? "var(--sf-blue-dark)" : "var(--sf-ink-2)",
-                    border: "none",
-                    fontSize: 12.5,
-                    fontWeight: active ? 600 : 500,
-                    cursor: "pointer",
-                    fontFamily: "var(--sf-font-ui)",
-                  }}
+            <div className="flex items-center" style={{ padding: "4px 8px 6px" }}>
+              <SectionLabel inline>Folders</SectionLabel>
+              <div className="flex-1" />
+              <button
+                onClick={() => setNewFolderOpen(true)}
+                aria-label="New folder"
+                className="w-5 h-5 inline-flex items-center justify-center rounded text-[var(--sf-ink-3)] hover:text-[var(--sf-ink)] hover:bg-[var(--sf-panel-soft)]"
+                style={{ background: "transparent", border: "none", cursor: "pointer" }}
+              >
+                <Plus size={13} />
+              </button>
+            </div>
+            {FOLDERS.map((f) => (
+              <FolderRow
+                key={f.id}
+                folder={f}
+                active={folder === f.id}
+                count={folderCounts[f.id] || 0}
+                onSelect={() => { setFolder(f.id); setSelectedId(null) }}
+              />
+            ))}
+            {customFolders.length > 0 && (
+              <>
+                <div
+                  className="text-[9.5px] font-bold uppercase text-[var(--sf-ink-3)]"
+                  style={{ padding: "8px 10px 4px", letterSpacing: ".06em" }}
                 >
-                  <Icon size={14} color={f.urgent ? "var(--sf-red)" : undefined} />
-                  <span className="flex-1">{f.label}</span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: active ? "var(--sf-blue-dark)" : "var(--sf-ink-3)",
-                      fontWeight: 600,
-                      fontVariantNumeric: "tabular-nums",
+                  Custom
+                </div>
+                {customFolders.map((f) => (
+                  <FolderRow
+                    key={f.id}
+                    folder={f}
+                    active={folder === f.id}
+                    count={folderCounts[f.id] || 0}
+                    custom
+                    onSelect={() => { setFolder(f.id); setSelectedId(null) }}
+                    onDelete={() => {
+                      persistFolders(customFolders.filter((x) => x.id !== f.id))
+                      if (folder === f.id) setFolder("all")
                     }}
-                  >
-                    {folderCounts[f.id] || 0}
-                  </span>
-                </button>
-              )
-            })}
+                  />
+                ))}
+              </>
+            )}
           </SfCard>
 
           <SfCard padding={"10px 8px"}>
             <SectionLabel>Channels</SectionLabel>
-            {accounts.length === 0 ? (
-              <div className="px-2 py-2 text-[11px] text-[var(--sf-ink-3)]">
-                No channels connected.
-              </div>
-            ) : (
-              accounts.map((a) => {
-                const ch = (a.channel || "").toLowerCase()
-                const meta =
-                  ch === "email"
-                    ? { c: "var(--sf-blue)", icon: MailIcon, sub: "Email" }
-                    : ch === "review"
-                    ? { c: "var(--sf-amber)", icon: Star, sub: "Reviews" }
-                    : { c: "var(--sf-green)", icon: MessageSquare, sub: "SMS / Calls" }
-                const Icon = meta.icon
-                return (
-                  <div key={a.id || a.display_name} className="flex items-center gap-2.5" style={{ padding: "7px 10px" }}>
-                    <div
-                      className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${meta.c}1a`, color: meta.c }}
-                    >
-                      <Icon size={12} />
+            {CHANNEL_CATALOG.map((c) => {
+              const Icon = c.icon
+              const state = channelStatus[c.id]
+              const connected = state === "connected"
+              const inUse = state === "in_use"
+              const dotColor = connected
+                ? "var(--sf-green)"
+                : inUse
+                ? "var(--sf-amber)"
+                : "var(--sf-ink-4)"
+              return (
+                <div key={c.id} className="flex items-center gap-2.5" style={{ padding: "7px 10px" }}>
+                  <div
+                    className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${c.c}1a`, color: c.c }}
+                  >
+                    <Icon size={12} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11.5px] font-semibold text-[var(--sf-ink)] leading-tight truncate">
+                        {c.label}
+                      </span>
+                      <span
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        style={{ background: dotColor }}
+                        title={connected ? "Connected" : inUse ? "In use" : "Not connected"}
+                      />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div
-                        className="text-[11.5px] font-semibold text-[var(--sf-ink)] leading-tight truncate"
-                        title={a.display_name || a.external_account_id}
-                      >
-                        {a.display_name || a.external_account_id}
-                      </div>
-                      <div className="text-[10px] text-[var(--sf-ink-3)] mt-px">{meta.sub}</div>
+                    <div className="text-[10px] text-[var(--sf-ink-3)] mt-px truncate">
+                      {connected ? c.desc : inUse ? c.desc : "Not connected"}
                     </div>
                   </div>
-                )
-              })
-            )}
+                </div>
+              )
+            })}
           </SfCard>
         </div>
 
@@ -386,6 +512,17 @@ const CommunicationsV2 = () => {
           </div>
         </SfCard>
 
+        {/* New folder modal */}
+        <NewFolderModal
+          open={newFolderOpen}
+          onClose={() => setNewFolderOpen(false)}
+          onSubmit={(folder) => {
+            persistFolders([...customFolders, folder])
+            setFolder(folder.id)
+            setSelectedId(null)
+          }}
+        />
+
         {/* Conversation */}
         <SfCard padding={0} className="flex-1 flex flex-col min-w-0" style={{ minHeight: 0 }}>
           {!selectedId ? (
@@ -408,6 +545,9 @@ const CommunicationsV2 = () => {
               loading={detailLoading}
               composeText={composeText}
               setComposeText={setComposeText}
+              composeChannel={effectiveSendChannel}
+              setComposeChannel={setComposeChannel}
+              availableSendChannels={availableSendChannels}
               onSend={onSend}
               onKeyDownCompose={onKeyDownCompose}
               sending={sending}
@@ -430,14 +570,368 @@ const CommunicationsV2 = () => {
 
 // ── Section label inside a card ────────────────────────────
 
-const SectionLabel = ({ children }) => (
+const SectionLabel = ({ children, inline }) => (
   <div
     className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
-    style={{ padding: "4px 10px 8px", letterSpacing: ".06em" }}
+    style={{ padding: inline ? "0" : "4px 10px 8px", letterSpacing: ".06em" }}
   >
     {children}
   </div>
 )
+
+// ── Folder row ─────────────────────────────────────────────
+
+const FolderRow = ({ folder, active, count, custom, onSelect, onDelete }) => {
+  const Icon = folder.icon || InboxIcon
+  return (
+    <div
+      className="group flex items-center gap-2.5 w-full rounded-md"
+      style={{
+        background: active ? "var(--sf-blue-soft)" : "transparent",
+      }}
+    >
+      <button
+        onClick={onSelect}
+        className="flex items-center gap-2.5 flex-1 text-left rounded-md"
+        style={{
+          padding: "7px 10px",
+          background: "transparent",
+          color: active ? "var(--sf-blue-dark)" : "var(--sf-ink-2)",
+          border: "none",
+          fontSize: 12.5,
+          fontWeight: active ? 600 : 500,
+          cursor: "pointer",
+          fontFamily: "var(--sf-font-ui)",
+        }}
+      >
+        <Icon size={14} color={folder.urgent ? "var(--sf-red)" : undefined} />
+        <span className="flex-1 truncate">{folder.label}</span>
+        <span
+          style={{
+            fontSize: 11,
+            color: active ? "var(--sf-blue-dark)" : "var(--sf-ink-3)",
+            fontWeight: 600,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {count}
+        </span>
+      </button>
+      {custom && onDelete && (
+        <button
+          onClick={onDelete}
+          aria-label="Delete folder"
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--sf-ink-3)] hover:text-[var(--sf-red-dark)]"
+          style={{
+            background: "transparent",
+            border: "none",
+            padding: "4px 6px 4px 0",
+            cursor: "pointer",
+          }}
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── New folder modal ───────────────────────────────────────
+
+const NewFolderModal = ({ open, onClose, onSubmit }) => {
+  const [name, setName] = useState("")
+  const [selected, setSelected] = useState(() => new Set())
+
+  useEffect(() => {
+    if (open) { setName(""); setSelected(new Set()) }
+  }, [open])
+
+  if (!open) return null
+
+  const toggle = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const canSubmit = name.trim() && selected.size > 0
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      style={{
+        background: "rgba(15,23,42,.4)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+        fontFamily: "var(--sf-font-ui)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="rounded-[14px] bg-[var(--sf-panel)] w-full max-w-[420px]"
+        style={{
+          border: "1px solid var(--sf-border-soft)",
+          boxShadow: "var(--sf-shadow-l)",
+        }}
+      >
+        <div
+          className="flex items-center px-5 py-3.5"
+          style={{ borderBottom: "1px solid var(--sf-border-soft)" }}
+        >
+          <div className="text-[14px] font-semibold text-[var(--sf-ink)]">New folder</div>
+          <div className="flex-1" />
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="text-[var(--sf-ink-3)] hover:text-[var(--sf-ink)]"
+            style={{ background: "transparent", border: "none", padding: 4, cursor: "pointer" }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-5 py-4 flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span
+              className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
+              style={{ letterSpacing: ".04em" }}
+            >
+              Folder name
+            </span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              placeholder="e.g. Bookings, VIP, Reviews & Surveys"
+              className="rounded-md border border-[var(--sf-border-soft)]"
+              style={{
+                padding: "8px 10px",
+                fontSize: 13,
+                fontFamily: "var(--sf-font-ui)",
+              }}
+            />
+          </label>
+          <div className="flex flex-col gap-1.5">
+            <span
+              className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
+              style={{ letterSpacing: ".04em" }}
+            >
+              Show channels
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {CHANNEL_CATALOG.map((c) => {
+                const on = selected.has(c.id)
+                const Icon = c.icon
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => toggle(c.id)}
+                    className="inline-flex items-center gap-1.5 rounded-full"
+                    style={{
+                      padding: "5px 10px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      background: on ? "var(--sf-blue-soft)" : "var(--sf-panel)",
+                      color: on ? "var(--sf-blue-dark)" : "var(--sf-ink-2)",
+                      border: "1px solid " + (on ? "var(--sf-blue-soft-2)" : "var(--sf-border-soft)"),
+                      cursor: "pointer",
+                      fontFamily: "var(--sf-font-ui)",
+                    }}
+                  >
+                    <Icon size={11} color={c.c} />
+                    {c.label}
+                    {on && <Check size={10} strokeWidth={3} />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+        <div
+          className="flex items-center justify-end gap-2 px-5 py-3"
+          style={{
+            background: "var(--sf-panel-alt)",
+            borderTop: "1px solid var(--sf-border-soft)",
+            borderRadius: "0 0 14px 14px",
+          }}
+        >
+          <SfButton variant="ghost" size="md" onClick={onClose}>
+            Cancel
+          </SfButton>
+          <SfButton
+            variant="primary"
+            size="md"
+            disabled={!canSubmit}
+            onClick={() => {
+              if (!canSubmit) return
+              onSubmit({
+                id: `custom-${Date.now()}`,
+                label: name.trim(),
+                channels: Array.from(selected),
+              })
+              onClose()
+            }}
+          >
+            Create folder
+          </SfButton>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Send-channel dropdown (in the composer) ────────────────
+
+const SendChannelDropdown = ({ channel, options, onChange }) => {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener("mousedown", onClick)
+    return () => document.removeEventListener("mousedown", onClick)
+  }, [open])
+
+  const cur = CHANNEL_META[(channel || "").toLowerCase()] || CHANNEL_META.sms
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 px-2.5 py-[5px] rounded-md text-[11px] font-semibold"
+        style={{
+          background: cur.bg,
+          color: cur.c,
+          border: `1px solid ${cur.c}22`,
+          cursor: options.length > 1 ? "pointer" : "default",
+          fontFamily: "var(--sf-font-ui)",
+        }}
+      >
+        Sending as {cur.label}
+        {options.length > 1 && <ChevronDown size={11} />}
+      </button>
+      {open && options.length > 1 && (
+        <div
+          className="absolute right-0 bottom-full mb-1.5 z-50 rounded-md py-1 bg-[var(--sf-panel)] border border-[var(--sf-border-soft)]"
+          style={{ boxShadow: "var(--sf-shadow-l)", minWidth: 170 }}
+        >
+          {options.map((opt) => {
+            const m = CHANNEL_META[opt] || CHANNEL_META.sms
+            const sel = opt === (channel || "").toLowerCase()
+            return (
+              <button
+                key={opt}
+                onClick={() => { onChange?.(opt); setOpen(false) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left text-[12.5px]"
+                style={{
+                  background: sel ? "var(--sf-blue-soft)" : "transparent",
+                  color: sel ? "var(--sf-blue-dark)" : "var(--sf-ink)",
+                  fontWeight: sel ? 600 : 500,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "var(--sf-font-ui)",
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: m.c }}
+                />
+                <span className="flex-1">{m.label}</span>
+                {sel && <Check size={12} strokeWidth={2.4} />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Suggested reply (UI scaffold) ──────────────────────────
+// TODO(ai): hook to a real AI suggestion endpoint. For now the
+// suggestion is templated off the last incoming message so the
+// surface feels populated and the layout reads correctly.
+
+const buildPlaceholderSuggestion = (latestEvent, threadName) => {
+  const txt = (latestEvent?.text || "").toLowerCase()
+  const first = String(threadName || "there").split(" ")[0]
+  if (!latestEvent || latestEvent.type === "message_out") return null
+  if (txt.includes("price") || txt.includes("quote") || txt.includes("how much")) {
+    return `Hi ${first}! Happy to give you a quote — could you share the property size and any add-ons you'd like (oven, fridge, windows)?`
+  }
+  if (txt.includes("cancel")) {
+    return `Hi ${first}, no problem — I can cancel that booking. Would you like to reschedule for another day instead?`
+  }
+  if (txt.includes("late") || txt.includes("eta") || txt.includes("on my way") || txt.includes("how long")) {
+    return `Hi ${first}! Just confirmed with the team — they're on their way and should be at your place shortly.`
+  }
+  if (txt.includes("thank")) {
+    return `Thanks for the kind words, ${first}! Looking forward to seeing you next time.`
+  }
+  return `Hi ${first}! Thanks for reaching out — happy to help. Could you share a few more details so I can get back to you with specifics?`
+}
+
+const SuggestedReply = ({ composeText, setComposeText, latestEvent, threadName }) => {
+  const [dismissed, setDismissed] = useState(false)
+  const suggestion = useMemo(
+    () => buildPlaceholderSuggestion(latestEvent, threadName),
+    [latestEvent, threadName]
+  )
+  if (!suggestion || dismissed || composeText.trim()) return null
+  return (
+    <div className="px-4 sm:px-5 pt-2 pb-1 flex-shrink-0" style={{ background: "var(--sf-panel)" }}>
+      <div
+        className="flex items-start gap-2.5 rounded-[10px] p-3"
+        style={{
+          background: "var(--sf-purple-soft)",
+          border: "1px solid rgba(124,58,237,.25)",
+        }}
+      >
+        <Sparkles size={15} color="var(--sf-purple)" className="flex-shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <div
+            className="text-[10.5px] font-bold uppercase"
+            style={{ color: "var(--sf-purple)", letterSpacing: ".04em" }}
+          >
+            Suggested reply
+            <span className="ml-1.5 text-[var(--sf-ink-3)] font-medium normal-case">
+              · AI hookup pending
+            </span>
+          </div>
+          <div className="text-[12.5px] text-[var(--sf-ink-2)] mt-1 leading-snug">
+            "{suggestion}"
+          </div>
+          <div className="flex items-center gap-1.5 mt-2">
+            <SfButton
+              variant="secondary"
+              size="sm"
+              onClick={() => setComposeText(suggestion)}
+            >
+              Use
+            </SfButton>
+            <SfButton variant="ghost" size="sm" disabled>
+              Refine
+            </SfButton>
+            <div className="flex-1" />
+            <button
+              onClick={() => setDismissed(true)}
+              aria-label="Dismiss suggestion"
+              className="text-[var(--sf-ink-3)] hover:text-[var(--sf-ink)]"
+              style={{ background: "transparent", border: "none", padding: 4, cursor: "pointer" }}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── Thread row ─────────────────────────────────────────────
 
@@ -547,6 +1041,9 @@ const ConversationPane = ({
   loading,
   composeText,
   setComposeText,
+  composeChannel,
+  setComposeChannel,
+  availableSendChannels,
   onSend,
   onKeyDownCompose,
   sending,
@@ -643,6 +1140,16 @@ const ConversationPane = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Suggested reply — UI scaffold for the AI suggestion. Even
+          without the AI behind it, having the slot in place keeps the
+          surface ready and makes the design intent clear. */}
+      <SuggestedReply
+        composeText={composeText}
+        setComposeText={setComposeText}
+        latestEvent={(detail?.events || []).slice(-1)[0]}
+        threadName={name}
+      />
+
       {/* Composer */}
       <div
         className="px-4 sm:px-5 pt-3 pb-3 flex-shrink-0"
@@ -667,7 +1174,7 @@ const ConversationPane = ({
             }}
           />
         </div>
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
           <SfButton variant="ghost" size="sm" icon={Paperclip} disabled>
             Attach
           </SfButton>
@@ -678,9 +1185,11 @@ const ConversationPane = ({
             Templates
           </SfButton>
           <div className="flex-1" />
-          <div className="text-[11px] text-[var(--sf-ink-3)]">
-            Sending as {channel === "email" ? "Email" : channel === "review" ? "Review reply" : "SMS"}
-          </div>
+          <SendChannelDropdown
+            channel={composeChannel}
+            options={availableSendChannels}
+            onChange={setComposeChannel}
+          />
           <SfButton
             variant="primary"
             size="md"
@@ -805,14 +1314,49 @@ const EventBubble = ({ event, name }) => {
           )}
         </div>
         <div
-          className="text-[10.5px] text-[var(--sf-ink-3)] mt-1 inline-flex items-center gap-1"
+          className="text-[10.5px] text-[var(--sf-ink-3)] mt-1 inline-flex items-center gap-1.5"
           style={{ paddingLeft: isOut ? 0 : 4, paddingRight: isOut ? 4 : 0 }}
         >
+          <ChannelBadge channel={event.channel} />
           <span>{formatTimeShared(event.timestamp)}</span>
           {isOut && <Check size={10} />}
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Channel badge ──────────────────────────────────────────
+
+const CHANNEL_META = {
+  sms:       { label: "SMS",       c: "var(--sf-green-dark)", bg: "var(--sf-green-soft)" },
+  whatsapp:  { label: "WhatsApp",  c: "#15803D",              bg: "#DCFCE7" },
+  email:     { label: "Email",     c: "var(--sf-blue-dark)",  bg: "var(--sf-blue-soft)" },
+  review:    { label: "Yelp",      c: "#9F1A0A",              bg: "var(--sf-amber-soft)" },
+  thumbtack: { label: "Thumbtack", c: "var(--sf-blue-dark)",  bg: "var(--sf-blue-soft)" },
+  yelp:      { label: "Yelp",      c: "#9F1A0A",              bg: "var(--sf-red-soft)" },
+  call:      { label: "Call",      c: "var(--sf-purple)",     bg: "var(--sf-purple-soft)" },
+  openphone: { label: "SMS",       c: "var(--sf-green-dark)", bg: "var(--sf-green-soft)" },
+}
+
+const ChannelBadge = ({ channel, size = "sm" }) => {
+  const key = String(channel || "").toLowerCase()
+  const m = CHANNEL_META[key] || CHANNEL_META.sms
+  return (
+    <span
+      className="inline-flex items-center font-semibold"
+      style={{
+        background: m.bg,
+        color: m.c,
+        fontSize: size === "md" ? 11 : 10,
+        padding: size === "md" ? "2px 7px" : "1px 5px",
+        borderRadius: 999,
+        border: `1px solid ${m.c}22`,
+        lineHeight: 1.3,
+      }}
+    >
+      {m.label}
+    </span>
   )
 }
 
