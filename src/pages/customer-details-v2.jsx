@@ -29,6 +29,7 @@ import { useAuth } from "../context/AuthContext"
 import { customersAPI, jobsAPI, invoicesAPI, estimatesAPI, communicationsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import { formatTime as formatTimeShared } from "../utils/formatTime"
+import { getGoogleMapsApiKey } from "../config/maps"
 import MobileHeader from "../components/mobile-header"
 import {
   SfCard,
@@ -190,19 +191,34 @@ const CustomerDetailsV2 = () => {
 
   const stats = useMemo(() => {
     const completed = jobs.filter(isCompletedJob)
-    const totalSpent = jobs.reduce((s, j) => {
-      if (isCancelledJob(j)) return s
-      return s + parseFloat(j.total || j.service_price || 0)
-    }, 0)
-    const totalJobs = jobs.filter((j) => !isCancelledJob(j)).length
-    const avgJob = totalJobs > 0 ? totalSpent / totalJobs : 0
+    const upcoming = jobs.filter(isUpcomingJob)
+    // LTV = actual earned revenue (completed jobs). Upcoming work goes
+    // into the separate forecast metric so the two never blur.
+    const completedRevenue = completed.reduce(
+      (s, j) => s + parseFloat(j.total || j.service_price || 0),
+      0
+    )
+    const upcomingRevenue = upcoming.reduce(
+      (s, j) => s + parseFloat(j.total || j.service_price || 0),
+      0
+    )
+    const completedCount = completed.length
+    const avgJob = completedCount > 0 ? completedRevenue / completedCount : 0
     const ratings = completed.map((j) => parseFloat(j.rating)).filter((n) => Number.isFinite(n) && n > 0)
     const avgRating = ratings.length ? ratings.reduce((s, n) => s + n, 0) / ratings.length : null
-    const upcoming = jobs.filter(isUpcomingJob)
     const nextJob = upcoming.length
       ? [...upcoming].sort((a, b) => jobDateStr(a).localeCompare(jobDateStr(b)))[0]
       : null
-    return { totalSpent, totalJobs, avgJob, avgRating, nextJob }
+    return {
+      ltv: completedRevenue,
+      completedCount,
+      upcomingValue: upcomingRevenue,
+      upcomingCount: upcoming.length,
+      totalJobs: completedCount + upcoming.length,
+      avgJob,
+      avgRating,
+      nextJob,
+    }
   }, [jobs])
 
   // Property info derived from the customer + job intake (most recent
@@ -344,8 +360,8 @@ const CustomerDetailsV2 = () => {
 
         {/* 5-stat strip */}
         <div className="flex flex-wrap gap-x-8 gap-y-3 pb-3">
-          <Stat label="Lifetime value" value={formatMoney(stats.totalSpent)} tone="var(--sf-green-dark)" />
-          <Stat label="Total jobs" value={stats.totalJobs} />
+          <Stat label="Lifetime value" value={formatMoney(stats.ltv)} tone="var(--sf-green-dark)" />
+          <Stat label="Completed jobs" value={stats.completedCount} />
           <Stat label="Avg job value" value={stats.avgJob > 0 ? formatMoney(stats.avgJob) : "—"} />
           <Stat
             label="Rating"
@@ -533,7 +549,7 @@ const OverviewTab = ({ customer, jobs, invoices, stats, property, onJobClick, on
                   className="text-[18px] font-bold text-[var(--sf-ink)]"
                   style={{ fontVariantNumeric: "tabular-nums" }}
                 >
-                  {formatMoney(stats.totalSpent)}
+                  {formatMoney(stats.ltv)}
                 </span>
                 {trend.deltaPct != null && trend.deltaPct !== 0 && (
                   <span
@@ -886,22 +902,51 @@ const JobsTab = ({ jobs, stats, onJobClick, onNewJob }) => {
   const [filter, setFilter] = useState("all")
   const [search, setSearch] = useState("")
 
-  const filtered = useMemo(() => {
-    let out = jobs
-    if (filter === "upcoming") out = jobs.filter(isUpcomingJob)
-    else if (filter === "completed") out = jobs.filter(isCompletedJob)
-    else if (filter === "cancelled") out = jobs.filter(isCancelledJob)
-    const q = search.trim().toLowerCase()
-    if (q) {
-      out = out.filter((j) => {
-        const haystack = `${j.service_name || ""} ${String(j.id || "")} ${j.scheduled_date || ""}`.toLowerCase()
-        return haystack.includes(q)
-      })
-    }
-    return [...out].sort((a, b) => jobDateStr(b).localeCompare(jobDateStr(a)))
-  }, [jobs, filter, search])
+  // Search predicate shared by every section. useCallback keeps the
+  // identity stable across renders so the downstream useMemos don't
+  // thrash dependencies.
+  const searchPred = useCallback(
+    (j) => {
+      const q = search.trim().toLowerCase()
+      if (!q) return true
+      const haystack = `${j.service_name || ""} ${String(j.id || "")} ${j.scheduled_date || ""}`.toLowerCase()
+      return haystack.includes(q)
+    },
+    [search]
+  )
 
-  const upcoming = useMemo(() => jobs.filter(isUpcomingJob), [jobs])
+  // Upcoming = future + today, not cancelled or completed. Sorted
+  // ascending so the closest scheduled job is on top.
+  const upcoming = useMemo(
+    () =>
+      jobs
+        .filter(isUpcomingJob)
+        .filter(searchPred)
+        .sort((a, b) => jobDateStr(a).localeCompare(jobDateStr(b))),
+    [jobs, searchPred]
+  )
+
+  // Past = completed (or older non-cancelled). Sorted descending so
+  // the most recent appears first.
+  const past = useMemo(
+    () =>
+      jobs
+        .filter((j) => isCompletedJob(j) || (!isCancelledJob(j) && jobDateStr(j) < today()))
+        .filter(searchPred)
+        .sort((a, b) => jobDateStr(b).localeCompare(jobDateStr(a))),
+    [jobs, searchPred]
+  )
+
+  // Cancelled — its own slice (chronological desc).
+  const cancelled = useMemo(
+    () =>
+      jobs
+        .filter(isCancelledJob)
+        .filter(searchPred)
+        .sort((a, b) => jobDateStr(b).localeCompare(jobDateStr(a))),
+    [jobs, searchPred]
+  )
+
   const upcomingValue = upcoming.reduce(
     (s, j) => s + parseFloat(j.total || j.service_price || 0),
     0
@@ -909,14 +954,18 @@ const JobsTab = ({ jobs, stats, onJobClick, onNewJob }) => {
   const hasRecurring = jobs.some((j) => j.is_recurring === true)
   const recurringJob = jobs.find((j) => j.is_recurring === true)
 
+  const showUpcoming = filter === "all" || filter === "upcoming"
+  const showPast = filter === "all" || filter === "completed"
+  const showCancelled = filter === "cancelled"
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <SfKPI label="Lifetime jobs" value={stats.totalJobs} accent="var(--sf-blue)" sub="all-time" />
-        <SfKPI label="Total spent" value={formatMoney(stats.totalSpent)} accent="var(--sf-green)" sub="this customer" />
-        <SfKPI label="Avg job value" value={stats.avgJob > 0 ? formatMoney(stats.avgJob) : "—"} accent="var(--sf-purple)" sub="across jobs" />
-        <SfKPI label="Avg rating" value={stats.avgRating != null ? stats.avgRating.toFixed(1) : "—"} accent="var(--sf-amber)" sub="completed jobs" />
+        <SfKPI label="Completed jobs" value={stats.completedCount} accent="var(--sf-blue)" sub="all-time" />
+        <SfKPI label="Lifetime value" value={formatMoney(stats.ltv)} accent="var(--sf-green)" sub="earned revenue" />
+        <SfKPI label="Avg job value" value={stats.avgJob > 0 ? formatMoney(stats.avgJob) : "—"} accent="var(--sf-purple)" sub="completed jobs" />
+        <SfKPI label="Forecast" value={formatMoney(stats.upcomingValue)} accent="var(--sf-amber)" sub={`${stats.upcomingCount} upcoming`} />
         <SfKPI
           label="Next scheduled"
           value={stats.nextJob ? new Date(stats.nextJob.scheduled_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
@@ -982,9 +1031,8 @@ const JobsTab = ({ jobs, stats, onJobClick, onNewJob }) => {
         </SfCard>
       )}
 
-      {/* Upcoming — only shown on All / Upcoming so other filters
-          aren't visually contaminated by a permanent upcoming card. */}
-      {(filter === "all" || filter === "upcoming") && upcoming.length > 0 && (
+      {/* Upcoming section — closest scheduled job on top */}
+      {showUpcoming && (
         <SfCard padding={0}>
           <div
             className="px-4 py-3 flex items-center"
@@ -994,45 +1042,85 @@ const JobsTab = ({ jobs, stats, onJobClick, onNewJob }) => {
               Upcoming · {upcoming.length} job{upcoming.length === 1 ? "" : "s"}
             </div>
             <div className="flex-1" />
-            <div
-              className="text-[12px] font-semibold text-[var(--sf-blue-dark)]"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {formatMoney(upcomingValue)} forecast
-            </div>
+            {upcomingValue > 0 && (
+              <div
+                className="text-[12px] font-semibold text-[var(--sf-blue-dark)]"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {formatMoney(upcomingValue)} forecast
+              </div>
+            )}
           </div>
-          {upcoming.slice(0, 5).map((j, i) => (
-            <JobMiniRow
-              key={j.id}
-              job={j}
-              isLast={i === Math.min(4, upcoming.length - 1)}
-              onClick={() => onJobClick(j.id)}
+          {upcoming.length === 0 ? (
+            <EmptyRow
+              icon={Briefcase}
+              title="No upcoming jobs"
+              subtitle="Schedule the next visit and it'll appear here."
             />
-          ))}
+          ) : (
+            upcoming.slice(0, 30).map((j, i) => (
+              <JobMiniRow
+                key={j.id}
+                job={j}
+                isLast={i === Math.min(29, upcoming.length - 1)}
+                onClick={() => onJobClick(j.id)}
+              />
+            ))
+          )}
         </SfCard>
       )}
 
-      {/* Filter-driven list */}
-      <SfCard padding={0}>
-        <div className="px-4 py-3 flex items-center border-b border-[var(--sf-border-soft)]">
-          <Archive size={14} className="text-[var(--sf-ink-3)] mr-2" />
-          <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
-            {JOB_FILTERS.find((f) => f.id === filter)?.label} · {filtered.length} job{filtered.length === 1 ? "" : "s"}
+      {/* Past section — most recent on top */}
+      {showPast && (
+        <SfCard padding={0}>
+          <div className="px-4 py-3 flex items-center border-b border-[var(--sf-border-soft)]">
+            <Archive size={14} className="text-[var(--sf-ink-3)] mr-2" />
+            <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
+              Past · {past.length} job{past.length === 1 ? "" : "s"}
+            </div>
           </div>
-        </div>
-        {filtered.length === 0 ? (
-          <EmptyRow icon={Briefcase} title="Nothing in this view" subtitle="Try a different filter." />
-        ) : (
-          filtered.slice(0, 30).map((j, i) => (
-            <JobMiniRow
-              key={j.id}
-              job={j}
-              isLast={i === Math.min(29, filtered.length - 1)}
-              onClick={() => onJobClick(j.id)}
+          {past.length === 0 ? (
+            <EmptyRow
+              icon={Archive}
+              title="No past jobs yet"
+              subtitle="Completed jobs land here once the dispatcher closes them out."
             />
-          ))
-        )}
-      </SfCard>
+          ) : (
+            past.slice(0, 30).map((j, i) => (
+              <JobMiniRow
+                key={j.id}
+                job={j}
+                isLast={i === Math.min(29, past.length - 1)}
+                onClick={() => onJobClick(j.id)}
+              />
+            ))
+          )}
+        </SfCard>
+      )}
+
+      {/* Cancelled section */}
+      {showCancelled && (
+        <SfCard padding={0}>
+          <div className="px-4 py-3 flex items-center border-b border-[var(--sf-border-soft)]">
+            <Archive size={14} className="text-[var(--sf-red-dark)] mr-2" />
+            <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
+              Cancelled · {cancelled.length} job{cancelled.length === 1 ? "" : "s"}
+            </div>
+          </div>
+          {cancelled.length === 0 ? (
+            <EmptyRow icon={Archive} title="Nothing cancelled" subtitle="—" />
+          ) : (
+            cancelled.slice(0, 30).map((j, i) => (
+              <JobMiniRow
+                key={j.id}
+                job={j}
+                isLast={i === Math.min(29, cancelled.length - 1)}
+                onClick={() => onJobClick(j.id)}
+              />
+            ))
+          )}
+        </SfCard>
+      )}
     </div>
   )
 }
@@ -1316,9 +1404,12 @@ const buildAllTimeTrend = (jobs, customer) => {
     }
   }
 
+  // Trend should reflect earned revenue (completed jobs only) so the
+  // sum of bars reconciles with the customer's LTV. Upcoming /
+  // scheduled work is captured separately by the Forecast KPI.
   const bucketIndex = new Map(buckets.map((b, i) => [b.key, i]))
   jobs.forEach((j) => {
-    if (isCancelledJob(j)) return
+    if (!isCompletedJob(j)) return
     const d = j.completed_at || j.scheduled_date
     if (!d) return
     const dt = new Date(String(d).includes("T") ? d : String(d).replace(" ", "T"))
@@ -1446,6 +1537,8 @@ const extractSpecsFromJob = (job) => {
 
 // ── Property card details (shared by Overview + Properties tab) ──
 
+// Compact layout — header + 2-col spec grid only. Used in the
+// Overview tab's right-rail Property card where space is tight.
 const PropertyDetails = ({ property }) => {
   const specs = property.specs || {}
   return (
@@ -1501,6 +1594,134 @@ const PropertyField = ({ label, value }) => (
   </div>
 )
 
+// Wide layout — Google Maps preview on the left, full details on the
+// right. Used in the Properties tab. Includes the amber "Access &
+// cleaning notes" callout when the most recent job has notes.
+const PropertyWideCard = ({ property }) => {
+  const specs = property.specs || {}
+  const apiKey = getGoogleMapsApiKey()
+  const fullAddress = [property.address, property.city].filter(Boolean).join(", ")
+  const completedJobs = property.jobs?.filter(isCompletedJob).length ?? 0
+  const lastClean = property.lastJobDate
+    ? property.lastJobDate.toDateString() === new Date().toDateString()
+      ? "Today"
+      : property.lastJobDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "—"
+  // Surface customer notes from the most recent job at this address
+  const recentJobNotes = (property.jobs?.[0]?.notes || property.jobs?.[0]?.customer_notes || "").trim()
+  return (
+    <SfCard padding={0}>
+      <div className="flex flex-col md:flex-row">
+        {/* Map preview */}
+        <div
+          className="flex-shrink-0 md:border-r border-[var(--sf-border-soft)]"
+          style={{
+            width: "100%",
+            height: 220,
+            maxWidth: "100%",
+            background: "var(--sf-panel-soft)",
+          }}
+        >
+          {fullAddress && apiKey ? (
+            <iframe
+              title={`Map of ${fullAddress}`}
+              width="100%"
+              height="100%"
+              style={{ border: 0, display: "block" }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              src={`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(fullAddress)}&zoom=15`}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-[11.5px] text-[var(--sf-ink-3)]">
+              No address on file
+            </div>
+          )}
+        </div>
+        <div
+          className="md:max-w-none md:border-r-0 md:border-l border-[var(--sf-border-soft)] hidden md:block"
+          style={{ width: 0 }}
+        />
+        {/* Details */}
+        <div className="flex-1 p-4 sm:p-5 min-w-0">
+          <div className="flex items-start gap-3 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[15px] font-bold text-[var(--sf-ink)] truncate">
+                  {property.address || "—"}
+                </span>
+                {property.primary && (
+                  <SfTag color="var(--sf-ink-2)" bg="var(--sf-panel-soft)">Home</SfTag>
+                )}
+                {property.primary && (
+                  <SfTag color="var(--sf-blue-dark)" bg="var(--sf-blue-soft)">Primary</SfTag>
+                )}
+                {property.jobs?.some((j) => j.is_recurring === true) && (
+                  <SfTag color="var(--sf-purple)" bg="var(--sf-purple-soft)">↻ Recurring</SfTag>
+                )}
+              </div>
+              {property.city && (
+                <div
+                  className="text-[12px] text-[var(--sf-ink-3)] mt-0.5 inline-flex items-center gap-1"
+                >
+                  <MapPin size={11} className="text-[var(--sf-ink-3)]" /> {property.city}
+                </div>
+              )}
+            </div>
+            <button
+              className="text-[var(--sf-ink-3)] hover:text-[var(--sf-ink)] transition-colors"
+              style={{ background: "transparent", border: "none", padding: 4, cursor: "pointer" }}
+              aria-label="Property actions"
+            >
+              <MoreHorizontal size={16} />
+            </button>
+          </div>
+
+          {/* Tri-stat row */}
+          <div
+            className="grid grid-cols-3 gap-4 mt-3 pb-3"
+            style={{ borderBottom: "1px solid var(--sf-border-soft)" }}
+          >
+            <Stat label="Jobs done" value={completedJobs} />
+            <Stat label="Last clean" value={lastClean} />
+            <Stat label="Type" value={specs.type || "—"} />
+          </div>
+
+          {/* Wider 5-col spec grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-3">
+            <PropertyField label="Bedrooms" value={specs.bedrooms || "—"} />
+            <PropertyField label="Bathrooms" value={specs.bathrooms || "—"} />
+            <PropertyField label="Sqft" value={specs.sqft || "—"} />
+            <PropertyField label="Pets" value={specs.pets || "—"} />
+            <PropertyField label="Access" value={specs.access || "—"} />
+          </div>
+
+          {/* Access & cleaning notes callout */}
+          {recentJobNotes && (
+            <div
+              className="mt-4 p-3 rounded-lg"
+              style={{
+                background: "var(--sf-amber-soft)",
+                borderLeft: "3px solid var(--sf-amber)",
+              }}
+            >
+              <div
+                className="text-[10.5px] font-bold uppercase text-[var(--sf-amber-dark)]"
+                style={{ letterSpacing: ".04em" }}
+              >
+                Access &amp; cleaning notes
+              </div>
+              <div className="text-[12px] text-[var(--sf-ink-2)] mt-1 leading-snug whitespace-pre-wrap">
+                {recentJobNotes}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </SfCard>
+  )
+}
+
 // ── Properties tab ─────────────────────────────────────────
 
 const PropertiesTab = ({ properties, customer }) => {
@@ -1515,25 +1736,9 @@ const PropertiesTab = ({ properties, customer }) => {
   }
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
-      {properties.map((p, i) => {
-        const completedJobs = p.jobs.filter(isCompletedJob).length
-        const lastClean = p.lastJobDate
-          ? p.lastJobDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-          : "—"
-        return (
-          <SfCard key={`${p.address}-${i}`}>
-            <PropertyDetails property={p} />
-            <div
-              className="grid grid-cols-3 gap-3 mt-4 pt-3"
-              style={{ borderTop: "1px solid var(--sf-border-soft)" }}
-            >
-              <Stat label="Jobs done" value={completedJobs} />
-              <Stat label="Last clean" value={lastClean} />
-              <Stat label="Last service" value={p.lastService || "—"} />
-            </div>
-          </SfCard>
-        )
-      })}
+      {properties.map((p, i) => (
+        <PropertyWideCard key={`${p.address}-${i}`} property={p} />
+      ))}
     </div>
   )
 }
