@@ -148,6 +148,8 @@ const teamLeadFor = (job) => {
     job.team_lead_id ??
     job.lead_team_member_id ??
     job.lead_id ??
+    job.primary_member_id ??
+    job.primary_team_member_id ??
     null
   if (leadId == null) return null
   return assignees.find((a) => String(a.id) === String(leadId)) || null
