@@ -29,6 +29,10 @@ import {
   Trash2,
   FileText,
   Ban,
+  Send,
+  Eye,
+  Bell,
+  CreditCard,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI, teamAPI, customersAPI, invoicesAPI } from "../services/api"
@@ -1535,6 +1539,15 @@ const InvoiceTabBody = ({
             )}
           </div>
         </SfCard>
+
+        {/* Invoice activity timeline */}
+        <InvoiceActivityCard
+          invoice={invoice}
+          job={job}
+          customer={customer}
+          isPaid={isPaid}
+          customerName={customerName}
+        />
       </div>
 
       {/* Side rail */}
@@ -1723,8 +1736,21 @@ const InvoiceTabBody = ({
                 mono
               />
             )}
+
+            {/* Auto-pay — UI scaffolding. Wiring to a real customer
+                payment-method + Stripe charge schedule comes later;
+                today the toggle just reads/writes local state on the
+                page so the operator can preview the flow. */}
+            <AutopayRow
+              total={total}
+              dueDate={dueDate}
+              isPaid={isPaid}
+            />
           </div>
         </SfCard>
+
+        {/* Automated reminders — UI scaffolding */}
+        <RemindersCard isPaid={isPaid} dueDate={dueDate} />
 
         {/* Related */}
         <SfCard>
@@ -1855,6 +1881,315 @@ const RelatedTile = ({ icon: Icon, avatar, code, subtitle, tone, onClick, disabl
 
 const capitalize = (s) =>
   s ? String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase() : "—"
+
+// ── Autopay row (Payment card extension) ───────────────────
+// TODO(autopay): wire to a real customer payment-method record and
+// Stripe-scheduled charge once the backend supports it. Today the
+// toggle is local state only.
+
+const AutopayRow = ({ total, dueDate, isPaid }) => {
+  const [enrolled, setEnrolled] = useState(false)
+  const processingPct = 0.029
+  const processingFee = total > 0 ? total * processingPct : 0
+  const youReceive = total - processingFee
+  return (
+    <>
+      <div className="flex items-center pt-2 mt-1 border-t border-[var(--sf-border-soft)]">
+        <span className="flex-1 text-[var(--sf-ink-2)]">Auto-pay</span>
+        <InlineSwitch
+          on={enrolled}
+          disabled={isPaid}
+          onChange={() => setEnrolled((v) => !v)}
+          labelOn="Enrolled"
+          labelOff="Not enrolled"
+        />
+      </div>
+      {enrolled && (
+        <>
+          <PaymentLine label="Auto-charge date" value={dueDate} mono />
+          <PaymentLine
+            label="Processing fee"
+            value={`-${formatMoneyExact(processingFee)} (${(processingPct * 100).toFixed(1)}%)`}
+          />
+          <div
+            className="flex pt-2 mt-1 text-[12.5px]"
+            style={{ borderTop: "1px solid var(--sf-border-soft)" }}
+          >
+            <span className="flex-1 text-[var(--sf-ink)] font-semibold">You'll receive</span>
+            <span
+              className="text-[var(--sf-green-dark)] font-bold"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {formatMoneyExact(youReceive)}
+            </span>
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+const InlineSwitch = ({ on, onChange, disabled, labelOn = "On", labelOff = "Off" }) => (
+  <button
+    onClick={(e) => { e.stopPropagation(); if (!disabled) onChange?.(!on) }}
+    disabled={disabled}
+    className="inline-flex items-center gap-1.5"
+    style={{
+      background: "transparent",
+      border: "none",
+      padding: 0,
+      cursor: disabled ? "default" : "pointer",
+      fontFamily: "var(--sf-font-ui)",
+      opacity: disabled ? 0.55 : 1,
+    }}
+  >
+    <span
+      className="text-[11.5px] font-semibold"
+      style={{ color: on ? "var(--sf-green-dark)" : "var(--sf-ink-3)" }}
+    >
+      {on ? labelOn : labelOff}
+    </span>
+    <span
+      style={{
+        position: "relative",
+        width: 26,
+        height: 15,
+        borderRadius: 8,
+        background: on ? "var(--sf-green)" : "var(--sf-ink-4)",
+        transition: "background .15s",
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: 2,
+          left: on ? 13 : 2,
+          width: 11,
+          height: 11,
+          borderRadius: 6,
+          background: "#fff",
+          transition: "left .15s",
+        }}
+      />
+    </span>
+  </button>
+)
+
+// ── Invoice activity timeline ──────────────────────────────
+// TODO(activity): replace the derived events with a real event log
+// once invoice_events / webhook_delivery_log is exposed. The current
+// implementation reads visible status transitions from invoice +
+// job timestamps and lists upcoming auto-actions as faded entries.
+
+const InvoiceActivityCard = ({ invoice, job, customer, isPaid, customerName }) => {
+  const events = useMemo(() => {
+    const out = []
+    if (!invoice) {
+      // Draft state — only the "created on job" event is meaningful
+      if (job?.created_at) {
+        out.push({
+          kind: "draft",
+          when: new Date(job.created_at),
+          who: "Job created",
+          text: `Invoice drafted from this job's pricing`,
+        })
+      }
+      return out
+    }
+    if (invoice.created_at) {
+      out.push({
+        kind: "created",
+        when: new Date(invoice.created_at),
+        who: "Auto-generated",
+        text: `Invoice ${invoice.id ? `#${String(invoice.id).slice(-4)}` : ""} created from the job`,
+      })
+    }
+    const status = String(invoice.status || "").toLowerCase()
+    if (["sent", "viewed", "paid", "overdue"].includes(status) && invoice.updated_at) {
+      out.push({
+        kind: "sent",
+        when: new Date(invoice.updated_at),
+        who: "Sent",
+        text: `Delivered to ${customer?.email || customerName}`,
+      })
+    }
+    if (["viewed", "paid"].includes(status)) {
+      out.push({
+        kind: "viewed",
+        when: invoice.viewed_at ? new Date(invoice.viewed_at) : new Date(invoice.updated_at || Date.now()),
+        who: "Customer",
+        text: "Opened the invoice link",
+      })
+    }
+    if (isPaid) {
+      out.push({
+        kind: "paid",
+        when: new Date(invoice.updated_at || invoice.paid_at || Date.now()),
+        who: "Payment",
+        text: `Paid in full · ${invoice.payment_method ? capitalize(invoice.payment_method) : "method on file"}`,
+      })
+    }
+    // Future / scheduled (faded) — only meaningful when still owed
+    if (!isPaid && invoice.due_date) {
+      const due = new Date(invoice.due_date)
+      const reminder = new Date(due)
+      reminder.setDate(reminder.getDate() - 7)
+      out.push({
+        kind: "reminder",
+        when: reminder,
+        who: "System",
+        text: "Auto-reminder scheduled · 7 days before due",
+        faded: true,
+      })
+      out.push({
+        kind: "charge",
+        when: due,
+        who: "System",
+        text: "Auto-charge scheduled (if auto-pay enrolled)",
+        faded: true,
+      })
+    }
+    return out
+  }, [invoice, job, customer, customerName, isPaid])
+
+  if (!events.length) return null
+
+  const ICON_META = {
+    draft:    { icon: FileText, c: "var(--sf-ink-2)" },
+    created:  { icon: Plus,     c: "var(--sf-blue-dark)" },
+    sent:     { icon: Send,     c: "var(--sf-blue-dark)" },
+    viewed:   { icon: Eye,      c: "#0E7490" },
+    paid:     { icon: DollarSign, c: "var(--sf-green-dark)" },
+    reminder: { icon: Bell,     c: "var(--sf-amber-dark)" },
+    charge:   { icon: CreditCard, c: "var(--sf-green-dark)" },
+  }
+
+  return (
+    <SfCard padding={0}>
+      <div className="flex items-center px-4 py-3 border-b border-[var(--sf-border-soft)]">
+        <div className="text-[13px] font-semibold text-[var(--sf-ink)]">Invoice activity</div>
+        <div className="flex-1" />
+      </div>
+      <div className="py-1">
+        {events.map((e, i) => {
+          const m = ICON_META[e.kind] || ICON_META.created
+          const Icon = m.icon
+          return (
+            <div
+              key={i}
+              className="flex items-start gap-3 px-4 py-2.5"
+              style={{
+                opacity: e.faded ? 0.55 : 1,
+                borderBottom: i < events.length - 1 ? "1px solid var(--sf-border-soft)" : "none",
+              }}
+            >
+              <div
+                className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: `${m.c}1a`,
+                  color: m.c,
+                  border: `1px solid ${m.c}22`,
+                }}
+              >
+                <Icon size={13} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[12.5px] text-[var(--sf-ink)] leading-snug">
+                  <span className="font-semibold">{e.who}</span>{" "}
+                  <span className="text-[var(--sf-ink-2)]">· {e.text}</span>
+                </div>
+                <div
+                  className="text-[10.5px] text-[var(--sf-ink-3)] mt-0.5"
+                  style={{ fontFamily: "var(--sf-font-mono)" }}
+                >
+                  {e.when instanceof Date && !isNaN(e.when)
+                    ? e.when.toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })
+                    : "—"}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </SfCard>
+  )
+}
+
+// ── Automated reminders ────────────────────────────────────
+// TODO(reminders): persist these toggles via a new reminder_rules
+// table or as a JSON column on invoices/customers. Today the toggles
+// are local state only — they describe the *intent* an operator can
+// configure once we wire the backend.
+
+const DEFAULT_REMINDERS = [
+  { id: "minus7", label: "7 days before due",  description: "Email + SMS",  on: true },
+  { id: "minus3", label: "3 days before due",  description: "Email",         on: true },
+  { id: "minus1", label: "1 day before due",   description: "SMS",           on: false },
+  { id: "due",    label: "On the due date",    description: "Email + SMS",   on: true },
+  { id: "plus3",  label: "3 days overdue",     description: "Email + admin notification", on: true },
+]
+
+const RemindersCard = ({ isPaid, dueDate }) => {
+  const [rules, setRules] = useState(DEFAULT_REMINDERS)
+  return (
+    <SfCard>
+      <SfCardHeader
+        title="Automated reminders"
+        subtitle={isPaid ? "Paid — reminders paused" : dueDate && dueDate !== "—" ? `Until ${dueDate}` : "Schedule"}
+      />
+      <div className="flex flex-col">
+        {rules.map((r, i) => (
+          <div
+            key={r.id}
+            className="flex items-center gap-3 py-2"
+            style={{
+              borderBottom: i < rules.length - 1 ? "1px solid var(--sf-border-soft)" : "none",
+              opacity: isPaid ? 0.5 : 1,
+            }}
+          >
+            <div
+              className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
+              style={{
+                background: r.on ? "var(--sf-blue-soft)" : "var(--sf-panel-soft)",
+                color: r.on ? "var(--sf-blue-dark)" : "var(--sf-ink-3)",
+                border: `1px solid ${r.on ? "var(--sf-blue-soft-2)" : "var(--sf-border-soft)"}`,
+              }}
+            >
+              <Bell size={13} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12.5px] font-semibold text-[var(--sf-ink)] leading-tight">
+                {r.label}
+              </div>
+              <div className="text-[10.5px] text-[var(--sf-ink-3)] mt-px">{r.description}</div>
+            </div>
+            <InlineSwitch
+              on={r.on}
+              disabled={isPaid}
+              onChange={() =>
+                setRules((rs) =>
+                  rs.map((x) => (x.id === r.id ? { ...x, on: !x.on } : x))
+                )
+              }
+              labelOn="On"
+              labelOff="Off"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="text-[10.5px] text-[var(--sf-ink-3)] mt-3 leading-relaxed">
+        Reminder rules apply to all open invoices for this customer.
+        Saving wired up once the backend reminder_rules table lands.
+      </div>
+    </SfCard>
+  )
+}
 
 // ── Sub-components ─────────────────────────────────────────
 
