@@ -26,7 +26,7 @@ import {
   MoreHorizontal,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
-import { customersAPI, jobsAPI, invoicesAPI, estimatesAPI } from "../services/api"
+import { customersAPI, jobsAPI, invoicesAPI, estimatesAPI, communicationsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import { formatTime as formatTimeShared } from "../utils/formatTime"
 import MobileHeader from "../components/mobile-header"
@@ -112,6 +112,7 @@ const CustomerDetailsV2 = () => {
   const [jobs, setJobs] = useState([])
   const [invoices, setInvoices] = useState([])
   const [estimates, setEstimates] = useState([])
+  const [conversations, setConversations] = useState([])
 
   // URL ↔ tab sync (both directions). Browser back/forward updates `tab`;
   // clicking a tab updates the URL with `replace` so the back button
@@ -143,16 +144,23 @@ const CustomerDetailsV2 = () => {
     if (!user?.id || !customerId) return
     setLoading(true)
     try {
-      const [custResp, jobsResp, invResp, estResp] = await Promise.allSettled([
+      const [custResp, jobsResp, invResp, estResp, convResp] = await Promise.allSettled([
         customersAPI.getById(customerId),
         jobsAPI.getAll(user.id, "", "", 1, 500, null, null, "scheduled_date", "DESC", null, null, customerId),
         invoicesAPI.getAll(user.id, { customerId, page: 1, limit: 500 }),
         estimatesAPI.getAll(user.id, { customerId, page: 1, limit: 500 }),
+        communicationsAPI.getConversations({}).catch(() => ({ conversations: [] })),
       ])
       const cust = custResp.status === "fulfilled" ? (custResp.value?.customer || custResp.value) : null
       const jobsList = jobsResp.status === "fulfilled" ? normalizeAPIResponse(jobsResp.value, "jobs") : []
       const invList = invResp.status === "fulfilled" ? normalizeAPIResponse(invResp.value, "invoices") : []
       const estList = estResp.status === "fulfilled" ? normalizeAPIResponse(estResp.value, "estimates") : []
+      const convRaw = convResp.status === "fulfilled" ? convResp.value : null
+      const convList = Array.isArray(convRaw)
+        ? convRaw
+        : Array.isArray(convRaw?.conversations)
+        ? convRaw.conversations
+        : []
       setCustomer(cust)
       // Belt-and-braces filter: server-side filter MAY ignore unknown
       // customerId param shapes in some endpoints, so also filter
@@ -160,6 +168,7 @@ const CustomerDetailsV2 = () => {
       setJobs(jobsList.filter((j) => String(j.customer_id) === String(customerId)))
       setInvoices(invList.filter((i) => String(i.customer_id) === String(customerId)))
       setEstimates(estList.filter((e) => String(e.customer_id) === String(customerId)))
+      setConversations(convList.filter((c) => String(c.customer_id) === String(customerId)))
     } finally {
       setLoading(false)
     }
@@ -196,16 +205,20 @@ const CustomerDetailsV2 = () => {
     return { totalSpent, totalJobs, avgJob, avgRating, nextJob }
   }, [jobs])
 
+  // Property info derived from the customer + job intake (most recent
+  // job at each service address wins for the spec fields).
+  const properties = useMemo(() => deriveProperties(customer, jobs), [customer, jobs])
+
   const counts = useMemo(() => ({
     overview:   undefined,
     jobs:       jobs.filter((j) => !isCancelledJob(j)).length,
     invoices:   invoices.length,
     estimates:  estimates.length,
-    properties: customer ? 1 : 0,
-    messages:   undefined,
+    properties: properties.length,
+    messages:   conversations.length,
     files:      undefined,
     activity:   undefined,
-  }), [jobs, invoices, estimates, customer])
+  }), [jobs, invoices, estimates, properties, conversations])
 
   // ── Render ────────────────────────────────────────────────
 
@@ -371,6 +384,7 @@ const CustomerDetailsV2 = () => {
           jobs={jobs}
           invoices={invoices}
           stats={stats}
+          property={properties[0] || null}
           onJobClick={(id) => navigate(`/job/${id}`)}
           onSeeAllJobs={() => setTabBoth("jobs")}
           onSeeAllInvoices={() => setTabBoth("invoices")}
@@ -391,7 +405,19 @@ const CustomerDetailsV2 = () => {
           onInvoiceClick={(id) => navigate(`/invoices/${id}`)}
         />
       )}
-      {(tab === "estimates" || tab === "properties" || tab === "messages" || tab === "files" || tab === "activity") && (
+      {tab === "properties" && (
+        <PropertiesTab properties={properties} customer={customer} />
+      )}
+      {tab === "messages" && (
+        <MessagesTab
+          conversations={conversations}
+          onOpen={(id) => navigate(`/communications?conversation=${id}`)}
+        />
+      )}
+      {tab === "activity" && (
+        <ActivityTab jobs={jobs} invoices={invoices} conversations={conversations} estimates={estimates} customer={customer} />
+      )}
+      {(tab === "estimates" || tab === "files") && (
         <TabStub tab={tab} estimates={estimates} />
       )}
     </div>
@@ -423,11 +449,22 @@ const Stat = ({ label, value, tone }) => (
 
 // ── Overview tab ───────────────────────────────────────────
 
-const OverviewTab = ({ customer, jobs, invoices, stats, onJobClick, onSeeAllJobs, onSeeAllInvoices }) => {
-  const recentJobs = useMemo(
-    () => [...jobs].sort((a, b) => jobDateStr(b).localeCompare(jobDateStr(a))).slice(0, 3),
-    [jobs]
-  )
+const OverviewTab = ({ customer, jobs, invoices, stats, property, onJobClick, onSeeAllJobs, onSeeAllInvoices }) => {
+  // Default view: one most-recent past job + one next-upcoming job
+  // so the dispatcher sees the lifecycle at a glance.
+  const recentJobs = useMemo(() => {
+    const todayStr = today()
+    const past = [...jobs]
+      .filter((j) => jobDateStr(j) < todayStr && !isCancelledJob(j))
+      .sort((a, b) => jobDateStr(b).localeCompare(jobDateStr(a)))
+    const upcoming = [...jobs]
+      .filter(isUpcomingJob)
+      .sort((a, b) => jobDateStr(a).localeCompare(jobDateStr(b)))
+    const out = []
+    if (upcoming[0]) out.push({ ...upcoming[0], _section: "Next" })
+    if (past[0]) out.push({ ...past[0], _section: "Most recent" })
+    return out
+  }, [jobs])
   const recentInvoices = useMemo(
     () =>
       [...invoices]
@@ -436,17 +473,8 @@ const OverviewTab = ({ customer, jobs, invoices, stats, onJobClick, onSeeAllJobs
     [invoices]
   )
 
-  // Build 6-month revenue trend from completed/paid jobs
-  const trend = useMemo(() => buildMonthlyTrend(jobs), [jobs])
-
-  const property = useMemo(() => {
-    if (!customer) return null
-    const addr = customer.address || ""
-    return {
-      address: addr,
-      city: [customer.city, customer.state, customer.zip_code].filter(Boolean).join(", "),
-    }
-  }, [customer])
+  // Build all-time revenue trend (auto monthly / quarterly buckets)
+  const trend = useMemo(() => buildAllTimeTrend(jobs, customer), [jobs, customer])
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 grid grid-cols-1 lg:grid-cols-[66fr_34fr] gap-4 items-start">
@@ -472,12 +500,24 @@ const OverviewTab = ({ customer, jobs, invoices, stats, onJobClick, onSeeAllJobs
             />
           ) : (
             recentJobs.map((j, i) => (
-              <JobMiniRow
-                key={j.id}
-                job={j}
-                isLast={i === recentJobs.length - 1}
-                onClick={() => onJobClick(j.id)}
-              />
+              <div key={j.id}>
+                <div
+                  className="px-4 py-1.5 text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
+                  style={{
+                    letterSpacing: ".04em",
+                    background: "var(--sf-panel-alt)",
+                    borderBottom: "1px solid var(--sf-border-soft)",
+                    borderTop: i === 0 ? "none" : "1px solid var(--sf-border-soft)",
+                  }}
+                >
+                  {j._section}
+                </div>
+                <JobMiniRow
+                  job={j}
+                  isLast={i === recentJobs.length - 1}
+                  onClick={() => onJobClick(j.id)}
+                />
+              </div>
             ))
           )}
         </SfCard>
@@ -513,18 +553,25 @@ const OverviewTab = ({ customer, jobs, invoices, stats, onJobClick, onSeeAllJobs
               </div>
             }
           />
-          <div className="flex items-end gap-2" style={{ height: 80 }}>
+          <div className="flex items-end gap-1.5" style={{ height: 96 }}>
             {trend.values.map((v, i, a) => {
               const max = Math.max(1, ...a)
               const h = (v / max) * 100
+              // Gradient: older buckets fade through the blue palette so
+              // every bar reads as a distinct point in the customer's
+              // lifecycle, last 3 stay full strength.
               const isRecent = i >= a.length - 3
+              const fade = 0.35 + (i / Math.max(1, a.length - 1)) * 0.65 // 0.35 → 1
+              const bg = isRecent
+                ? "var(--sf-blue)"
+                : `rgba(37, 99, 235, ${Math.min(0.95, fade)})`
               return (
                 <div
                   key={i}
                   className="flex-1 relative"
                   style={{
                     height: `${Math.max(2, h)}%`,
-                    background: isRecent ? "var(--sf-blue)" : "var(--sf-blue-soft-2)",
+                    background: bg,
                     borderRadius: "3px 3px 0 0",
                   }}
                   title={`${trend.labels[i]}: ${formatMoney(v)}`}
@@ -546,10 +593,13 @@ const OverviewTab = ({ customer, jobs, invoices, stats, onJobClick, onSeeAllJobs
               )
             })}
           </div>
-          <div className="flex gap-2 mt-1.5 text-[10px] text-[var(--sf-ink-3)] font-medium">
-            {trend.labels.map((m) => (
-              <div key={m} className="flex-1 text-center">{m}</div>
+          <div className="flex gap-1.5 mt-1.5 text-[10px] text-[var(--sf-ink-3)] font-medium overflow-hidden">
+            {trend.labels.map((m, i) => (
+              <div key={`${m}-${i}`} className="flex-1 text-center truncate">{m}</div>
             ))}
+          </div>
+          <div className="text-[10.5px] text-[var(--sf-ink-3)] mt-1">
+            {trend.intervalLabel} · {trend.values.length} period{trend.values.length === 1 ? "" : "s"}
           </div>
         </SfCard>
 
@@ -612,27 +662,10 @@ const OverviewTab = ({ customer, jobs, invoices, stats, onJobClick, onSeeAllJobs
         </SfCard>
 
         {/* Property */}
-        {property?.address && (
+        {property && (
           <SfCard>
             <SfCardHeader title="Property" />
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: "var(--sf-blue-soft)", color: "var(--sf-blue-dark)" }}
-              >
-                <Building size={18} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-[var(--sf-ink)] truncate">
-                  {property.address}
-                </div>
-                {property.city && (
-                  <div className="text-[11px] text-[var(--sf-ink-3)] mt-0.5 truncate">
-                    {property.city}
-                  </div>
-                )}
-              </div>
-            </div>
+            <PropertyDetails property={property} />
           </SfCard>
         )}
 
@@ -846,7 +879,6 @@ const JOB_FILTERS = [
   { id: "all",       label: "All" },
   { id: "upcoming",  label: "Upcoming" },
   { id: "completed", label: "Completed" },
-  { id: "recurring", label: "Recurring" },
   { id: "cancelled", label: "Cancelled" },
 ]
 
@@ -858,7 +890,6 @@ const JobsTab = ({ jobs, stats, onJobClick, onNewJob }) => {
     let out = jobs
     if (filter === "upcoming") out = jobs.filter(isUpcomingJob)
     else if (filter === "completed") out = jobs.filter(isCompletedJob)
-    else if (filter === "recurring") out = jobs.filter((j) => j.is_recurring === true)
     else if (filter === "cancelled") out = jobs.filter(isCancelledJob)
     const q = search.trim().toLowerCase()
     if (q) {
@@ -924,7 +955,9 @@ const JobsTab = ({ jobs, stats, onJobClick, onNewJob }) => {
         </SfButton>
       </div>
 
-      {/* Recurring banner */}
+      {/* Recurring subscription banner — shows regardless of filter
+          so the operator always knows this customer has a standing
+          recurring job. */}
       {hasRecurring && recurringJob && (
         <SfCard
           padding={0}
@@ -949,8 +982,9 @@ const JobsTab = ({ jobs, stats, onJobClick, onNewJob }) => {
         </SfCard>
       )}
 
-      {/* Upcoming */}
-      {upcoming.length > 0 && (
+      {/* Upcoming — only shown on All / Upcoming so other filters
+          aren't visually contaminated by a permanent upcoming card. */}
+      {(filter === "all" || filter === "upcoming") && upcoming.length > 0 && (
         <SfCard padding={0}>
           <div
             className="px-4 py-3 flex items-center"
@@ -1218,32 +1252,622 @@ const TabStub = ({ tab, estimates }) => {
 
 // ── Utilities ──────────────────────────────────────────────
 
-const buildMonthlyTrend = (jobs) => {
-  // Last 6 months ending this month
+// Build an all-time revenue trend across the customer's whole
+// lifetime. Buckets auto-adjust by total span:
+//   <= 12 months → monthly
+//   <= 36 months → quarterly
+//   else         → yearly
+// Always returns up to 12 bars so the layout stays readable.
+const buildAllTimeTrend = (jobs, customer) => {
   const now = new Date()
-  const buckets = []
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    buckets.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: d.toLocaleDateString("en-US", { month: "short" }), value: 0 })
+  // Earliest signal: customer.created_at OR first job
+  let earliest = customer?.created_at ? new Date(customer.created_at) : null
+  jobs.forEach((j) => {
+    const d = j.scheduled_date
+    if (!d) return
+    const dt = new Date(String(d).includes("T") ? d : String(d).replace(" ", "T"))
+    if (!isNaN(dt) && (!earliest || dt < earliest)) earliest = dt
+  })
+  if (!earliest || isNaN(earliest)) {
+    earliest = new Date(now.getFullYear(), now.getMonth() - 5, 1)
   }
+
+  const months = Math.max(
+    1,
+    (now.getFullYear() - earliest.getFullYear()) * 12 +
+      (now.getMonth() - earliest.getMonth()) +
+      1
+  )
+  let interval, intervalLabel
+  if (months <= 12) { interval = "month"; intervalLabel = "Monthly" }
+  else if (months <= 36) { interval = "quarter"; intervalLabel = "Quarterly" }
+  else { interval = "year"; intervalLabel = "Yearly" }
+
+  const buckets = []
+  if (interval === "month") {
+    // Last `months` months ending this month
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      buckets.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+        label: d.toLocaleDateString("en-US", { month: "short" }),
+        value: 0,
+      })
+    }
+  } else if (interval === "quarter") {
+    const startQ = Math.floor(earliest.getMonth() / 3)
+    const startY = earliest.getFullYear()
+    const endQ = Math.floor(now.getMonth() / 3)
+    const endY = now.getFullYear()
+    let y = startY, q = startQ
+    while (y < endY || (y === endY && q <= endQ)) {
+      buckets.push({
+        key: `${y}-Q${q + 1}`,
+        label: `Q${q + 1} '${String(y).slice(-2)}`,
+        value: 0,
+      })
+      q += 1
+      if (q > 3) { q = 0; y += 1 }
+    }
+  } else {
+    // yearly
+    for (let y = earliest.getFullYear(); y <= now.getFullYear(); y++) {
+      buckets.push({ key: `${y}`, label: String(y), value: 0 })
+    }
+  }
+
+  const bucketIndex = new Map(buckets.map((b, i) => [b.key, i]))
   jobs.forEach((j) => {
     if (isCancelledJob(j)) return
     const d = j.completed_at || j.scheduled_date
     if (!d) return
     const dt = new Date(String(d).includes("T") ? d : String(d).replace(" ", "T"))
     if (isNaN(dt)) return
-    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`
-    const b = buckets.find((x) => x.key === key)
-    if (b) {
-      b.value += parseFloat(j.total || j.service_price || 0)
+    let key
+    if (interval === "month") {
+      key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`
+    } else if (interval === "quarter") {
+      key = `${dt.getFullYear()}-Q${Math.floor(dt.getMonth() / 3) + 1}`
+    } else {
+      key = `${dt.getFullYear()}`
+    }
+    const idx = bucketIndex.get(key)
+    if (idx != null) {
+      buckets[idx].value += parseFloat(j.total || j.service_price || 0)
     }
   })
-  const values = buckets.map((b) => b.value)
-  const labels = buckets.map((b) => b.label)
+
+  // Cap at 12 bars by trimming the oldest to keep the chart legible
+  const trimmed = buckets.length > 12 ? buckets.slice(-12) : buckets
+  const values = trimmed.map((b) => b.value)
+  const labels = trimmed.map((b) => b.label)
   const recent = values[values.length - 1] || 0
   const prior = values[values.length - 2] || 0
   const deltaPct = prior > 0 ? ((recent - prior) / prior) * 100 : null
-  return { values, labels, deltaPct }
+  return { values, labels, deltaPct, intervalLabel }
+}
+
+// ── Property derivation ────────────────────────────────────
+// A customer's "properties" are the unique service addresses where
+// they've had jobs (plus their primary billing address as a fallback).
+// For each address, we pull spec fields from the most recent job at
+// that address — zenbooker_intake holds the rich data (bedrooms,
+// bathrooms, pets, sqft), while job.bedrooms / job.bathroom_count
+// are the manual-entry fallback.
+
+const deriveProperties = (customer, jobs) => {
+  if (!customer) return []
+  const byAddr = new Map()
+  // Seed with the customer's primary address
+  const primaryAddress = customer.address || ""
+  const primaryKey = primaryAddress.trim().toLowerCase()
+  if (primaryAddress) {
+    byAddr.set(primaryKey, {
+      address: primaryAddress,
+      city: [customer.city, customer.state, customer.zip_code].filter(Boolean).join(", "),
+      primary: true,
+      lastJobDate: null,
+      jobs: [],
+      specs: {},
+    })
+  }
+  jobs.forEach((j) => {
+    const addr = (j.service_address || j.customer_address || "").trim()
+    if (!addr) return
+    const key = addr.toLowerCase()
+    if (!byAddr.has(key)) {
+      byAddr.set(key, {
+        address: addr,
+        city: [j.service_city || j.customer_city, j.service_state, j.service_zip].filter(Boolean).join(", "),
+        primary: key === primaryKey,
+        lastJobDate: null,
+        jobs: [],
+        specs: {},
+      })
+    }
+    const p = byAddr.get(key)
+    p.jobs.push(j)
+    const d = j.scheduled_date
+    if (d) {
+      const dt = new Date(String(d).includes("T") ? d : String(d).replace(" ", "T"))
+      if (!isNaN(dt) && (!p.lastJobDate || dt > p.lastJobDate)) {
+        p.lastJobDate = dt
+      }
+    }
+  })
+  // Fill specs from the most recent job at each address
+  byAddr.forEach((p) => {
+    if (!p.jobs.length) return
+    const recent = [...p.jobs].sort(
+      (a, b) => new Date(b.scheduled_date || 0) - new Date(a.scheduled_date || 0)
+    )[0]
+    p.specs = extractSpecsFromJob(recent)
+    p.lastService = recent.service_name
+  })
+  return Array.from(byAddr.values()).sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0))
+}
+
+const extractSpecsFromJob = (job) => {
+  const out = {
+    type: null,
+    bedrooms: null,
+    bathrooms: null,
+    sqft: null,
+    pets: null,
+    access: null,
+  }
+  // job.bedrooms / bathroom_count (manual SF jobs)
+  if (job.bedrooms) out.bedrooms = String(job.bedrooms)
+  if (job.bathroom_count) out.bathrooms = String(job.bathroom_count)
+  // zenbooker_intake (ZB-sourced)
+  if (Array.isArray(job.zenbooker_intake)) {
+    job.zenbooker_intake.forEach((field) => {
+      const name = (field.field_name || "").toLowerCase()
+      const selected = Array.isArray(field.selected_options) && field.selected_options[0]
+      const label = selected?.display_label || selected?.text || field.text_value
+      if (!label) return
+      if (name.includes("bedroom")) out.bedrooms = label.replace(/\s*bedrooms?$/i, "") || label
+      else if (name.includes("bathroom")) out.bathrooms = label.replace(/\s*bathrooms?$/i, "") || label
+      else if (name.includes("pet")) out.pets = label
+      else if (name.includes("sq") || name.includes("size")) out.sqft = label
+      else if (name.includes("type") || name.includes("property")) out.type = label
+      else if (name.includes("access") || name.includes("entry")) out.access = label
+    })
+  }
+  // Heuristics from notes
+  const notes = String(job.notes || job.customer_notes || "")
+  if (notes && !out.access) {
+    if (/lockbox/i.test(notes)) out.access = "Lockbox"
+    else if (/key/i.test(notes)) out.access = "Key"
+    else if (/door\s*code|access\s*code/i.test(notes)) out.access = "Code"
+  }
+  return out
+}
+
+// ── Property card details (shared by Overview + Properties tab) ──
+
+const PropertyDetails = ({ property }) => {
+  const specs = property.specs || {}
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: "var(--sf-blue-soft)", color: "var(--sf-blue-dark)" }}
+        >
+          <Building size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[13px] font-semibold text-[var(--sf-ink)] truncate">
+              {property.address || "—"}
+            </span>
+            {property.primary && (
+              <SfTag color="var(--sf-blue-dark)" bg="var(--sf-blue-soft)">Primary</SfTag>
+            )}
+          </div>
+          {property.city && (
+            <div className="text-[11px] text-[var(--sf-ink-3)] mt-0.5 truncate">
+              {property.city}
+            </div>
+          )}
+        </div>
+      </div>
+      <div
+        className="grid grid-cols-2 gap-x-4 gap-y-3 mt-4"
+      >
+        <PropertyField label="Type" value={specs.type || "—"} />
+        <PropertyField label="Bedrooms" value={specs.bedrooms || "—"} />
+        <PropertyField label="Bathrooms" value={specs.bathrooms || "—"} />
+        <PropertyField label="Sqft" value={specs.sqft || "—"} />
+        <PropertyField label="Pets" value={specs.pets || "—"} />
+        <PropertyField label="Access" value={specs.access || "—"} />
+      </div>
+    </>
+  )
+}
+
+const PropertyField = ({ label, value }) => (
+  <div>
+    <div
+      className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
+      style={{ letterSpacing: ".04em" }}
+    >
+      {label}
+    </div>
+    <div className="text-[12.5px] font-medium text-[var(--sf-ink)] mt-1">
+      {value}
+    </div>
+  </div>
+)
+
+// ── Properties tab ─────────────────────────────────────────
+
+const PropertiesTab = ({ properties, customer }) => {
+  if (!properties.length) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-2xl">
+        <SfCard>
+          <EmptyRow icon={Building} title="No properties yet" subtitle="Once jobs are scheduled, the service addresses will show up here." />
+        </SfCard>
+      </div>
+    )
+  }
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+      {properties.map((p, i) => {
+        const completedJobs = p.jobs.filter(isCompletedJob).length
+        const lastClean = p.lastJobDate
+          ? p.lastJobDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : "—"
+        return (
+          <SfCard key={`${p.address}-${i}`}>
+            <PropertyDetails property={p} />
+            <div
+              className="grid grid-cols-3 gap-3 mt-4 pt-3"
+              style={{ borderTop: "1px solid var(--sf-border-soft)" }}
+            >
+              <Stat label="Jobs done" value={completedJobs} />
+              <Stat label="Last clean" value={lastClean} />
+              <Stat label="Last service" value={p.lastService || "—"} />
+            </div>
+          </SfCard>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Messages tab ───────────────────────────────────────────
+
+const MessagesTab = ({ conversations, onOpen }) => {
+  if (!conversations.length) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-2xl">
+        <SfCard>
+          <EmptyRow
+            icon={MessageSquare}
+            title="No messages yet"
+            subtitle="SMS, email, and review threads with this customer will appear here once the customer has sent or received a message."
+          />
+        </SfCard>
+      </div>
+    )
+  }
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+      <SfCard padding={0}>
+        <div className="px-4 py-3 flex items-center border-b border-[var(--sf-border-soft)]">
+          <MessageSquare size={14} className="text-[var(--sf-ink-3)] mr-2" />
+          <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
+            Conversations · {conversations.length}
+          </div>
+        </div>
+        {conversations.map((conv, i, arr) => {
+          const channel = (conv.channel || "").toLowerCase()
+          const meta =
+            channel === "email"
+              ? { c: "var(--sf-purple)", bg: "var(--sf-purple-soft)", label: "Email" }
+              : channel === "review"
+              ? { c: "var(--sf-amber-dark)", bg: "var(--sf-amber-soft)", label: "Review" }
+              : { c: "var(--sf-blue-dark)", bg: "var(--sf-blue-soft)", label: "SMS" }
+          const unread = conv.unread_count > 0
+          return (
+            <button
+              key={conv.id}
+              onClick={() => onOpen?.(conv.id)}
+              className="w-full text-left flex items-start gap-3 px-4 py-3 hover:bg-[var(--sf-panel-alt)] transition-colors"
+              style={{
+                borderBottom: i === arr.length - 1 ? "none" : "1px solid var(--sf-border-soft)",
+                background: unread ? "var(--sf-blue-soft)" : "transparent",
+                borderLeft: unread ? "3px solid var(--sf-blue)" : "3px solid transparent",
+                cursor: "pointer",
+                border: "none",
+                fontFamily: "var(--sf-font-ui)",
+              }}
+            >
+              <div
+                className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
+                style={{ background: meta.bg, color: meta.c }}
+              >
+                <MessageSquare size={15} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <SfTag color={meta.c} bg={meta.bg}>{meta.label}</SfTag>
+                  {unread && (
+                    <SfTag color="var(--sf-red-dark)" bg="var(--sf-red-soft)">
+                      {conv.unread_count} unread
+                    </SfTag>
+                  )}
+                  <div className="flex-1" />
+                  <span
+                    className="text-[10.5px] text-[var(--sf-ink-3)]"
+                    style={{ fontFamily: "var(--sf-font-mono)" }}
+                  >
+                    {conv.last_event_at
+                      ? new Date(conv.last_event_at).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })
+                      : "—"}
+                  </span>
+                </div>
+                {conv.last_preview && (
+                  <div
+                    className="text-[12.5px] text-[var(--sf-ink-2)] mt-1 line-clamp-2"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {conv.last_preview}
+                  </div>
+                )}
+              </div>
+            </button>
+          )
+        })}
+      </SfCard>
+    </div>
+  )
+}
+
+// ── Activity tab ───────────────────────────────────────────
+
+const ACTIVITY_FILTERS = [
+  { id: "all",       label: "All events" },
+  { id: "jobs",      label: "Jobs" },
+  { id: "payments",  label: "Payments" },
+  { id: "messages",  label: "Messages" },
+  { id: "estimates", label: "Estimates" },
+]
+
+const ActivityTab = ({ jobs, invoices, conversations, estimates, customer }) => {
+  const [filter, setFilter] = useState("all")
+  const events = useMemo(
+    () => buildActivityEvents({ jobs, invoices, conversations, estimates, customer }),
+    [jobs, invoices, conversations, estimates, customer]
+  )
+  const filtered = filter === "all" ? events : events.filter((e) => e.group === filter)
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 py-4 grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-4 items-start">
+      {/* Filter rail */}
+      <SfCard className="lg:sticky lg:top-2">
+        <SfCardHeader title="Filter by" />
+        <div className="flex flex-col gap-1">
+          {ACTIVITY_FILTERS.map((f) => {
+            const count = f.id === "all" ? events.length : events.filter((e) => e.group === f.id).length
+            const active = filter === f.id
+            return (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id)}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12.5px] font-medium"
+                style={{
+                  background: active ? "var(--sf-blue-soft)" : "transparent",
+                  color: active ? "var(--sf-blue-dark)" : "var(--sf-ink-2)",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "var(--sf-font-ui)",
+                  textAlign: "left",
+                  fontWeight: active ? 600 : 500,
+                }}
+              >
+                <span className="flex-1">{f.label}</span>
+                <span
+                  className="text-[11px]"
+                  style={{
+                    color: active ? "var(--sf-blue-dark)" : "var(--sf-ink-3)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </SfCard>
+
+      {/* Timeline */}
+      <SfCard padding={0}>
+        <div className="px-4 py-3 flex items-center border-b border-[var(--sf-border-soft)]">
+          <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
+            Activity · {filtered.length} event{filtered.length === 1 ? "" : "s"}
+          </div>
+        </div>
+        {filtered.length === 0 ? (
+          <EmptyRow icon={Clock} title="No activity yet" subtitle="Events will show up here as the customer interacts." />
+        ) : (
+          <div className="py-1">
+            {filtered.map((e, i) => {
+              const Icon = e.icon
+              const isLast = i === filtered.length - 1
+              return (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 px-4 py-3"
+                  style={{
+                    borderBottom: isLast ? "none" : "1px solid var(--sf-border-soft)",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: `${e.color}1a`,
+                      color: e.color,
+                      border: e.milestone ? `2px solid ${e.color}` : `1px solid ${e.color}22`,
+                      boxShadow: e.milestone ? `0 0 0 4px ${e.color}1a` : "none",
+                    }}
+                  >
+                    <Icon size={13} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
+                        {e.title}
+                      </div>
+                      {e.milestone && (
+                        <SfTag color="var(--sf-purple)" bg="var(--sf-purple-soft)">
+                          Milestone
+                        </SfTag>
+                      )}
+                      {e.amount != null && (
+                        <span
+                          className="text-[12px] font-bold ml-auto"
+                          style={{
+                            color: e.amount >= 0 ? "var(--sf-green-dark)" : "var(--sf-red-dark)",
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {e.amount >= 0 ? "+" : "-"}{formatMoney(Math.abs(e.amount))}
+                        </span>
+                      )}
+                    </div>
+                    {e.description && (
+                      <div className="text-[12px] text-[var(--sf-ink-2)] mt-0.5">{e.description}</div>
+                    )}
+                    <div
+                      className="text-[10.5px] text-[var(--sf-ink-3)] mt-0.5"
+                      style={{ fontFamily: "var(--sf-font-mono)" }}
+                    >
+                      {e.when.toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </SfCard>
+    </div>
+  )
+}
+
+const buildActivityEvents = ({ jobs, invoices, conversations, estimates, customer }) => {
+  const out = []
+  // Customer created — milestone
+  if (customer?.created_at) {
+    out.push({
+      group: "all",
+      title: "Customer created",
+      description: customer.source ? `Source: ${customer.source}` : "",
+      when: new Date(customer.created_at),
+      icon: Plus,
+      color: "var(--sf-green-dark)",
+      milestone: true,
+    })
+  }
+  jobs.forEach((j) => {
+    const status = (j.status || "").toLowerCase()
+    const id = `#${String(j.id).slice(-4)}`
+    const service = j.service_name || "Service"
+    if (status === "completed" || status === "complete" || status === "done") {
+      out.push({
+        group: "jobs",
+        title: `${service} ${id} completed`,
+        description: j.notes ? j.notes.slice(0, 120) : null,
+        when: new Date(j.completed_at || j.end_time || j.updated_at || j.scheduled_date),
+        icon: CheckCircle2,
+        color: "var(--sf-blue-dark)",
+        amount: parseFloat(j.total || j.service_price || 0) || null,
+      })
+    } else if (status === "cancelled" || status === "canceled") {
+      out.push({
+        group: "jobs",
+        title: `${service} ${id} cancelled`,
+        when: new Date(j.cancelled_at || j.updated_at || j.scheduled_date),
+        icon: Clock,
+        color: "var(--sf-red-dark)",
+      })
+    } else {
+      out.push({
+        group: "jobs",
+        title: `${service} ${id} scheduled`,
+        when: new Date(j.created_at || j.scheduled_date),
+        icon: CalendarIcon,
+        color: "var(--sf-blue-dark)",
+      })
+    }
+  })
+  invoices.forEach((inv) => {
+    const s = (inv.status || "").toLowerCase()
+    if (s === "paid") {
+      out.push({
+        group: "payments",
+        title: `Invoice #${String(inv.id).slice(-4)} paid`,
+        when: new Date(inv.updated_at || inv.paid_at || inv.created_at),
+        icon: DollarSign,
+        color: "var(--sf-green-dark)",
+        amount: parseFloat(inv.total_amount || inv.amount || 0) || null,
+      })
+    } else if (inv.created_at) {
+      out.push({
+        group: "payments",
+        title: `Invoice #${String(inv.id).slice(-4)} ${s || "draft"}`,
+        when: new Date(inv.created_at),
+        icon: FileText,
+        color: "var(--sf-ink-2)",
+      })
+    }
+  })
+  conversations.forEach((c) => {
+    if (!c.last_event_at) return
+    out.push({
+      group: "messages",
+      title: `${capitalize(c.channel || "SMS")} thread`,
+      description: c.last_preview ? c.last_preview.slice(0, 120) : null,
+      when: new Date(c.last_event_at),
+      icon: MessageSquare,
+      color: "#0E7490",
+    })
+  })
+  estimates.forEach((e) => {
+    if (!e.created_at) return
+    out.push({
+      group: "estimates",
+      title: `Estimate #${String(e.id).slice(-4)} ${(e.status || "sent").toLowerCase()}`,
+      when: new Date(e.updated_at || e.created_at),
+      icon: FileText,
+      color: "var(--sf-purple)",
+      amount: parseFloat(e.total_amount || e.amount || 0) || null,
+    })
+  })
+  return out
+    .filter((e) => e.when && !isNaN(e.when))
+    .sort((a, b) => b.when.getTime() - a.when.getTime())
 }
 
 const capitalize = (s) =>
