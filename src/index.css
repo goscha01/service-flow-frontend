@@ -109,6 +109,12 @@
   border-radius: 5px 0 0 5px !important;
 }
 
+/* Pulse used by the "in progress" status indicator on timeline blocks. */
+@keyframes sfPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .55; transform: scale(.78); }
+}
+
 /* ══════════════════════════════════════════════════
    BASE — Apply to everything
    ══════════════════════════════════════════════════ */

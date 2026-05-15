@@ -67,22 +67,57 @@ const formatMoney = (n) => {
 
 const formatMoneyExact = (n) => `$${(Number.isFinite(n) ? n : 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
-// Parse "HH:MM" or "HH:MM AM/PM" to {h, m, label}
-const parseTime = (s) => {
-  if (!s) return null
-  // Accept "08:30", "08:30 AM", "8:30 PM", "08:30:00"
-  const m = String(s).trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM|am|pm)?$/)
-  if (!m) return null
-  let h = parseInt(m[1], 10)
-  const min = parseInt(m[2], 10)
-  const mer = m[3]?.toUpperCase()
-  if (mer === "PM" && h < 12) h += 12
-  if (mer === "AM" && h === 12) h = 0
-  if (h < 0 || h > 23 || min < 0 || min > 59) return null
-  const label = mer
-    ? `${m[1]}:${m[2]} ${mer}`
-    : `${h % 12 === 0 ? 12 : h % 12}:${String(min).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`
-  return { h, m: min, label, minutes: h * 60 + min }
+// Read a job's start time from whichever field carries it. The most
+// reliable source in this codebase is scheduled_date (full ISO datetime
+// including time). service_time / start_time may also exist but are
+// less consistent — service_time is often just "09:00" regardless of
+// actual scheduled time, so it's checked last.
+const jobStartDateTime = (job) => {
+  const candidates = [job.scheduled_date, job.start_time, job.service_time]
+  for (const c of candidates) {
+    if (!c) continue
+    const raw = String(c).trim()
+    // Plain "HH:MM[:SS]" attached to today's date — only useful if no ISO field was present
+    if (/^\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM|am|pm)?$/.test(raw)) {
+      const m = raw.match(/^(\d{1,2}):(\d{2})(:(\d{2}))?\s*(AM|PM|am|pm)?$/)
+      if (!m) continue
+      let h = parseInt(m[1], 10)
+      const min = parseInt(m[2], 10)
+      const mer = m[5]?.toUpperCase()
+      if (mer === "PM" && h < 12) h += 12
+      if (mer === "AM" && h === 12) h = 0
+      const today = new Date()
+      today.setHours(h, min, 0, 0)
+      return today
+    }
+    const iso = raw.includes("T") ? raw : raw.replace(" ", "T")
+    const d = new Date(iso)
+    if (!isNaN(d)) return d
+  }
+  return null
+}
+
+// Old helper kept for compatibility — same shape, but driven by Date.
+const parseTime = (jobOrString) => {
+  // Caller may pass a job-shaped object OR a raw string. Job-shaped
+  // is preferred so we can read scheduled_date first.
+  let d
+  if (jobOrString && typeof jobOrString === "object") {
+    d = jobStartDateTime(jobOrString)
+  } else if (typeof jobOrString === "string") {
+    d = jobStartDateTime({ service_time: jobOrString })
+  }
+  if (!d || isNaN(d)) return null
+  const h = d.getHours()
+  const m = d.getMinutes()
+  const meridian = h < 12 ? "AM" : "PM"
+  const hh = h % 12 === 0 ? 12 : h % 12
+  return {
+    h,
+    m,
+    minutes: h * 60 + m,
+    label: `${hh}:${String(m).padStart(2, "0")} ${meridian}`,
+  }
 }
 
 const jobStatusLabel = (raw) => {
@@ -263,8 +298,8 @@ const DashboardV2 = () => {
         return d === today
       })
       .sort((a, b) => {
-        const at = parseTime(a.service_time || a.scheduled_time || a.start_time)?.minutes ?? 0
-        const bt = parseTime(b.service_time || b.scheduled_time || b.start_time)?.minutes ?? 0
+        const at = jobStartDateTime(a)?.getTime() ?? Number.POSITIVE_INFINITY
+        const bt = jobStartDateTime(b)?.getTime() ?? Number.POSITIVE_INFINITY
         return at - bt
       })
   }, [jobs, today])
@@ -482,6 +517,90 @@ const DashboardV2 = () => {
 
 // ── Schedule timeline ──────────────────────────────────────
 
+const LANE_HEIGHT = 36
+const ROW_PADDING_Y = 6
+
+// Greedy interval scheduling: assign each job to the lowest-numbered lane
+// whose previous job ends before this one starts. Returns a Map keyed
+// by job.id with the lane index, and the total lane count.
+const allocateLanes = (jobs) => {
+  const ordered = [...jobs].sort((a, b) => (a._startMin ?? 0) - (b._startMin ?? 0))
+  const laneEnds = [] // laneIndex -> end time (mins)
+  const allocation = new Map()
+  for (const j of ordered) {
+    if (j._startMin == null) continue
+    let assigned = -1
+    for (let i = 0; i < laneEnds.length; i++) {
+      if (laneEnds[i] <= j._startMin) { assigned = i; break }
+    }
+    if (assigned === -1) {
+      laneEnds.push(j._endMin)
+      assigned = laneEnds.length - 1
+    } else {
+      laneEnds[assigned] = j._endMin
+    }
+    allocation.set(String(j.id), assigned)
+  }
+  return { allocation, laneCount: Math.max(1, laneEnds.length) }
+}
+
+// Status → visual variant. Used to give each job block a distinct look
+// without depending on a text label.
+const statusVariant = (statusRaw, color) => {
+  const s = (statusRaw || "").toLowerCase()
+  if (s === "completed" || s === "complete" || s === "done") {
+    return {
+      kind: "completed",
+      bg: `${color}d9`, // 85% opacity
+      fg: "#fff",
+      glyph: "✓",
+      glyphColor: "#fff",
+      borderStyle: "solid",
+    }
+  }
+  if (s === "in progress" || s === "in_progress" || s === "onsite" || s === "on_site") {
+    return {
+      kind: "live",
+      bg: color,
+      fg: "#fff",
+      glyph: "●",
+      glyphColor: "#fff",
+      borderStyle: "solid",
+      pulse: true,
+    }
+  }
+  if (s === "en route" || s === "en_route" || s === "enroute") {
+    return {
+      kind: "enroute",
+      bg: `linear-gradient(90deg, ${color}, ${color}cc)`,
+      fg: "#fff",
+      glyph: "→",
+      glyphColor: "#fff",
+      borderStyle: "solid",
+    }
+  }
+  if (s === "cancelled" || s === "canceled") {
+    return {
+      kind: "cancelled",
+      bg: `${color}1a`, // 10%
+      fg: color,
+      glyph: "✕",
+      glyphColor: color,
+      borderStyle: "dashed",
+      strike: true,
+    }
+  }
+  // Scheduled / pending / unknown — default
+  return {
+    kind: "scheduled",
+    bg: `${color}2e`, // 18%
+    fg: "var(--sf-ink)",
+    glyph: null,
+    glyphColor: null,
+    borderStyle: "solid",
+  }
+}
+
 const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setScheduleView, onJobClick, onOpenSchedule }) => {
   // Build an id → display-name lookup so timeline rows show the actual
   // cleaner instead of a generic "Team member" fallback. Jobs in this
@@ -510,9 +629,29 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
     [memberNameById]
   )
 
-  // Hour range: derive from jobs, clamp to a sensible default
-  const startHr = 7
-  const endHr = 19
+  // Dynamic ruler — span from the earliest start to the latest end of
+  // today's jobs, padded so blocks have breathing room. Defaults to a
+  // 7am–7pm window when there's nothing to chart.
+  const { startHr: dynStartHr, endHr: dynEndHr } = useMemo(() => {
+    let minM = Infinity
+    let maxM = -Infinity
+    jobs.forEach((j) => {
+      const start = jobStartDateTime(j)
+      if (!start || isNaN(start)) return
+      const startMin = start.getHours() * 60 + start.getMinutes()
+      const duration = parseInt(j.duration || j.service_duration || j.estimated_duration || 60, 10) || 60
+      const endMin = startMin + duration
+      if (startMin < minM) minM = startMin
+      if (endMin > maxM) maxM = endMin
+    })
+    if (!isFinite(minM)) return { startHr: 7, endHr: 19 }
+    const startHr = Math.max(0, Math.floor(minM / 60) - 1)
+    const endHr = Math.min(24, Math.ceil(maxM / 60) + 1)
+    return { startHr: Math.min(startHr, 7), endHr: Math.max(endHr, 19) }
+  }, [jobs])
+
+  const startHr = dynStartHr
+  const endHr = dynEndHr
   const hours = []
   for (let h = startHr; h <= endHr; h++) hours.push(h)
 
@@ -618,9 +757,28 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
           <div className="flex flex-col gap-2 mt-1">
             {rows.map((row) => {
               const teamJobsHere = row.jobs.filter((x) => (x._teamSize ?? 1) >= 2).length
+
+              // Pre-compute interval + lane for each job on this row.
+              const jobsWithIntervals = row.jobs.map((j) => {
+                const startDt = jobStartDateTime(j)
+                const startMin = startDt ? startDt.getHours() * 60 + startDt.getMinutes() : null
+                const { planned, real } = durationsFor(j)
+                const dur = planned || real || 60
+                return {
+                  ...j,
+                  _startMin: startMin,
+                  _endMin: startMin != null ? startMin + dur : null,
+                  _planned: planned,
+                  _real: real,
+                  _duration: dur,
+                }
+              })
+              const { allocation, laneCount } = allocateLanes(jobsWithIntervals)
+              const rowHeight = laneCount * LANE_HEIGHT + ROW_PADDING_Y * 2
+
               return (
-              <div key={row.id} className="flex items-center gap-2.5">
-                <div className="w-[120px] flex items-center gap-2 flex-shrink-0">
+              <div key={row.id} className="flex items-start gap-2.5">
+                <div className="w-[120px] flex items-center gap-2 flex-shrink-0" style={{ paddingTop: 4 }}>
                   {row.id === "unassigned" ? (
                     <span className="w-2 h-2 rounded-full" style={{ background: row.color }} />
                   ) : (
@@ -642,7 +800,7 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                 </div>
                 <div
                   className="relative flex-1 rounded-md"
-                  style={{ height: 44, background: "var(--sf-panel-alt)", border: "1px solid var(--sf-border-soft)" }}
+                  style={{ height: rowHeight, background: "var(--sf-panel-alt)", border: "1px solid var(--sf-border-soft)" }}
                 >
                   {/* hour grid lines */}
                   {hours.slice(1).map((h, j) => (
@@ -686,15 +844,16 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                     </span>
                   )}
                   {/* job blocks */}
-                  {row.jobs.map((j) => {
-                    const start = parseTime(j.service_time || j.scheduled_time || j.start_time)
+                  {jobsWithIntervals.map((j) => {
+                    if (j._startMin == null) return null
+                    const start = parseTime(j)
                     if (!start) return null
-                    const { planned, real } = durationsFor(j)
-                    const duration = planned || real || 60
+                    const planned = j._planned
+                    const real = j._real
+                    const duration = j._duration
                     const left = pct(start.minutes)
                     const widthPct = Math.max(3, (duration / ((endHr - startHr) * 60)) * 100)
                     const statusRaw = (j.status || "").toLowerCase()
-                    const isLive = onShiftStatuses.has(statusRaw)
                     const isCompleted = statusRaw === "completed" || statusRaw === "complete" || statusRaw === "done"
                     const teamSize = j._teamSize ?? 1
                     const isTeamJob = teamSize >= 2
@@ -715,116 +874,141 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                       blockTitle = j.service_name ? `${customer} · ${j.service_name}` : customer
                     }
 
-                    // Overtime / undertime — only meaningful for completed jobs
-                    // where both planned and real are known.
+                    // Overtime / undertime — only meaningful for completed jobs.
                     const showDelta = isCompleted && planned > 0 && real > 0 && Math.abs(real - planned) >= 3
                     const overtimeMins = showDelta && real > planned ? real - planned : 0
                     const undertimeMins = showDelta && real < planned ? planned - real : 0
-                    // Overtime renders as a sibling extension past the block.
                     const overtimePct = overtimeMins
                       ? Math.max(0.5, (overtimeMins / ((endHr - startHr) * 60)) * 100)
                       : 0
-                    // Undertime overlays the right side of the block as an "unused" strip.
                     const undertimePctOfBlock = undertimeMins && duration
                       ? (undertimeMins / duration) * 100
                       : 0
 
-                    // Block styling: fully filled rectangle in the cleaner's color.
-                    // Live (en-route / in-progress) → solid color + white text.
-                    // Completed → solid color + white text (the job is done).
-                    // Scheduled/upcoming → 18% tint of the color + dark ink text so the
-                    //   customer name reads clearly against the panel background.
-                    const isFilled = isLive || isCompleted
-                    const blockBg = isFilled ? row.color : `${row.color}2e` // 2e ≈ 18% alpha
-                    const blockFg = isFilled ? "#fff" : "var(--sf-ink)"
+                    // Variant per status — gives each state a distinct look.
+                    const variant = statusVariant(statusRaw, row.color)
+                    const isFilled = ["completed", "live", "enroute"].includes(variant.kind)
                     const subFg = isFilled ? "rgba(255,255,255,.88)" : "var(--sf-ink-2)"
+
+                    // Lane positioning
+                    const lane = allocation.get(String(j.id)) ?? 0
+                    const top = ROW_PADDING_Y + lane * LANE_HEIGHT
+                    const blockHeight = LANE_HEIGHT - 4
 
                     return (
                       <span key={`${row.id}-${j.id}`} className="contents">
                         <button
                           onClick={() => onJobClick(j.id)}
-                          className={`sf-timeline-block absolute flex flex-col justify-center text-left overflow-hidden cursor-pointer ${overtimeMins ? "has-overtime" : ""}`}
+                          className={`sf-timeline-block absolute flex items-stretch text-left overflow-hidden cursor-pointer ${overtimeMins ? "has-overtime" : ""}`}
                           style={{
-                            top: 3,
-                            bottom: 3,
+                            top,
+                            height: blockHeight,
                             left: `${left}%`,
                             width: `${widthPct}%`,
-                            background: blockBg,
-                            borderLeft: `3px solid ${row.color}`,
-                            color: blockFg,
-                            padding: "3px 8px",
+                            background: variant.bg,
+                            border: variant.borderStyle === "dashed" ? `1.5px dashed ${row.color}` : "none",
+                            borderLeft: variant.borderStyle === "dashed"
+                              ? `1.5px dashed ${row.color}`
+                              : `3px solid ${row.color}`,
+                            color: variant.fg,
+                            padding: 0,
                             fontSize: 11,
                             fontWeight: 600,
                             fontFamily: "var(--sf-font-ui)",
-                            boxShadow: isLive ? `0 1px 4px ${row.color}40` : "none",
-                            border: "none",
+                            boxShadow: variant.kind === "live"
+                              ? `0 0 0 2px ${row.color}40, 0 1px 4px ${row.color}40`
+                              : variant.kind === "enroute"
+                              ? `0 1px 4px ${row.color}40`
+                              : "none",
                           }}
-                          title={`${blockTitle}${planned ? ` · planned ${planned}m` : ""}${real ? ` · real ${real}m` : ""}${overtimeMins ? ` · +${overtimeMins}m overtime` : undertimeMins ? ` · −${undertimeMins}m undertime` : ""}`}
+                          title={`${blockTitle} · ${variant.kind}${planned ? ` · planned ${planned}m` : ""}${real ? ` · real ${real}m` : ""}${overtimeMins ? ` · +${overtimeMins}m overtime` : undertimeMins ? ` · −${undertimeMins}m undertime` : ""}`}
                         >
-                          {/* undertime: the unused trailing slice of the block.
-                              Solid-ish white base with green diagonal stripes so it
-                              reads clearly against any block color underneath. */}
-                          {undertimeMins > 0 && (
+                          {/* Status glyph column on the left of the block — clear visual
+                              indicator (no label) for en route / live / completed / cancelled. */}
+                          {variant.glyph && (
                             <span
-                              className="absolute top-0 bottom-0 right-0 pointer-events-none"
+                              className="flex items-center justify-center flex-shrink-0"
                               style={{
-                                width: `${undertimePctOfBlock}%`,
-                                background:
-                                  "repeating-linear-gradient(45deg, rgba(255,255,255,.92) 0 6px, #16A34A 6px 9px)",
-                                borderLeft: "1.5px dashed #15803D",
-                                borderRadius: "0 4px 4px 0",
+                                width: 18,
+                                fontSize: variant.kind === "live" ? 8 : 12,
+                                fontWeight: 800,
+                                color: variant.glyphColor,
+                                background: isFilled ? "rgba(0,0,0,.12)" : `${row.color}1f`,
+                                animation: variant.pulse ? "sfPulse 1.4s ease-in-out infinite" : undefined,
                               }}
-                            />
-                          )}
-
-                          {/* team count badge top-right */}
-                          {isTeamJob && (
-                            <span
-                              className="absolute top-[2px] right-[3px] flex items-center justify-center"
-                              style={{
-                                minWidth: 15,
-                                height: 14,
-                                padding: "0 3px",
-                                borderRadius: 7,
-                                fontSize: 9,
-                                fontWeight: 700,
-                                fontFamily: "var(--sf-font-mono)",
-                                background: isFilled ? "rgba(255,255,255,.25)" : `${row.color}55`,
-                                color: isFilled ? "#fff" : row.color,
-                                letterSpacing: "0",
-                              }}
+                              aria-hidden="true"
                             >
-                              +{teamSize - 1}
+                              {variant.glyph}
                             </span>
                           )}
 
                           <span
-                            className="whitespace-nowrap overflow-hidden text-ellipsis relative z-[1]"
-                            style={{
-                              lineHeight: 1.15,
-                              fontSize: 11.5,
-                              fontWeight: 700,
-                              letterSpacing: "-0.005em",
-                              paddingRight: isTeamJob ? 18 : 0,
-                            }}
+                            className="relative flex flex-col justify-center min-w-0 flex-1 overflow-hidden"
+                            style={{ padding: "2px 7px" }}
                           >
-                            {blockTitle}
-                          </span>
-                          <span
-                            className="whitespace-nowrap overflow-hidden text-ellipsis relative z-[1]"
-                            style={{ fontSize: 10, fontWeight: 500, color: subFg, marginTop: 1 }}
-                          >
-                            {start.label} · {planned || duration}m
-                            {overtimeMins > 0 && (
-                              <span style={{ marginLeft: 4, color: isFilled ? "#FFE2E2" : "var(--sf-red-dark)", fontWeight: 700 }}>
-                                +{overtimeMins}m
-                              </span>
-                            )}
+                            {/* undertime: unused trailing slice of the block */}
                             {undertimeMins > 0 && (
-                              <span style={{ marginLeft: 4, color: isFilled ? "#D4FBE2" : "var(--sf-green-dark)", fontWeight: 700 }}>
-                                −{undertimeMins}m
+                              <span
+                                className="absolute top-0 bottom-0 right-0 pointer-events-none"
+                                style={{
+                                  width: `${undertimePctOfBlock}%`,
+                                  background:
+                                    "repeating-linear-gradient(45deg, rgba(255,255,255,.92) 0 6px, #16A34A 6px 9px)",
+                                  borderLeft: "1.5px dashed #15803D",
+                                }}
+                              />
+                            )}
+
+                            {/* team count badge top-right */}
+                            {isTeamJob && (
+                              <span
+                                className="absolute top-[1px] right-[3px] flex items-center justify-center"
+                                style={{
+                                  minWidth: 15,
+                                  height: 13,
+                                  padding: "0 3px",
+                                  borderRadius: 7,
+                                  fontSize: 9,
+                                  fontWeight: 700,
+                                  fontFamily: "var(--sf-font-mono)",
+                                  background: isFilled ? "rgba(255,255,255,.25)" : `${row.color}55`,
+                                  color: isFilled ? "#fff" : row.color,
+                                  letterSpacing: "0",
+                                }}
+                              >
+                                +{teamSize - 1}
                               </span>
                             )}
+
+                            <span
+                              className="whitespace-nowrap overflow-hidden text-ellipsis relative z-[1]"
+                              style={{
+                                lineHeight: 1.1,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                letterSpacing: "-0.005em",
+                                paddingRight: isTeamJob ? 18 : 0,
+                                textDecoration: variant.strike ? "line-through" : "none",
+                              }}
+                            >
+                              {blockTitle}
+                            </span>
+                            <span
+                              className="whitespace-nowrap overflow-hidden text-ellipsis relative z-[1]"
+                              style={{ fontSize: 9.5, fontWeight: 500, color: subFg }}
+                            >
+                              {start.label} · {planned || duration}m
+                              {overtimeMins > 0 && (
+                                <span style={{ marginLeft: 4, color: isFilled ? "#FFE2E2" : "var(--sf-red-dark)", fontWeight: 700 }}>
+                                  +{overtimeMins}m
+                                </span>
+                              )}
+                              {undertimeMins > 0 && (
+                                <span style={{ marginLeft: 4, color: isFilled ? "#D4FBE2" : "var(--sf-green-dark)", fontWeight: 700 }}>
+                                  −{undertimeMins}m
+                                </span>
+                              )}
+                            </span>
                           </span>
                         </button>
 
@@ -833,8 +1017,8 @@ const ScheduleTimelineCard = ({ jobs, teamMembers = [], scheduleView, setSchedul
                           <span
                             className="absolute pointer-events-none"
                             style={{
-                              top: 3,
-                              bottom: 3,
+                              top,
+                              height: blockHeight,
                               left: `${left + widthPct}%`,
                               width: `${overtimePct}%`,
                               background:
@@ -892,7 +1076,7 @@ const JobQueueCard = ({ jobs, totalToday, filter, setFilter, unassignedCount, li
         </div>
       ) : (
         jobs.slice(0, 6).map((j, i) => {
-          const t = parseTime(j.service_time || j.scheduled_time || j.start_time)
+          const t = parseTime(j)
           const duration = parseInt(j.duration || j.service_duration || j.estimated_duration || 0, 10)
           const customer = j.customer_name || `${j.customer_first_name || ""} ${j.customer_last_name || ""}`.trim() || "—"
           const value = parseFloat(j.total || j.service_price || 0)
