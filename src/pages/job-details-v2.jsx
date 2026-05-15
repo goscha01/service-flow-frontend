@@ -27,6 +27,8 @@ import {
   ChevronDown,
   MoreHorizontal,
   Trash2,
+  FileText,
+  Ban,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI, teamAPI, customersAPI, invoicesAPI } from "../services/api"
@@ -582,6 +584,28 @@ const JobDetailsV2 = () => {
           }}
           onOpenInvoice={() => invoice?.id && navigate(`/invoices/${invoice.id}`)}
           onEditInvoice={() => invoice?.id && navigate(`/invoices/${invoice.id}/edit`)}
+          onDownloadPDF={() => {
+            if (!invoice?.id) return
+            // The public invoice page already renders a printable view.
+            // Open it in a new tab; the browser's "Save as PDF" handles export.
+            window.open(`/public/invoice/${invoice.id}?print=1`, "_blank", "noopener,noreferrer")
+          }}
+          onVoidInvoice={async () => {
+            if (!invoice?.id || !user?.id) return
+            const confirmed = window.confirm(
+              "Void this invoice? It stays in your records (audit history) but is marked as voided and no longer collectable."
+            )
+            if (!confirmed) return
+            setBusy(true)
+            try {
+              await invoicesAPI.updateStatus(invoice.id, "void", user.id)
+              await loadJob()
+            } catch (e) {
+              alert(e?.response?.data?.error || e?.message || "Could not void the invoice.")
+            } finally {
+              setBusy(false)
+            }
+          }}
         />
       ) : (
       <div className="px-4 sm:px-6 lg:px-8 py-4 grid grid-cols-1 lg:grid-cols-[64fr_36fr] gap-4">
@@ -1108,25 +1132,92 @@ const InvoiceTabBody = ({
   onGenerateInvoice,
   onOpenInvoice,
   onEditInvoice,
+  onDownloadPDF,
+  onVoidInvoice,
 }) => {
   // Build line items from job + invoice. The invoice schema in this
   // codebase is flat (no separate line_items table), so we derive items
-  // from the job's pricing fields:
-  //   - base service price → main line
-  //   - additional_fees → "Add-ons"
-  //   - discount → negative line
-  //   - tip_amount → "Tip"
+  // from the job's pricing fields and (when present) the Zenbooker
+  // intake form so the customer sees every modifier that drove the
+  // total — bedrooms, bathrooms, add-ons like "pets" etc.
   const baseService = parseFloat(job.service_price || 0)
   const additionalFees = parseFloat(job.additional_fees || 0)
   const discount = parseFloat(job.discount || 0)
   const tip = parseFloat(job.tip_amount || 0)
   const fallbackTotal = parseFloat(invoice?.total_amount || invoice?.amount || job.total || 0)
 
+  // Parse the Zenbooker intake — each field is a question like
+  // "Number of Bedrooms" with a selected option that has a label and
+  // a total_price. Map to {label, fieldName, price} entries.
+  const intakeItems = []
+  const intakeRaw = job.zenbooker_intake || job.intake_answers || job.service_modifiers
+  if (Array.isArray(intakeRaw)) {
+    intakeRaw.forEach((field) => {
+      if (!field) return
+      const fieldName = field.field_name || field.name || ""
+      const opts = Array.isArray(field.selected_options)
+        ? field.selected_options
+        : Array.isArray(field.options)
+        ? field.options
+        : null
+      if (opts) {
+        opts.forEach((opt) => {
+          const label = opt?.display_label || opt?.text || opt?.label
+          if (!label) return
+          const price = parseFloat(opt?.total_price ?? opt?.price ?? 0)
+          intakeItems.push({ label, fieldName, price: Number.isFinite(price) ? price : 0 })
+        })
+      } else if (field.text_value) {
+        intakeItems.push({ label: field.text_value, fieldName, price: 0 })
+      }
+    })
+  }
+  const intakeTotal = intakeItems.reduce((s, it) => s + it.price, 0)
+  const baseAmount = baseService - intakeTotal
+
   const items = []
-  if (baseService > 0) {
+  if (intakeItems.length > 0 && baseService > 0) {
+    // Intake exists — split service into a base line + one line per
+    // intake selection so every modifier is visible. If subtracting
+    // the intake total would leave the base negative (service_price
+    // doesn't include intake), fall back to a single service line
+    // and show intake selections as zero-price detail lines instead.
+    if (baseAmount > 0.01) {
+      items.push({
+        desc: job.service_name || "Service",
+        detail: "Base service",
+        qty: 1,
+        rate: baseAmount,
+        total: baseAmount,
+      })
+      intakeItems.forEach((it) => {
+        items.push({
+          desc: it.label,
+          detail: it.fieldName || null,
+          qty: 1,
+          rate: it.price,
+          total: it.price,
+        })
+      })
+    } else {
+      // Intake summary lives in the main row's detail field
+      const summary = intakeItems.map((it) => it.label).join(" · ")
+      items.push({
+        desc: job.service_name || "Service",
+        detail: summary,
+        qty: 1,
+        rate: baseService,
+        total: baseService,
+      })
+    }
+  } else if (baseService > 0) {
+    // No intake — use bedrooms / bathrooms from the job itself
+    const detailParts = []
+    if (job.bedrooms) detailParts.push(`${job.bedrooms} bedroom${job.bedrooms === 1 ? "" : "s"}`)
+    if (job.bathroom_count) detailParts.push(`${job.bathroom_count} bath${job.bathroom_count === 1 ? "" : "s"}`)
     items.push({
       desc: job.service_name || "Service",
-      detail: job.bedrooms ? `${job.bedrooms} bedrooms${job.bathroom_count ? ` · ${job.bathroom_count} bath` : ""}` : null,
+      detail: detailParts.join(" · ") || null,
       qty: 1,
       rate: baseService,
       total: baseService,
@@ -1140,6 +1231,8 @@ const InvoiceTabBody = ({
       total: fallbackTotal,
     })
   }
+
+  // Pricing adjustments after the service / intake breakdown
   if (additionalFees > 0) {
     items.push({ desc: "Add-ons", detail: null, qty: 1, rate: additionalFees, total: additionalFees })
   }
@@ -1523,14 +1616,25 @@ const InvoiceTabBody = ({
               <SfButton
                 variant="secondary"
                 size="md"
-                icon={Copy}
+                icon={FileText}
                 className="flex-1 justify-center"
                 disabled={!invoice?.id}
-                onClick={() => invoice?.id && navigator.clipboard?.writeText(`${window.location.origin}/public/invoice/${invoice.id}`)}
+                onClick={onDownloadPDF}
               >
-                Copy link
+                PDF
               </SfButton>
             </div>
+            <SfButton
+              variant="ghost"
+              size="md"
+              icon={Copy}
+              className="w-full"
+              style={{ justifyContent: "flex-start" }}
+              disabled={!invoice?.id}
+              onClick={() => invoice?.id && navigator.clipboard?.writeText(`${window.location.origin}/public/invoice/${invoice.id}`)}
+            >
+              Copy payment link
+            </SfButton>
             <SfButton
               variant="ghost"
               size="md"
@@ -1542,6 +1646,22 @@ const InvoiceTabBody = ({
             >
               Edit invoice
             </SfButton>
+            {invoice?.id && String(invoice.status || "").toLowerCase() !== "void" && (
+              <>
+                <div className="h-px bg-[var(--sf-border-soft)] my-1" />
+                <SfButton
+                  variant="ghost"
+                  size="md"
+                  icon={Ban}
+                  className="w-full"
+                  style={{ justifyContent: "flex-start", color: "var(--sf-red-dark)" }}
+                  disabled={busy}
+                  onClick={onVoidInvoice}
+                >
+                  Void invoice
+                </SfButton>
+              </>
+            )}
           </div>
         </SfCard>
 
