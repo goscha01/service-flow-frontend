@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   Plus,
@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useLocationScope, filterByLocation } from "../context/LocationContext"
-import { customersAPI } from "../services/api"
+import { customersAPI, jobsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import MobileHeader from "../components/mobile-header"
 import {
@@ -58,8 +58,10 @@ const formatDateShort = (s) => {
 
 const formatRelativeShort = (s) => {
   if (!s) return "—"
-  const d = new Date(String(s).includes("T") ? s : String(s).replace(" ", "T"))
-  if (isNaN(d)) return "—"
+  const d = s instanceof Date
+    ? s
+    : new Date(String(s).includes("T") ? s : String(s).replace(" ", "T"))
+  if (!d || isNaN(d)) return "—"
   const days = Math.floor((Date.now() - d.getTime()) / (24 * 60 * 60 * 1000))
   if (days < 1) return "Today"
   if (days < 7) return `${days}d ago`
@@ -68,9 +70,11 @@ const formatRelativeShort = (s) => {
   return `${Math.floor(days / 365)}y ago`
 }
 
-const tagsOf = (c) => {
+const tagsOf = (c, agg) => {
   // Customers carry tags as an array, a comma-separated string, or
-  // booleans on fields like `vip`, `is_vip`, `is_recurring`. Normalize.
+  // booleans on fields like `vip`, `is_vip`. Plus we synthesize a
+  // "Recurring" tag when the per-customer job aggregation finds at
+  // least one recurring booking.
   const tags = new Set()
   const raw =
     (Array.isArray(c.tags) ? c.tags : null) ||
@@ -81,12 +85,12 @@ const tagsOf = (c) => {
     if (trimmed) tags.add(trimmed)
   })
   if (c.vip === true || c.is_vip === true) tags.add("VIP")
-  if (c.is_recurring === true || c.has_recurring === true) tags.add("Recurring")
+  if (agg?.hasRecurring) tags.add("Recurring")
   return Array.from(tags)
 }
 
 const isVIP = (c) => tagsOf(c).some((t) => t.toLowerCase() === "vip")
-const isRecurring = (c) => tagsOf(c).some((t) => t.toLowerCase() === "recurring")
+const isRecurringWith = (c, agg) => Boolean(agg?.hasRecurring)
 const isLeadStatus = (c) => (c.status || "").toLowerCase() === "lead"
 const isActive = (c) => {
   const s = (c.status || "").toLowerCase()
@@ -139,6 +143,8 @@ const CustomersV2 = () => {
 
   const [loading, setLoading] = useState(true)
   const [customersAll, setCustomersAll] = useState([])
+  const [jobsAll, setJobsAll] = useState([])
+  const [selected, setSelected] = useState(() => new Set())
 
   useEffect(() => {
     setSearchParams((sp) => {
@@ -157,9 +163,23 @@ const CustomersV2 = () => {
     if (!user?.id) return
     setLoading(true)
     try {
-      const resp = await customersAPI.getAll(user.id, { page: 1, limit: 1000 })
-      const list = normalizeAPIResponse(resp, "customers")
-      setCustomersAll(Array.isArray(list) ? list : [])
+      // Customers don't have jobs/LTV/recurring columns — aggregate
+      // from the jobs table client-side. Fetch a generous window of
+      // jobs; backend caps at 1000 per page so this works for most
+      // accounts. (TODO: server-side aggregation endpoint for huge
+      // customer bases.)
+      const [custResp, jobsResp] = await Promise.allSettled([
+        customersAPI.getAll(user.id, { page: 1, limit: 1000 }),
+        jobsAPI.getAll(user.id, "", "", 1, 1000),
+      ])
+      const custList = custResp.status === "fulfilled"
+        ? normalizeAPIResponse(custResp.value, "customers")
+        : []
+      const jobsList = jobsResp.status === "fulfilled"
+        ? normalizeAPIResponse(jobsResp.value, "jobs")
+        : []
+      setCustomersAll(Array.isArray(custList) ? custList : [])
+      setJobsAll(Array.isArray(jobsList) ? jobsList : [])
     } finally {
       setLoading(false)
     }
@@ -172,24 +192,64 @@ const CustomersV2 = () => {
     [customersAll, locationId]
   )
 
-  // Tab counts
+  // Aggregate per-customer stats from the jobs list. Built once and
+  // looked up by id on the row. LTV uses revenue from any non-cancelled
+  // job (paid or expected) so the figure reflects what the customer
+  // is worth, not just what's been collected.
+  const customerAgg = useMemo(() => {
+    const map = new Map()
+    jobsAll.forEach((j) => {
+      const cid = j.customer_id
+      if (cid == null) return
+      const status = (j.status || "").toLowerCase()
+      const isCancelled = status === "cancelled" || status === "canceled"
+      if (isCancelled) return
+      if (!map.has(cid)) {
+        map.set(cid, {
+          totalJobs: 0,
+          totalRevenue: 0,
+          hasRecurring: false,
+          lastJobDate: null,
+        })
+      }
+      const agg = map.get(cid)
+      agg.totalJobs += 1
+      const value = parseFloat(
+        j.total || j.service_price || j.amount || 0
+      )
+      if (Number.isFinite(value)) agg.totalRevenue += value
+      if (j.is_recurring === true) agg.hasRecurring = true
+      const d = j.scheduled_date || j.created_at
+      if (d) {
+        const ts = new Date(String(d).includes("T") ? d : String(d).replace(" ", "T"))
+        if (!isNaN(ts) && (!agg.lastJobDate || ts > agg.lastJobDate)) {
+          agg.lastJobDate = ts
+        }
+      }
+    })
+    return map
+  }, [jobsAll])
+
+  const aggFor = useCallback((c) => customerAgg.get(c.id) || null, [customerAgg])
+
+  // Tab counts — Recurring uses the per-customer aggregation now
   const counts = useMemo(() => ({
     all:       customers.length,
     active:    customers.filter(isActive).length,
     vip:       customers.filter(isVIP).length,
-    recurring: customers.filter(isRecurring).length,
+    recurring: customers.filter((c) => isRecurringWith(c, aggFor(c))).length,
     leads:     customers.filter(isLeadStatus).length,
-  }), [customers])
+  }), [customers, aggFor])
 
   const tabFiltered = useMemo(() => {
     switch (tab) {
       case "active":    return customers.filter(isActive)
       case "vip":       return customers.filter(isVIP)
-      case "recurring": return customers.filter(isRecurring)
+      case "recurring": return customers.filter((c) => isRecurringWith(c, aggFor(c)))
       case "leads":     return customers.filter(isLeadStatus)
       default:          return customers
     }
-  }, [customers, tab])
+  }, [customers, tab, aggFor])
 
   const searched = useMemo(() => {
     if (!debouncedSearch) return tabFiltered
@@ -211,10 +271,13 @@ const CustomersV2 = () => {
   }, [tabFiltered, debouncedSearch])
 
   const sorted = useMemo(() => {
-    const ltv = (c) => parseFloat(c.lifetime_value || c.ltv || c.total_revenue || 0)
-    const jobs = (c) => parseInt(c.total_jobs || c.jobs_count || c.jobs || 0, 10)
-    const lastActivity = (c) =>
-      new Date(c.last_job_date || c.last_activity_at || c.updated_at || c.created_at || 0).getTime()
+    const ltv = (c) => aggFor(c)?.totalRevenue ?? 0
+    const jobs = (c) => aggFor(c)?.totalJobs ?? 0
+    const lastActivity = (c) => {
+      const agg = aggFor(c)
+      if (agg?.lastJobDate) return agg.lastJobDate.getTime()
+      return new Date(c.updated_at || c.created_at || 0).getTime()
+    }
     const name = (c) =>
       `${c.first_name || ""} ${c.last_name || ""} ${c.name || ""}`.trim().toLowerCase()
 
@@ -229,7 +292,7 @@ const CustomersV2 = () => {
       }
     })
     return out
-  }, [searched, sortMode])
+  }, [searched, sortMode, aggFor])
 
   // Pagination
   useEffect(() => { setPage(1) }, [tab, debouncedSearch, sortMode, locationId, pageSize])
@@ -238,29 +301,31 @@ const CustomersV2 = () => {
   const pageStart = (currentPage - 1) * pageSize
   const pageRows = sorted.slice(pageStart, pageStart + pageSize)
 
-  // KPIs
+  // KPIs — driven by the per-customer aggregation
   const kpis = useMemo(() => {
-    const totalLTV = customers.reduce(
-      (s, c) => s + (parseFloat(c.lifetime_value || c.ltv || c.total_revenue || 0)),
-      0
-    )
-    const avg = customers.length ? totalLTV / customers.length : 0
-    const recurringCount = customers.filter(isRecurring).length
+    let totalLTV = 0
+    let recurringCount = 0
+    let withJobsCount = 0
+    let totalJobs = 0
+    customers.forEach((c) => {
+      const agg = aggFor(c)
+      if (agg?.totalRevenue) totalLTV += agg.totalRevenue
+      if (agg?.hasRecurring) recurringCount += 1
+      if (agg?.totalJobs > 0) withJobsCount += 1
+      if (agg?.totalJobs) totalJobs += agg.totalJobs
+    })
+    const avg = withJobsCount ? totalLTV / withJobsCount : 0
     const recurringPct = customers.length ? Math.round((recurringCount / customers.length) * 100) : 0
-    const rated = customers.filter((c) => parseFloat(c.rating) > 0)
-    const avgRating = rated.length
-      ? rated.reduce((s, c) => s + parseFloat(c.rating), 0) / rated.length
-      : null
     return {
       total: customers.length,
       avgLTV: avg,
       totalLTV,
       recurringPct,
       recurringCount,
-      avgRating,
-      ratingCount: rated.length,
+      withJobsCount,
+      totalJobs,
     }
-  }, [customers])
+  }, [customers, aggFor])
 
   // ── Render ────────────────────────────────────────────────
 
@@ -387,16 +452,43 @@ const CustomersV2 = () => {
           sub={`${kpis.recurringCount} on subscription`}
         />
         <SfKPI
-          label="Avg rating"
-          value={kpis.avgRating != null ? kpis.avgRating.toFixed(1) : "—"}
+          label="Total jobs"
+          value={kpis.totalJobs}
           accent="var(--sf-amber)"
-          sub={kpis.ratingCount ? `from ${kpis.ratingCount} ratings` : "no ratings yet"}
+          sub={kpis.withJobsCount ? `${kpis.withJobsCount} customers w/ jobs` : "—"}
         />
       </div>
 
       {/* Table */}
       <div className="px-4 sm:px-6 lg:px-8 pb-8 flex-1">
         <SfCard padding={0}>
+          {/* Bulk action bar (visible when rows selected) */}
+          {selected.size > 0 && (
+            <div
+              className="flex items-center gap-3 px-4 py-2"
+              style={{
+                background: "var(--sf-blue-soft)",
+                borderBottom: "1px solid var(--sf-border-soft)",
+                color: "var(--sf-blue-dark)",
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              <span>{selected.size} selected</span>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="text-[var(--sf-blue-dark)]"
+                style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", fontSize: 12, fontWeight: 600 }}
+              >
+                Clear
+              </button>
+              <div className="flex-1" />
+              <span className="text-[11px] text-[var(--sf-ink-3)] font-normal">
+                Bulk actions wired in next slice
+              </span>
+            </div>
+          )}
+
           {/* Head */}
           <div
             className="hidden md:flex items-center gap-2.5 px-4 py-2.5"
@@ -410,6 +502,23 @@ const CustomersV2 = () => {
               textTransform: "uppercase",
             }}
           >
+            <div style={{ width: 20 }} className="flex items-center justify-center">
+              <SelectCheckbox
+                checked={pageRows.length > 0 && pageRows.every((r) => selected.has(r.id))}
+                indeterminate={
+                  pageRows.some((r) => selected.has(r.id)) &&
+                  !pageRows.every((r) => selected.has(r.id))
+                }
+                onChange={(checked) => {
+                  setSelected((prev) => {
+                    const next = new Set(prev)
+                    if (checked) pageRows.forEach((r) => next.add(r.id))
+                    else pageRows.forEach((r) => next.delete(r.id))
+                    return next
+                  })
+                }}
+              />
+            </div>
             <div className="flex-1 min-w-0">Customer</div>
             <div style={{ width: 200 }}>Contact</div>
             <div style={{ width: 110 }}>City</div>
@@ -433,7 +542,17 @@ const CustomersV2 = () => {
               <CustomerRow
                 key={c.id || i}
                 customer={c}
+                agg={aggFor(c)}
                 isLast={i === pageRows.length - 1}
+                selected={selected.has(c.id)}
+                onToggleSelected={(checked) => {
+                  setSelected((prev) => {
+                    const next = new Set(prev)
+                    if (checked) next.add(c.id)
+                    else next.delete(c.id)
+                    return next
+                  })
+                }}
                 onClick={() => navigate(`/customer/${c.id}`)}
               />
             ))
@@ -512,34 +631,49 @@ const CustomersV2 = () => {
 
 // ── Single row ─────────────────────────────────────────────
 
-const CustomerRow = ({ customer, isLast, onClick }) => {
+const CustomerRow = ({ customer, agg, isLast, selected, onToggleSelected, onClick }) => {
   const c = customer
   const name =
     c.name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.email || "Customer"
   const email = c.email || ""
   const phone = c.phone || ""
   const city = c.city || c.service_city || (c.address || "").split(",")[1]?.trim() || ""
-  const tags = tagsOf(c)
-  const jobs = parseInt(c.total_jobs || c.jobs_count || c.jobs || 0, 10)
-  const ltv = parseFloat(c.lifetime_value || c.ltv || c.total_revenue || 0)
-  const last = c.last_job_date || c.last_activity_at || c.updated_at
+  const tags = tagsOf(c, agg)
+  const jobs = agg?.totalJobs ?? 0
+  const ltv = agg?.totalRevenue ?? 0
+  const last = agg?.lastJobDate ?? (c.updated_at ? new Date(c.updated_at) : null)
   const rating = parseFloat(c.rating)
   const isLead = isLeadStatus(c)
   const joined = c.created_at
 
   return (
-    <button
-      onClick={onClick}
+    <div
+      onClick={(e) => {
+        // Avoid bubbling from the checkbox cell
+        if (e.target.closest("[data-stop-row-click]")) return
+        onClick?.()
+      }}
       className="w-full text-left flex items-center gap-2.5 px-4 py-3 hover:bg-[var(--sf-panel-alt)] transition-colors"
       style={{
         borderBottom: isLast ? "none" : "1px solid var(--sf-border-soft)",
-        background: "transparent",
-        border: "none",
-        borderRadius: 0,
+        background: selected ? "var(--sf-blue-soft)" : "transparent",
         cursor: "pointer",
         fontFamily: "var(--sf-font-ui)",
       }}
     >
+      {/* Checkbox */}
+      <div
+        style={{ width: 20 }}
+        className="flex items-center justify-center flex-shrink-0"
+        data-stop-row-click
+        onClick={(e) => e.stopPropagation()}
+      >
+        <SelectCheckbox
+          checked={Boolean(selected)}
+          onChange={(checked) => onToggleSelected?.(checked)}
+        />
+      </div>
+
       {/* Customer */}
       <div className="flex-1 min-w-0 flex items-center gap-2.5">
         <SfAvatar
@@ -635,7 +769,37 @@ const CustomerRow = ({ customer, isLast, onClick }) => {
       >
         <MoreHorizontal size={15} />
       </span>
-    </button>
+    </div>
+  )
+}
+
+// ── Selection checkbox ────────────────────────────────────
+
+const SelectCheckbox = ({ checked, indeterminate, onChange }) => {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = Boolean(indeterminate) && !checked
+  }, [indeterminate, checked])
+  return (
+    <span
+      className="inline-flex items-center justify-center"
+      style={{ width: 16, height: 16 }}
+    >
+      <input
+        ref={ref}
+        type="checkbox"
+        checked={Boolean(checked)}
+        onChange={(e) => onChange?.(e.target.checked)}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          margin: 0,
+          width: 14,
+          height: 14,
+          cursor: "pointer",
+          accentColor: "var(--sf-blue)",
+        }}
+      />
+    </span>
   )
 }
 
