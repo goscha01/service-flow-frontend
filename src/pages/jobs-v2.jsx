@@ -26,6 +26,7 @@ import { useAuth } from "../context/AuthContext"
 import { useLocationScope, filterByLocation } from "../context/LocationContext"
 import { jobsAPI, teamAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import MobileHeader from "../components/mobile-header"
 import {
   SfCard,
@@ -81,34 +82,52 @@ const formatDateShort = (s) => {
   return dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 }
 
-const parseTime = (s) => {
-  if (!s) return null
-  const m = String(s).trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM|am|pm)?$/)
-  if (!m) return null
-  let h = parseInt(m[1], 10)
-  const min = parseInt(m[2], 10)
-  const mer = m[3]?.toUpperCase()
-  if (mer === "PM" && h < 12) h += 12
-  if (mer === "AM" && h === 12) h = 0
-  if (h < 0 || h > 23 || min < 0 || min > 59) return null
-  return { h, m: min, minutes: h * 60 + min }
+// Read a job's start time from whichever field carries it. In this
+// codebase jobs.scheduled_date is the canonical full ISO datetime (date
+// + time), while service_time / start_time may be present on subset of
+// jobs as a plain "HH:MM" or full ISO. Returns a Date or null.
+const jobStartDate = (job) => {
+  const candidates = [job.scheduled_date, job.start_time, job.service_time]
+  for (const c of candidates) {
+    if (!c) continue
+    const raw = String(c)
+    // Plain "HH:MM" attached to today's date for sortable comparison.
+    if (/^\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM|am|pm)?$/.test(raw.trim())) {
+      const [, hh, mm, , mer] =
+        raw.trim().match(/^(\d{1,2}):(\d{2})(:(\d{2}))?\s*(AM|PM|am|pm)?$/) || []
+      if (!hh) continue
+      let h = parseInt(hh, 10)
+      const m = parseInt(mm, 10)
+      const meridian = mer?.toUpperCase()
+      if (meridian === "PM" && h < 12) h += 12
+      if (meridian === "AM" && h === 12) h = 0
+      const today = new Date()
+      today.setHours(h, m, 0, 0)
+      return today
+    }
+    const iso = raw.includes("T") ? raw : raw.replace(" ", "T")
+    const d = new Date(iso)
+    if (!isNaN(d)) return d
+  }
+  return null
 }
 
-const formatTimeHM = (h, m) => {
-  const merid = h < 12 ? "AM" : "PM"
-  const hh = h % 12 === 0 ? 12 : h % 12
-  return `${hh}:${String(m).padStart(2, "0")} ${merid}`
+// Numeric minutes-of-day for within-day sort.
+const startMinutes = (job) => {
+  const d = jobStartDate(job)
+  if (!d) return null
+  return d.getHours() * 60 + d.getMinutes()
 }
 
+// "9:00 AM – 10:30 AM" honoring the business 12h/24h preference.
 const timeRangeLabel = (job) => {
-  const t = parseTime(job.service_time || job.start_time)
-  if (!t) return "—"
+  const start = jobStartDate(job)
+  if (!start) return "—"
   const duration = parseInt(job.duration || job.service_duration || job.estimated_duration || 0, 10)
-  if (!duration) return formatTimeHM(t.h, t.m)
-  const endMins = t.minutes + duration
-  const endH = Math.floor(endMins / 60) % 24
-  const endM = endMins % 60
-  return `${formatTimeHM(t.h, t.m).replace(/ (AM|PM)/, "")} – ${formatTimeHM(endH, endM)}`
+  const startStr = formatTimeShared(start)
+  if (!duration) return startStr
+  const end = new Date(start.getTime() + duration * 60000)
+  return `${startStr} – ${formatTimeShared(end)}`
 }
 
 // ── Job-shape helpers ──────────────────────────────────────
@@ -390,13 +409,10 @@ const JobsV2 = () => {
       if (sortMode === "customer") {
         return (a.customer_name || "").toLowerCase().localeCompare((b.customer_name || "").toLowerCase())
       }
-      // time: date asc, then start asc
-      const ad = jobDateStr(a)
-      const bd = jobDateStr(b)
-      if (ad !== bd) return ad < bd ? -1 : 1
-      const at = parseTime(a.service_time || a.start_time)?.minutes ?? 0
-      const bt = parseTime(b.service_time || b.start_time)?.minutes ?? 0
-      return at - bt
+      // time: full ISO ascending — closest scheduled date+time on top.
+      const ad = jobStartDate(a)?.getTime() ?? Number.POSITIVE_INFINITY
+      const bd = jobStartDate(b)?.getTime() ?? Number.POSITIVE_INFINITY
+      return ad - bd
     })
     return out
   }, [searched, sortMode])
