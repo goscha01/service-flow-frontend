@@ -103,7 +103,12 @@ const CommunicationsV2 = () => {
   const [folder, setFolder] = useState(initialFolder)
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [conversations, setConversations] = useState([])
+  // `allConversations` is the unfiltered server result for the current
+  // search/location scope. Folder filtering happens client-side so the
+  // folder counts in the sidebar never change when the user clicks
+  // between folders (previously each click re-queried with a channel
+  // filter, zeroing out the other folder counts).
+  const [allConversations, setAllConversations] = useState([])
   const [accounts, setAccounts] = useState([])
   const [integrations, setIntegrations] = useState({}) // per-channel connection status
   const [loadingList, setLoadingList] = useState(true)
@@ -151,43 +156,80 @@ const CommunicationsV2 = () => {
     return () => clearTimeout(t)
   }, [search])
 
-  // Load conversations + accounts
+  // Load conversations. Pull every channel in a single unfiltered
+  // query so folder counts are stable, then a second query for the
+  // archived threads (API treats archived as a separate scope), and
+  // merge. Folder filtering happens client-side in `conversations`
+  // below. Search and location still scope server-side because they
+  // change the universe of relevant threads.
   const fetchConversations = useCallback(async () => {
     if (!user?.id) return
     setLoadingList(true)
     try {
-      const builtIn = FOLDERS.find((x) => x.id === folder)
-      const custom = customFolders.find((x) => x.id === folder)
-      const params = {}
-      if (folder === "unread") params.filter = "unread"
-      // Built-in single-channel folders pass the channel param.
-      // Custom folders (potentially multi-channel) skip the param and
-      // post-filter client-side below.
-      if (builtIn?.channel) params.channel = builtIn.channel
-      if (builtIn?.archived) params.archived = "true"
-      if (debouncedSearch) params.search = debouncedSearch
-      if (locationId && locationId !== "all") params.locationId = locationId
-      const resp = await communicationsAPI.getConversations(params)
-      let list = Array.isArray(resp)
-        ? resp
-        : Array.isArray(resp?.conversations)
-        ? resp.conversations
-        : []
-      if (custom && Array.isArray(custom.channels) && custom.channels.length > 0) {
-        const set = new Set(custom.channels)
-        list = list.filter((c) => set.has((c.channel || "").toLowerCase()))
+      const base = {}
+      if (debouncedSearch) base.search = debouncedSearch
+      if (locationId && locationId !== "all") base.locationId = locationId
+      const [activeResp, archivedResp] = await Promise.allSettled([
+        communicationsAPI.getConversations(base),
+        communicationsAPI.getConversations({ ...base, archived: "true" }),
+      ])
+      const toList = (r) => {
+        const v = r.status === "fulfilled" ? r.value : null
+        return Array.isArray(v)
+          ? v
+          : Array.isArray(v?.conversations)
+          ? v.conversations
+          : []
       }
-      setConversations(list)
-      // Auto-select first if nothing currently selected
-      if (!selectedId && list.length > 0) {
-        setSelectedId(list[0].id)
-      }
+      const active = toList(activeResp)
+      const archived = toList(archivedResp).map((c) => ({ ...c, isArchived: true }))
+      // Merge, de-dupe by id (active wins if a row appears in both
+      // — shouldn't happen, but be defensive).
+      const seen = new Set()
+      const merged = []
+      ;[...active, ...archived].forEach((c) => {
+        if (seen.has(c.id)) return
+        seen.add(c.id)
+        merged.push(c)
+      })
+      setAllConversations(merged)
     } finally {
       setLoadingList(false)
     }
-  }, [user?.id, folder, debouncedSearch, locationId, selectedId, customFolders])
+  }, [user?.id, debouncedSearch, locationId])
 
   useEffect(() => { fetchConversations() }, [fetchConversations])
+
+  // Apply folder filter client-side. Built-in single-channel folders
+  // match c.channel; "unread" filters by unreadCount; "archive" by
+  // isArchived; custom folders match any of their listed channels.
+  const conversations = useMemo(() => {
+    const builtIn = FOLDERS.find((x) => x.id === folder)
+    const custom = customFolders.find((x) => x.id === folder)
+    // Default behavior: hide archived threads except in the Archive
+    // folder. Everything else flows through the channel/unread filter.
+    let list = allConversations.filter((c) => !c.isArchived)
+    if (builtIn?.id === "all") {
+      // already filtered above
+    } else if (builtIn?.id === "unread") {
+      list = list.filter((c) => (c.unreadCount ?? 0) > 0)
+    } else if (builtIn?.archived) {
+      list = allConversations.filter((c) => c.isArchived)
+    } else if (builtIn?.channel) {
+      list = list.filter((c) => (c.channel || "").toLowerCase() === builtIn.channel)
+    } else if (custom && Array.isArray(custom.channels)) {
+      const set = new Set(custom.channels)
+      list = list.filter((c) => set.has((c.channel || "").toLowerCase()))
+    }
+    return list
+  }, [allConversations, folder, customFolders])
+
+  // Auto-select first conversation when the filtered list changes
+  useEffect(() => {
+    if (loadingList) return
+    if (selectedId && conversations.some((c) => String(c.id) === String(selectedId))) return
+    if (conversations.length > 0) setSelectedId(conversations[0].id)
+  }, [conversations, selectedId, loadingList])
 
   // Load every integration status in parallel — Communication Hub
   // settings query all of these too, so the connection state mirrors
@@ -209,20 +251,37 @@ const CommunicationsV2 = () => {
       const paList = Array.isArray(pa) ? pa : (pa?.accounts || [])
       setAccounts(Array.isArray(paList) ? paList : [])
 
-      // LeadBridge — derive Yelp / Thumbtack from accounts list
+      // LeadBridge — Comm Hub treats LB as the umbrella provider for
+      // both Yelp and Thumbtack: if LB is connected, both channels
+      // show "Connected" there. Match that behavior so the Inbox and
+      // Comm Hub agree. If the LB accounts list happens to surface a
+      // per-channel record we use it to enrich the subtitle, but it's
+      // no longer required for the connected dot.
       const lb = lbResp.status === "fulfilled" ? lbResp.value : null
       const lbConnected = !!lb?.connected
       const lbAccounts = Array.isArray(lb?.accounts) ? lb.accounts : []
-      const hasYelp = lbConnected && lbAccounts.some((a) => String(a.channel || a.provider || "").toLowerCase().includes("yelp"))
-      const hasThumb = lbConnected && lbAccounts.some((a) => String(a.channel || a.provider || "").toLowerCase().includes("thumb"))
+      const yelpAcct = lbAccounts.find((a) =>
+        JSON.stringify(a || {}).toLowerCase().includes("yelp")
+      )
+      const thumbAcct = lbAccounts.find((a) =>
+        JSON.stringify(a || {}).toLowerCase().includes("thumbtack")
+      )
+      const hasYelp = lbConnected
+      const hasThumb = lbConnected
 
       // OpenPhone — SMS + Calls
       const op = opResp.status === "fulfilled" ? opResp.value : null
       const opConnected = !!op?.connected
 
-      // WhatsApp
+      // WhatsApp — Comm Hub considers it connected only if status is
+      // "connected" with a phone number; the bare `connected` flag
+      // can be true while the user hasn't completed onboarding yet,
+      // which is why Inbox previously showed green while Comm Hub
+      // showed grey.
       const wa = waResp.status === "fulfilled" ? waResp.value : null
-      const waConnected = !!wa?.connected
+      const waStatus = String(wa?.status || "").toLowerCase()
+      const waPhone = wa?.phoneNumber || wa?.phone_number || null
+      const waConnected = !!wa?.connected && (waStatus === "connected" || !!waPhone)
 
       // Connected Email (Gmail / Outlook)
       const ce = ceResp.status === "fulfilled" ? ceResp.value : null
@@ -231,10 +290,11 @@ const CommunicationsV2 = () => {
 
       setIntegrations({
         sms:       { connected: opConnected, sub: opConnected ? `${op?.phoneNumbers?.length || 1} number${op?.phoneNumbers?.length === 1 ? "" : "s"}` : null },
-        whatsapp:  { connected: waConnected, sub: waConnected ? (wa?.phoneNumber || "Connected") : null },
+        whatsapp:  { connected: waConnected, sub: waConnected ? (waPhone || "Connected") : null },
         email:     { connected: emailConnected, sub: emailConnected ? `${ceAccounts.length} mailbox${ceAccounts.length === 1 ? "" : "es"}` : null },
-        yelp:      { connected: hasYelp, sub: hasYelp ? "via LeadBridge" : null },
-        thumbtack: { connected: hasThumb, sub: hasThumb ? "via LeadBridge" : null },
+        yelp:      { connected: hasYelp, sub: hasYelp ? (yelpAcct ? "via LeadBridge" : "via LeadBridge · pending profile") : null },
+        thumbtack: { connected: hasThumb, sub: hasThumb ? (thumbAcct ? "via LeadBridge" : "via LeadBridge · pending profile") : null },
+        review:    { connected: hasYelp, sub: hasYelp ? "via LeadBridge" : null },
         call:      { connected: opConnected, sub: opConnected ? "via OpenPhone" : null },
         // Special LeadBridge meta so we can show its overall status if
         // neither Yelp nor Thumbtack profile is configured yet.
@@ -257,7 +317,7 @@ const CommunicationsV2 = () => {
         if (cancelled) return
         setDetail(data)
         // Mark read locally
-        setConversations((prev) =>
+        setAllConversations((prev) =>
           prev.map((c) =>
             String(c.id) === String(selectedId) ? { ...c, unreadCount: 0 } : c
           )
@@ -322,7 +382,7 @@ const CommunicationsV2 = () => {
       const fresh = await communicationsAPI.getConversation(selectedId, { limit: 100 })
       setDetail(fresh)
       // Bump preview in the list
-      setConversations((prev) =>
+      setAllConversations((prev) =>
         prev.map((c) =>
           String(c.id) === String(selectedId)
             ? { ...c, lastPreview: text, lastEventAt: new Date().toISOString() }
@@ -343,8 +403,10 @@ const CommunicationsV2 = () => {
     }
   }
 
-  // Compute folder counts client-side from the current list. Custom
-  // folder counts are computed off the union of their channels.
+  // Folder counts are derived from the unfiltered server result so
+  // they stay stable when the user clicks between folders. (Previously
+  // each click re-queried the API with a `channel` param, zeroing the
+  // counts of the other folders.)
   const folderCounts = useMemo(() => {
     const counts = {
       all: 0, unread: 0,
@@ -352,24 +414,29 @@ const CommunicationsV2 = () => {
       reviews: 0, thumbtack: 0, yelp: 0,
       archive: 0,
     }
-    conversations.forEach((c) => {
+    allConversations.forEach((c) => {
+      const ch = (c.channel || "").toLowerCase()
+      if (c.isArchived) {
+        counts.archive += 1
+        return
+      }
       counts.all += 1
       if ((c.unreadCount ?? 0) > 0) counts.unread += 1
-      const ch = (c.channel || "").toLowerCase()
       if (ch === "sms") counts.sms += 1
       else if (ch === "whatsapp") counts.whatsapp += 1
       else if (ch === "email") counts.email += 1
       else if (ch === "review") counts.reviews += 1
       else if (ch === "thumbtack") counts.thumbtack += 1
       else if (ch === "yelp") counts.yelp += 1
-      if (c.isArchived) counts.archive += 1
     })
     customFolders.forEach((f) => {
       const set = new Set(f.channels || [])
-      counts[f.id] = conversations.filter((c) => set.has((c.channel || "").toLowerCase())).length
+      counts[f.id] = allConversations.filter(
+        (c) => !c.isArchived && set.has((c.channel || "").toLowerCase())
+      ).length
     })
     return counts
-  }, [conversations, customFolders])
+  }, [allConversations, customFolders])
 
   // Channel connection status. Priority of signals:
   //   1. integrations.{channel}.connected (per-channel integration
@@ -390,13 +457,14 @@ const CommunicationsV2 = () => {
       if (k && !status[k]) status[k] = "connected"
     })
     // 3) Conversations imply "in use" (we have history even without
-    //    a current active integration row).
-    conversations.forEach((c) => {
+    //    a current active integration row). Use the unfiltered list
+    //    so channel status doesn't shift based on which folder is open.
+    allConversations.forEach((c) => {
       const k = (c.channel || "").toLowerCase()
       if (k && !status[k]) status[k] = "in_use"
     })
     return status
-  }, [integrations, accounts, conversations])
+  }, [integrations, accounts, allConversations])
 
   const selectedConv = useMemo(
     () => conversations.find((c) => String(c.id) === String(selectedId)) || null,
@@ -421,7 +489,10 @@ const CommunicationsV2 = () => {
               Inbox
             </h1>
             <div className="text-[13px] text-[var(--sf-ink-2)] mt-1">
-              {folderCounts.unread} unread · {accounts.length || 0} channel{accounts.length === 1 ? "" : "s"} connected
+              {folderCounts.unread} unread · {(() => {
+                const n = CHANNEL_CATALOG.filter((c) => integrations[c.id]?.connected).length
+                return `${n} channel${n === 1 ? "" : "s"} connected`
+              })()}
             </div>
           </div>
           <div className="flex items-center gap-2">

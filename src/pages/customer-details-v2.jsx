@@ -119,6 +119,12 @@ const CustomerDetailsV2 = () => {
   const [invoices, setInvoices] = useState([])
   const [estimates, setEstimates] = useState([])
   const [conversations, setConversations] = useState([])
+  // Per-conversation message totals (excluding system / call events).
+  // The thread list endpoint only returns lastPreview / lastEventAt;
+  // the actual message count requires loading each conversation's
+  // events. Without this, a 100-message SMS thread shows up as "1
+  // message" in the KPI because the count is conversations.length.
+  const [convMessageCounts, setConvMessageCounts] = useState({})
 
   // URL ↔ tab sync (both directions). Browser back/forward updates `tab`;
   // clicking a tab updates the URL with `replace` so the back button
@@ -212,20 +218,43 @@ const CustomerDetailsV2 = () => {
       // Match by customerId, phone, OR email. Phone match uses last
       // 10 digits so formatting differences ("+1 (727) 457-0527" vs
       // "7274570527") don't miss.
-      setConversations(
-        allConvs.filter((c) => {
-          if (String(c.customerId ?? c.customer_id) === String(customerId)) return true
-          if (custPhone) {
-            const fp = digitsOnly(c.fallbackIdentifier || c.participantPhone || "")
-            if (fp && fp.endsWith(custPhone.slice(-10))) return true
-          }
-          if (custEmail) {
-            const ce = String(c.participantEmail || c.fallbackIdentifier || "").toLowerCase()
-            if (ce && ce === custEmail) return true
-          }
-          return false
-        })
+      const customerConvs = allConvs.filter((c) => {
+        if (String(c.customerId ?? c.customer_id) === String(customerId)) return true
+        if (custPhone) {
+          const fp = digitsOnly(c.fallbackIdentifier || c.participantPhone || "")
+          if (fp && fp.endsWith(custPhone.slice(-10))) return true
+        }
+        if (custEmail) {
+          const ce = String(c.participantEmail || c.fallbackIdentifier || "").toLowerCase()
+          if (ce && ce === custEmail) return true
+        }
+        return false
+      })
+      setConversations(customerConvs)
+
+      // Fan-out one detail-fetch per thread so we can count actual
+      // messages (not just thread count). Capped at 8 threads to keep
+      // it cheap — customers with more than 8 threads will undercount
+      // but the headline "100+ messages on a single thread" case works.
+      const top = customerConvs.slice(0, 8)
+      const detailResp = await Promise.allSettled(
+        top.map((c) =>
+          communicationsAPI.getConversation(c.id, { limit: 500 }).catch(() => null)
+        )
       )
+      const counts = {}
+      detailResp.forEach((r, i) => {
+        const events = r.status === "fulfilled" && r.value?.events
+          ? r.value.events
+          : []
+        let n = 0
+        events.forEach((e) => {
+          const t = e.type || ""
+          if (t.startsWith("message_") || t === "review_in") n += 1
+        })
+        counts[top[i].id] = n
+      })
+      setConvMessageCounts(counts)
     } finally {
       setLoading(false)
     }
@@ -495,6 +524,7 @@ const CustomerDetailsV2 = () => {
       {tab === "messages" && (
         <MessagesTab
           conversations={conversations}
+          messageCounts={convMessageCounts}
           customerName={name}
           onOpen={(id) => navigate(`/communications?conversation=${id}`)}
         />
@@ -1828,7 +1858,7 @@ const MSG_CHANNEL_META = {
   openphone: { label: "SMS",       c: "var(--sf-green-dark)", bg: "var(--sf-green-soft)",  icon: MessageSquare },
 }
 
-const MessagesTab = ({ conversations, customerName, onOpen }) => {
+const MessagesTab = ({ conversations, messageCounts = {}, customerName, onOpen }) => {
   // Channel toggles reflect the channels we have data for.
   const availableChannels = useMemo(() => {
     const set = new Set()
@@ -1900,8 +1930,16 @@ const MessagesTab = ({ conversations, customerName, onOpen }) => {
       if (n > max) { max = n; preferred = k }
     })
     const preferredMeta = MSG_CHANNEL_META[preferred] || null
+    // Total messages = sum of per-thread event counts loaded after the
+    // conversation list. Falls back to thread count for any thread we
+    // haven't fetched the detail for yet.
+    const totalMessages = conversations.reduce((s, c) => {
+      const n = messageCounts[c.id]
+      return s + (Number.isFinite(n) ? n : 1)
+    }, 0)
     return {
-      total: conversations.length,
+      total: totalMessages,
+      threads: conversations.length,
       unread,
       reviews: reviewCount,
       preferred: preferredMeta ? preferredMeta.label : "—",
@@ -1913,7 +1951,7 @@ const MessagesTab = ({ conversations, customerName, onOpen }) => {
       responseTime: null,
       autoSent: null,
     }
-  }, [conversations])
+  }, [conversations, messageCounts])
 
   // Filter chips reflect the channels present on this customer
   const filterChips = useMemo(() => {
@@ -2035,7 +2073,7 @@ const MessagesTab = ({ conversations, customerName, onOpen }) => {
           <MsgKPI
             label="Total messages"
             value={kpis.total}
-            sub="all-time"
+            sub={kpis.threads === 1 ? "1 thread" : `${kpis.threads} threads`}
             accent="var(--sf-blue)"
           />
           <MsgKPI
@@ -2106,6 +2144,7 @@ const MessagesTab = ({ conversations, customerName, onOpen }) => {
             <MessageHistoryRow
               key={conv.id}
               conv={conv}
+              messageCount={messageCounts[conv.id]}
               customerName={customerName}
               isLast={i === arr.length - 1}
               onOpen={onOpen}
@@ -2140,7 +2179,7 @@ const MsgKPI = ({ label, value, sub, accent, mono = true }) => (
   </SfCard>
 )
 
-const MessageHistoryRow = ({ conv, customerName, isLast, onOpen }) => {
+const MessageHistoryRow = ({ conv, messageCount, customerName, isLast, onOpen }) => {
   const channelKey = (conv.channel || "").toLowerCase()
   const meta = MSG_CHANNEL_META[channelKey] || MSG_CHANNEL_META.sms
   const Icon = meta.icon
@@ -2180,6 +2219,14 @@ const MessageHistoryRow = ({ conv, customerName, isLast, onOpen }) => {
             <b style={{ color: "var(--sf-ink)" }}>{incoming ? primaryLabel : "You"}</b> → {incoming ? "You" : primaryLabel}
           </span>
           <SfTag color={meta.c} bg={meta.bg}>{meta.label}</SfTag>
+          {Number.isFinite(messageCount) && messageCount > 0 && (
+            <span
+              className="text-[10.5px] font-semibold text-[var(--sf-ink-3)]"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {messageCount} message{messageCount === 1 ? "" : "s"}
+            </span>
+          )}
           {unread && (
             <SfTag color="var(--sf-red-dark)" bg="var(--sf-red-soft)">
               Unread

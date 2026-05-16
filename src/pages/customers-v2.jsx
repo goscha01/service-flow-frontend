@@ -169,22 +169,33 @@ const CustomersV2 = () => {
     setLoading(true)
     try {
       // Customers don't have jobs/LTV/recurring columns — aggregate
-      // from the jobs table client-side. Fetch a generous window of
-      // jobs; backend caps at 1000 per page so this works for most
-      // accounts. (TODO: server-side aggregation endpoint for huge
-      // customer bases.)
-      const [custResp, jobsResp] = await Promise.allSettled([
-        customersAPI.getAll(user.id, { page: 1, limit: 1000 }),
-        jobsAPI.getAll(user.id, "", "", 1, 1000),
-      ])
-      const custList = custResp.status === "fulfilled"
-        ? normalizeAPIResponse(custResp.value, "customers")
-        : []
-      const jobsList = jobsResp.status === "fulfilled"
-        ? normalizeAPIResponse(jobsResp.value, "jobs")
-        : []
+      // from the jobs table client-side. A single page caps at 1000
+      // rows (Supabase default). For tenants with more than 1000 total
+      // jobs a single fetch undercounts the detail-page LTV — page
+      // through until exhausted so the list matches the detail.
+      const PAGE = 1000
+      const MAX_PAGES = 20
+
+      const custResp = await customersAPI
+        .getAll(user.id, { page: 1, limit: PAGE })
+        .catch(() => null)
+      const custList = custResp ? normalizeAPIResponse(custResp, "customers") : []
       setCustomersAll(Array.isArray(custList) ? custList : [])
-      setJobsAll(Array.isArray(jobsList) ? jobsList : [])
+
+      let allJobs = []
+      for (let p = 1; p <= MAX_PAGES; p++) {
+        let chunk = []
+        try {
+          const resp = await jobsAPI.getAll(user.id, "", "", p, PAGE)
+          chunk = normalizeAPIResponse(resp, "jobs") || []
+        } catch {
+          chunk = []
+        }
+        if (!Array.isArray(chunk) || chunk.length === 0) break
+        allJobs = allJobs.concat(chunk)
+        if (chunk.length < PAGE) break
+      }
+      setJobsAll(allJobs)
     } finally {
       setLoading(false)
     }
