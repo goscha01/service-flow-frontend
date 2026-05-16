@@ -536,8 +536,11 @@ const CustomerDetailsV2 = () => {
       {tab === "activity" && (
         <ActivityTab jobs={jobs} invoices={invoices} conversations={conversations} estimates={estimates} customer={customer} />
       )}
-      {(tab === "estimates" || tab === "files") && (
-        <TabStub tab={tab} estimates={estimates} />
+      {tab === "estimates" && (
+        <EstimatesTab estimates={estimates} customerName={name} />
+      )}
+      {tab === "files" && (
+        <TabStub tab={tab} />
       )}
     </div>
   )
@@ -1402,35 +1405,16 @@ const InvoiceTable = ({ invoices, onInvoiceClick, emptyText }) => {
 
 // ── Stub tabs ──────────────────────────────────────────────
 
-const TabStub = ({ tab, estimates }) => {
+const TabStub = ({ tab }) => {
   const STUB_META = {
-    estimates: {
-      title: `Estimates · ${estimates.length}`,
-      copy:
-        "Estimate card layout (purple icon, EST-#### code, items, value, accept-rate KPIs, Sent → Viewed → Accepted/Declined timeline) is queued for the next slice. The estimatesAPI is already wired — once the card UI ships you'll see them here.",
-    },
-    properties: {
-      title: "Properties",
-      copy:
-        "Per-customer Property records (multiple addresses, bedrooms/bathrooms/sqft/pets/access notes, primary flag) need a new properties table. Schema lives in the addon doc.",
-    },
-    messages: {
-      title: "Messages",
-      copy:
-        "SMS / Email / Reviews history. Compose form + 6-KPI strip. Will surface threads from the existing communications system (Sigcore-backed) once the per-customer endpoint lands.",
-    },
     files: {
       title: "Files",
       copy:
         "Photos + documents (drop zone + file grid). Needs a new customer_files table + the upload flow before it can ship.",
     },
-    activity: {
-      title: "Activity",
-      copy:
-        "Unified activity feed (jobs / payments / messages / reviews / notes / lifecycle events) with left filter rail. Will plug in once the server-side union view ships.",
-    },
   }
   const meta = STUB_META[tab]
+  if (!meta) return null
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-2xl">
       <SfCard>
@@ -1961,6 +1945,365 @@ const PropertiesTab = ({ properties, customer }) => {
     </div>
   )
 }
+
+// ── Estimates tab ──────────────────────────────────────────
+
+// Status taxonomy. The backend stores raw statuses pending/sent/
+// accepted/rejected; the spec calls them Pending / Accepted /
+// Declined. Anything sent-but-not-decided counts as Pending so the
+// chips don't look empty when most estimates are still open.
+const ESTIMATE_STATUS_META = {
+  accepted: { label: "Accepted", color: "var(--sf-green-dark)",  bg: "var(--sf-green-soft)" },
+  pending:  { label: "Pending",  color: "var(--sf-amber-dark)", bg: "var(--sf-amber-soft)" },
+  sent:     { label: "Sent",     color: "var(--sf-blue-dark)",  bg: "var(--sf-blue-soft)" },
+  rejected: { label: "Declined", color: "var(--sf-red-dark)",   bg: "var(--sf-red-soft)" },
+  draft:    { label: "Draft",    color: "var(--sf-ink-2)",       bg: "var(--sf-panel-soft)" },
+}
+
+const estimateBucket = (status) => {
+  const s = String(status || "").toLowerCase()
+  if (s === "accepted") return "accepted"
+  if (s === "rejected" || s === "declined") return "declined"
+  if (s === "pending" || s === "sent" || s === "viewed" || s === "draft" || !s) return "pending"
+  return "pending"
+}
+
+const ESTIMATE_FILTERS = [
+  { id: "all",       label: "All" },
+  { id: "accepted",  label: "Accepted" },
+  { id: "pending",   label: "Pending" },
+  { id: "declined",  label: "Declined" },
+]
+
+const EstimatesTab = ({ estimates, customerName }) => {
+  const navigate = useNavigate()
+  const [filter, setFilter] = useState("all")
+
+  // KPIs — sent count, accept rate, total accepted value, avg time-to-decide
+  const kpis = useMemo(() => {
+    const total = estimates.length
+    let accepted = 0
+    let declined = 0
+    let acceptedValue = 0
+    const decisionDays = []
+    estimates.forEach((e) => {
+      const bucket = estimateBucket(e.status)
+      if (bucket === "accepted") {
+        accepted += 1
+        acceptedValue += parseFloat(e.total_amount || e.total || 0) || 0
+      } else if (bucket === "declined") {
+        declined += 1
+      }
+      // Time-to-decide: prefer explicit decided_at / accepted_at /
+      // rejected_at; otherwise updated_at when status is final.
+      const sentAt = e.sent_at || e.created_at
+      const decidedAt =
+        e.decided_at ||
+        e.accepted_at ||
+        e.rejected_at ||
+        (bucket === "accepted" || bucket === "declined" ? e.updated_at : null)
+      if (sentAt && decidedAt) {
+        const ms = new Date(decidedAt).getTime() - new Date(sentAt).getTime()
+        if (Number.isFinite(ms) && ms > 0) decisionDays.push(ms / 86400000)
+      }
+    })
+    const decided = accepted + declined
+    const acceptRate = decided ? Math.round((accepted / decided) * 100) : null
+    const avgDecide = decisionDays.length
+      ? decisionDays.reduce((s, d) => s + d, 0) / decisionDays.length
+      : null
+    return { total, accepted, declined, acceptedValue, acceptRate, avgDecide }
+  }, [estimates])
+
+  // Filter chips with counts
+  const counts = useMemo(() => {
+    let accepted = 0, pending = 0, declined = 0
+    estimates.forEach((e) => {
+      const b = estimateBucket(e.status)
+      if (b === "accepted") accepted += 1
+      else if (b === "declined") declined += 1
+      else pending += 1
+    })
+    return { all: estimates.length, accepted, pending, declined }
+  }, [estimates])
+
+  const filtered = useMemo(() => {
+    if (filter === "all") return estimates
+    return estimates.filter((e) => estimateBucket(e.status) === filter)
+  }, [estimates, filter])
+
+  if (estimates.length === 0) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 py-4">
+        <SfCard>
+          <EmptyRow
+            icon={FileText}
+            title="No estimates yet"
+            subtitle="Estimates you send to this customer will show up here with sent / viewed / decision history."
+          />
+        </SfCard>
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+      {/* 4 KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <SfKPI
+          label="Estimates sent"
+          value={kpis.total}
+          accent="var(--sf-blue)"
+          sub={`${kpis.accepted} accepted · ${kpis.declined} declined`}
+        />
+        <SfKPI
+          label="Accept rate"
+          value={kpis.acceptRate != null ? `${kpis.acceptRate}%` : "—"}
+          accent="var(--sf-green)"
+          sub={kpis.acceptRate != null ? `${kpis.accepted}/${kpis.accepted + kpis.declined} decided` : "no decisions yet"}
+        />
+        <SfKPI
+          label="Total value"
+          value={`$${Math.round(kpis.acceptedValue).toLocaleString()}`}
+          accent="var(--sf-purple)"
+          sub="from accepted"
+        />
+        <SfKPI
+          label="Avg time to decide"
+          value={kpis.avgDecide != null ? `${kpis.avgDecide.toFixed(1)}d` : "—"}
+          accent="var(--sf-amber)"
+          sub={kpis.avgDecide != null ? "sent → decided" : "needs decided estimates"}
+        />
+      </div>
+
+      {/* Filter chips */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {ESTIMATE_FILTERS.map((f) => (
+          <SfFilterChip
+            key={f.id}
+            active={filter === f.id}
+            count={counts[f.id]}
+            onClick={() => setFilter(f.id)}
+          >
+            {f.label}
+          </SfFilterChip>
+        ))}
+      </div>
+
+      {/* Estimate cards */}
+      {filtered.length === 0 ? (
+        <SfCard>
+          <EmptyRow
+            icon={FileText}
+            title="No estimates in this view"
+            subtitle="Try a different filter."
+          />
+        </SfCard>
+      ) : (
+        filtered.map((e) => (
+          <EstimateCard
+            key={e.id}
+            estimate={e}
+            customerName={customerName}
+            onView={() => navigate(`/estimates/${e.id}`)}
+            onJob={() =>
+              navigate(
+                e.job_id
+                  ? `/job-details/${e.job_id}`
+                  : `/createjob?customerId=${e.customer_id}&estimateId=${e.id}`
+              )
+            }
+          />
+        ))
+      )}
+    </div>
+  )
+}
+
+const EstimateCard = ({ estimate, customerName, onView, onJob }) => {
+  const bucket = estimateBucket(estimate.status)
+  const statusMeta = ESTIMATE_STATUS_META[bucket] || ESTIMATE_STATUS_META.pending
+  const code = `EST-${String(estimate.id).padStart(4, "0")}`
+  const value = parseFloat(estimate.total_amount || estimate.total || 0) || 0
+  const items =
+    Array.isArray(estimate.line_items)
+      ? estimate.line_items
+      : Array.isArray(estimate.items)
+      ? estimate.items
+      : []
+  const itemsCount = items.length
+  const service =
+    estimate.service_name ||
+    estimate.service?.name ||
+    items[0]?.description ||
+    items[0]?.name ||
+    "—"
+  const issuedRaw = estimate.sent_at || estimate.created_at
+  const issued = issuedRaw
+    ? new Date(issuedRaw).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "—"
+  const expiry = estimate.valid_until || estimate.expires_at
+  const expired = expiry && new Date(expiry).getTime() < Date.now()
+  const expiryLabel = expiry
+    ? new Date(expiry).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null
+
+  // Timeline footer events
+  const sentAt = estimate.sent_at || estimate.created_at
+  const viewedAt = estimate.viewed_at
+  const viewCount = estimate.view_count || estimate.viewed_count
+  const acceptedAt = estimate.accepted_at || (bucket === "accepted" ? estimate.updated_at : null)
+  const declinedAt = estimate.rejected_at || estimate.declined_at || (bucket === "declined" ? estimate.updated_at : null)
+  const declineReason = estimate.decline_reason || estimate.rejection_reason
+
+  const fmtDay = (iso) =>
+    iso
+      ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : null
+
+  return (
+    <SfCard padding={0}>
+      {/* Header row */}
+      <div className="flex items-start gap-3 p-4 flex-wrap">
+        <div
+          className="w-[38px] h-[38px] rounded-md flex items-center justify-center flex-shrink-0"
+          style={{ background: "var(--sf-purple-soft)", color: "var(--sf-purple)" }}
+        >
+          <Paperclip size={16} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className="text-[13.5px] font-bold text-[var(--sf-ink)]"
+              style={{ fontFamily: "var(--sf-font-mono)" }}
+            >
+              {code}
+            </span>
+            <SfTag color={statusMeta.color} bg={statusMeta.bg}>
+              {statusMeta.label}
+            </SfTag>
+            {expired && bucket !== "accepted" && (
+              <SfTag color="var(--sf-red-dark)" bg="var(--sf-red-soft)">
+                Expired
+              </SfTag>
+            )}
+          </div>
+          <div className="text-[12px] text-[var(--sf-ink-2)] mt-1 flex items-center gap-1.5 flex-wrap">
+            <span className="font-medium text-[var(--sf-ink)]">{service}</span>
+            {itemsCount > 0 && (
+              <>
+                <span className="text-[var(--sf-ink-4)]">·</span>
+                <span>{itemsCount} item{itemsCount === 1 ? "" : "s"}</span>
+              </>
+            )}
+            <span className="text-[var(--sf-ink-4)]">·</span>
+            <span>Issued {issued}</span>
+            {expiryLabel && (
+              <>
+                <span className="text-[var(--sf-ink-4)]">·</span>
+                <span style={{ color: expired ? "var(--sf-red-dark)" : "inherit" }}>
+                  {expired ? "Expired" : "Expires"} {expiryLabel}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div
+            className="text-[20px] font-bold text-[var(--sf-ink)] leading-none"
+            style={{
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="text-[10.5px] text-[var(--sf-ink-3)] mt-1">incl. tax</div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <SfButton variant="secondary" size="sm" onClick={onView}>
+            View
+          </SfButton>
+          <SfButton variant="ghost" size="sm" onClick={onJob}>
+            {estimate.job_id ? "Job" : "New job"}
+          </SfButton>
+          <button
+            aria-label="More actions"
+            className="w-7 h-7 inline-flex items-center justify-center rounded-md text-[var(--sf-ink-3)] hover:bg-[var(--sf-panel-soft)] transition-colors"
+            style={{ background: "transparent", border: "none", cursor: "pointer" }}
+          >
+            <MoreHorizontal size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* Timeline footer */}
+      <div
+        className="px-4 py-2.5 flex items-center gap-2 flex-wrap"
+        style={{
+          background: "var(--sf-panel-alt)",
+          borderTop: "1px solid var(--sf-border-soft)",
+          borderRadius: "0 0 10px 10px",
+          fontSize: 11.5,
+          color: "var(--sf-ink-2)",
+          fontFamily: "var(--sf-font-ui)",
+        }}
+      >
+        <TimelineDot color="var(--sf-blue)" />
+        <span>
+          <b style={{ color: "var(--sf-ink)" }}>Sent</b>
+          {sentAt && ` · ${fmtDay(sentAt)}`}
+        </span>
+        <ChevronRight size={11} className="text-[var(--sf-ink-4)]" />
+        <TimelineDot color={viewedAt ? "var(--sf-amber)" : "var(--sf-ink-4)"} />
+        <span style={{ color: viewedAt ? "var(--sf-ink-2)" : "var(--sf-ink-3)" }}>
+          <b style={{ color: viewedAt ? "var(--sf-ink)" : "var(--sf-ink-3)" }}>Viewed</b>
+          {viewCount ? ` · ${viewCount}×` : viewedAt ? ` · ${fmtDay(viewedAt)}` : ""}
+        </span>
+        <ChevronRight size={11} className="text-[var(--sf-ink-4)]" />
+        {bucket === "accepted" ? (
+          <>
+            <TimelineDot color="var(--sf-green)" />
+            <span>
+              <b style={{ color: "var(--sf-ink)" }}>Accepted</b>
+              {acceptedAt && ` · ${fmtDay(acceptedAt)}`}
+            </span>
+          </>
+        ) : bucket === "declined" ? (
+          <>
+            <TimelineDot color="var(--sf-red)" />
+            <span>
+              <b style={{ color: "var(--sf-ink)" }}>Declined</b>
+              {declinedAt && ` · ${fmtDay(declinedAt)}`}
+            </span>
+            {declineReason && (
+              <span
+                className="italic text-[var(--sf-ink-3)] ml-1"
+                style={{ fontSize: 11 }}
+              >
+                "{declineReason}"
+              </span>
+            )}
+          </>
+        ) : (
+          <>
+            <TimelineDot color="var(--sf-ink-4)" />
+            <span className="text-[var(--sf-ink-3)]">
+              Awaiting decision{customerName ? ` from ${customerName.split(" ")[0]}` : ""}
+            </span>
+          </>
+        )}
+      </div>
+    </SfCard>
+  )
+}
+
+const TimelineDot = ({ color }) => (
+  <span
+    className="inline-block rounded-full flex-shrink-0"
+    style={{ width: 6, height: 6, background: color }}
+  />
+)
 
 // ── Messages tab ───────────────────────────────────────────
 
