@@ -242,8 +242,10 @@ const ScheduleV2 = () => {
       setJobs(all.filter((j) => !isCancelledJob(j)))
 
       try {
-        const tmResp = await teamAPI.getAll(user.id, { limit: 500 })
-        const list = normalizeAPIResponse(tmResp, "team_members") || tmResp?.teamMembers || tmResp?.members || []
+        const tmResp = await teamAPI.getAll(user.id, { page: 1, limit: 500 })
+        // Backend returns { teamMembers: [...] }; match dashboard-v2's
+        // shape so the lookup always finds names.
+        const list = tmResp?.teamMembers || tmResp?.members || (Array.isArray(tmResp) ? tmResp : [])
         setTeamMembers(Array.isArray(list) ? list : [])
       } catch {
         setTeamMembers([])
@@ -542,27 +544,45 @@ const ScheduleToolbar = ({
             const active = isSelected(id)
             const color = cleanerColor(id)
             const name = resolveName(id, "")
-            const initials = sfInitials(name) || String(id).slice(0, 2)
+            // Real initials when the name resolves; otherwise a single
+            // dot so the avatar reads as "unnamed cleaner" instead of
+            // showing the first 2 digits of the ID (which collide for
+            // sequential IDs like 261/262/263).
+            const initials = sfInitials(name) || "?"
             return (
               <button
                 key={id}
                 onClick={() => toggleCleaner(id)}
-                className="inline-flex items-center gap-1.5 rounded-md"
+                className="inline-flex items-center gap-1.5 rounded-full"
                 style={{
-                  padding: "4px 8px",
+                  padding: "2px 8px 2px 2px",
                   background: active ? "var(--sf-panel)" : "var(--sf-panel-alt)",
-                  border: `1px solid ${active ? color + "44" : "var(--sf-border-soft)"}`,
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color: active ? "var(--sf-ink)" : "var(--sf-ink-3)",
+                  border: `1.5px solid ${active ? color : "var(--sf-border-soft)"}`,
                   cursor: "pointer",
                   fontFamily: "var(--sf-font-ui)",
-                  opacity: active ? 1 : 0.65,
+                  opacity: active ? 1 : 0.55,
+                  transition: "opacity .15s, border-color .15s",
                 }}
                 title={name || `Cleaner ${id}`}
               >
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
-                {initials}
+                <SfAvatar
+                  initials={initials}
+                  color={color}
+                  size={22}
+                  style={{ fontSize: 9.5, fontWeight: 700 }}
+                />
+                <span
+                  className="text-[11.5px] font-semibold"
+                  style={{
+                    color: active ? "var(--sf-ink)" : "var(--sf-ink-3)",
+                    maxWidth: 88,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {name ? name.split(" ")[0] : "Cleaner"}
+                </span>
               </button>
             )
           })}
