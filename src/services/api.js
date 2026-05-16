@@ -2971,6 +2971,18 @@ export const communicationsAPI = {
   savePreferences: async (prefs) => { const r = await api.put('/communications/settings/preferences', prefs); return r.data; },
 };
 
+// Property data lookup via RentCast (server-side). Given a parsed
+// address, returns bedrooms / bathrooms / squareFeet / yearBuilt /
+// propertyType / estimatedValue / estimatedRent / lotSize / lastSale*
+// / assessedValue. Endpoint is /api/zillow/property for legacy naming
+// reasons — the upstream provider is RentCast, not Zillow.
+export const propertyDataAPI = {
+  lookup: async ({ address, street, city, state, zipCode }) => {
+    const r = await api.post('/zillow/property', { address, street, city, state, zipCode });
+    return r.data;
+  },
+};
+
 // Connected Email (Gmail/Outlook OAuth) — System 2 mailbox integration for Communications Hub.
 // Separate from notificationEmailAPI (System 1 / SendGrid).
 export const connectedEmailAPI = {

@@ -29,7 +29,7 @@ import {
   Star,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
-import { customersAPI, jobsAPI, invoicesAPI, estimatesAPI, communicationsAPI } from "../services/api"
+import { customersAPI, jobsAPI, invoicesAPI, estimatesAPI, communicationsAPI, propertyDataAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { getGoogleMapsApiKey } from "../config/maps"
@@ -1700,7 +1700,7 @@ const PropertyField = ({ label, value }) => (
 // Wide layout — Google Maps preview on the left, full details on the
 // right. Used in the Properties tab. Includes the amber "Access &
 // cleaning notes" callout when the most recent job has notes.
-const PropertyWideCard = ({ property }) => {
+const PropertyWideCard = ({ property, customer }) => {
   const specs = property.specs || {}
   const apiKey = getGoogleMapsApiKey()
   const fullAddress = [property.address, property.city].filter(Boolean).join(", ")
@@ -1712,6 +1712,77 @@ const PropertyWideCard = ({ property }) => {
     : "—"
   // Surface customer notes from the most recent job at this address
   const recentJobNotes = (property.jobs?.[0]?.notes || property.jobs?.[0]?.customer_notes || "").trim()
+
+  // RentCast property data lookup (server-side /api/zillow/property).
+  // The endpoint returns null when the API key isn't configured or the
+  // property can't be matched, so we fall through silently in those
+  // cases instead of surfacing an error. Recent job intake still wins
+  // for fields that are present in `specs` — RentCast just fills the
+  // gaps and adds extras (year built, lot size, est. value, last sale).
+  const [propData, setPropData] = useState(null)
+  const [propLoading, setPropLoading] = useState(false)
+  useEffect(() => {
+    if (!property.address) return
+    let cancelled = false
+    setPropLoading(true)
+    setPropData(null)
+    // Parse "City, State, Zip" out of the property.city composite,
+    // preferring fields off the customer record when they're cleaner.
+    const cityParts = String(property.city || "").split(",").map((s) => s.trim()).filter(Boolean)
+    const city = customer?.city || cityParts[0] || ""
+    const state = customer?.state || cityParts[1] || ""
+    const zipCode = customer?.zip_code || customer?.zip || cityParts[2] || ""
+    propertyDataAPI
+      .lookup({
+        address: fullAddress || property.address,
+        street: property.address,
+        city,
+        state,
+        zipCode,
+      })
+      .then((d) => { if (!cancelled) setPropData(d || null) })
+      .catch(() => { if (!cancelled) setPropData(null) })
+      .finally(() => { if (!cancelled) setPropLoading(false) })
+    return () => { cancelled = true }
+  }, [property.address, property.city, customer?.city, customer?.state, customer?.zip_code, customer?.zip, fullAddress])
+
+  // Merged display values — specs (customer intake) wins, RentCast
+  // backfills the rest. Keeps the existing 5-col grid populated even
+  // for customers who haven't filled in their intake form yet.
+  const display = {
+    bedrooms: specs.bedrooms || propData?.bedrooms || "",
+    bathrooms: specs.bathrooms || propData?.bathrooms || "",
+    sqft: specs.sqft || propData?.squareFeet || "",
+    type: specs.type || propData?.propertyType || "",
+  }
+  const fmtMoney = (n) => {
+    const v = Number(n)
+    if (!Number.isFinite(v) || v <= 0) return null
+    return `$${Math.round(v).toLocaleString()}`
+  }
+  const fmtSale = (d) => {
+    if (!d) return null
+    const dt = new Date(d)
+    if (isNaN(dt)) return null
+    return dt.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+  }
+  const lotSize = (() => {
+    if (!propData) return null
+    if (propData.lotSizeAcres) return `${propData.lotSizeAcres} ac`
+    if (propData.lotSize) {
+      const v = Number(propData.lotSize)
+      if (Number.isFinite(v)) return v >= 1000 ? `${v.toLocaleString()} sqft` : `${v} ac`
+    }
+    return null
+  })()
+  const hasPropData = propData && (
+    propData.yearBuilt ||
+    propData.estimatedValue ||
+    propData.estimatedRent ||
+    propData.lastSalePrice ||
+    propData.lastSaleDate ||
+    lotSize
+  )
   return (
     <SfCard padding={0}>
       <div className="flex flex-col md:flex-row">
@@ -1783,17 +1854,62 @@ const PropertyWideCard = ({ property }) => {
           >
             <Stat label="Jobs done" value={completedJobs} />
             <Stat label="Last clean" value={lastClean} />
-            <Stat label="Type" value={specs.type || "—"} />
+            <Stat label="Type" value={display.type || "—"} />
           </div>
 
           {/* Wider 5-col spec grid */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-3">
-            <PropertyField label="Bedrooms" value={specs.bedrooms || "—"} />
-            <PropertyField label="Bathrooms" value={specs.bathrooms || "—"} />
-            <PropertyField label="Sqft" value={specs.sqft || "—"} />
+            <PropertyField label="Bedrooms" value={display.bedrooms || "—"} />
+            <PropertyField label="Bathrooms" value={display.bathrooms || "—"} />
+            <PropertyField label="Sqft" value={display.sqft ? Number(display.sqft).toLocaleString() : "—"} />
             <PropertyField label="Pets" value={specs.pets || "—"} />
             <PropertyField label="Access" value={specs.access || "—"} />
           </div>
+
+          {/* Property data (RentCast) — extra fields the customer
+              intake doesn't capture. Only renders if the lookup
+              returned something we can show. */}
+          {(propLoading || hasPropData) && (
+            <div
+              className="mt-4 pt-3"
+              style={{ borderTop: "1px dashed var(--sf-border-soft)" }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span
+                  className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
+                  style={{ letterSpacing: ".04em" }}
+                >
+                  Property data
+                </span>
+                <span className="text-[10px] text-[var(--sf-ink-4)]">via RentCast</span>
+                {propLoading && (
+                  <span className="text-[10px] text-[var(--sf-ink-3)] italic">loading…</span>
+                )}
+              </div>
+              {hasPropData && (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                  <PropertyField label="Year built" value={propData.yearBuilt || "—"} />
+                  <PropertyField label="Lot size" value={lotSize || "—"} />
+                  <PropertyField
+                    label="Est. value"
+                    value={fmtMoney(propData.estimatedValue) || "—"}
+                  />
+                  <PropertyField
+                    label="Est. rent"
+                    value={fmtMoney(propData.estimatedRent) || "—"}
+                  />
+                  <PropertyField
+                    label="Last sale"
+                    value={
+                      fmtSale(propData.lastSaleDate) ||
+                      fmtMoney(propData.lastSalePrice) ||
+                      "—"
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Access & cleaning notes callout */}
           {recentJobNotes && (
@@ -1836,7 +1952,11 @@ const PropertiesTab = ({ properties, customer }) => {
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
       {properties.map((p, i) => (
-        <PropertyWideCard key={`${p.address}-${i}`} property={p} />
+        <PropertyWideCard
+          key={`${p.address}-${i}`}
+          property={p}
+          customer={customer}
+        />
       ))}
     </div>
   )
