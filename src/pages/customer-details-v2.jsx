@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import {
   ArrowLeft,
@@ -27,9 +27,13 @@ import {
   Paperclip,
   Zap,
   Star,
+  Upload,
+  Download,
+  File as FileIcon,
+  Trash2,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
-import { customersAPI, jobsAPI, invoicesAPI, estimatesAPI, communicationsAPI, propertyDataAPI } from "../services/api"
+import { customersAPI, jobsAPI, invoicesAPI, estimatesAPI, communicationsAPI, propertyDataAPI, customerFilesAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { getGoogleMapsApiKey } from "../config/maps"
@@ -540,7 +544,7 @@ const CustomerDetailsV2 = () => {
         <EstimatesTab estimates={estimates} customerName={name} />
       )}
       {tab === "files" && (
-        <TabStub tab={tab} />
+        <FilesTab customerId={customerId} />
       )}
     </div>
   )
@@ -1399,28 +1403,6 @@ const InvoiceTable = ({ invoices, onInvoiceClick, emptyText }) => {
           </button>
         )
       })}
-    </div>
-  )
-}
-
-// ── Stub tabs ──────────────────────────────────────────────
-
-const TabStub = ({ tab }) => {
-  const STUB_META = {
-    files: {
-      title: "Files",
-      copy:
-        "Photos + documents (drop zone + file grid). Needs a new customer_files table + the upload flow before it can ship.",
-    },
-  }
-  const meta = STUB_META[tab]
-  if (!meta) return null
-  return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-2xl">
-      <SfCard>
-        <SfCardHeader title={meta.title} />
-        <div className="text-[12.5px] text-[var(--sf-ink-2)] leading-relaxed">{meta.copy}</div>
-      </SfCard>
     </div>
   )
 }
@@ -2304,6 +2286,419 @@ const TimelineDot = ({ color }) => (
     style={{ width: 6, height: 6, background: color }}
   />
 )
+
+// ── Files tab ──────────────────────────────────────────────
+
+const FILE_FILTERS = [
+  { id: "all",       label: "All" },
+  { id: "photos",    label: "Photos" },
+  { id: "documents", label: "Documents" },
+]
+
+const isImageMime = (mime) => String(mime || "").toLowerCase().startsWith("image/")
+
+const formatFileSize = (n) => {
+  const v = Number(n)
+  if (!Number.isFinite(v) || v <= 0) return "—"
+  if (v < 1024) return `${v} B`
+  if (v < 1024 * 1024) return `${(v / 1024).toFixed(1)} KB`
+  return `${(v / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const FilesTab = ({ customerId }) => {
+  const [files, setFiles] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [search, setSearch] = useState("")
+  const [filter, setFilter] = useState("all")
+  const inputRef = useRef(null)
+
+  const reload = useCallback(async () => {
+    if (!customerId) return
+    setLoading(true)
+    try {
+      const resp = await customerFilesAPI.list(customerId)
+      setFiles(Array.isArray(resp?.files) ? resp.files : [])
+    } catch (e) {
+      setFiles([])
+    } finally {
+      setLoading(false)
+    }
+  }, [customerId])
+
+  useEffect(() => { reload() }, [reload])
+
+  const handleUpload = useCallback(async (fileList) => {
+    const list = Array.from(fileList || [])
+    if (list.length === 0) return
+    setUploading(true)
+    try {
+      await customerFilesAPI.upload(customerId, list)
+      await reload()
+    } catch (e) {
+      alert(e?.response?.data?.error || e?.message || "Upload failed.")
+    } finally {
+      setUploading(false)
+    }
+  }, [customerId, reload])
+
+  const onDelete = useCallback(async (fileId) => {
+    if (!window.confirm("Delete this file?")) return
+    try {
+      await customerFilesAPI.remove(customerId, fileId)
+      setFiles((prev) => prev.filter((f) => f.id !== fileId))
+    } catch (e) {
+      alert(e?.response?.data?.error || e?.message || "Delete failed.")
+    }
+  }, [customerId])
+
+  const onDownloadAll = useCallback(() => {
+    // The bucket is public so the URL works directly. Open each in a
+    // new tab; the browser handles the rest. For lots of files we'd
+    // zip server-side, but this matches the spec's lightweight intent.
+    files.forEach((f) => {
+      if (f.file_url) window.open(f.file_url, "_blank", "noopener,noreferrer")
+    })
+  }, [files])
+
+  // Filter chip counts
+  const counts = useMemo(() => {
+    let photos = 0, documents = 0
+    files.forEach((f) => {
+      if (isImageMime(f.mime_type)) photos += 1
+      else documents += 1
+    })
+    return { all: files.length, photos, documents }
+  }, [files])
+
+  // Apply search + filter
+  const filtered = useMemo(() => {
+    let list = files
+    if (filter === "photos") list = list.filter((f) => isImageMime(f.mime_type))
+    else if (filter === "documents") list = list.filter((f) => !isImageMime(f.mime_type))
+    const q = search.trim().toLowerCase()
+    if (q) list = list.filter((f) => (f.filename || "").toLowerCase().includes(q))
+    return list
+  }, [files, filter, search])
+
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div
+          className="flex items-center gap-2 rounded-[8px] bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] px-3 py-[6px]"
+          style={{ width: 320, maxWidth: "100%" }}
+        >
+          <SearchIcon size={14} className="text-[var(--sf-ink-3)] flex-shrink-0" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search filenames"
+            className="flex-1 bg-transparent border-none outline-none text-[12.5px] text-[var(--sf-ink)]"
+            style={{ fontFamily: "var(--sf-font-ui)", padding: 0, boxShadow: "none" }}
+          />
+        </div>
+        {FILE_FILTERS.map((f) => (
+          <SfFilterChip
+            key={f.id}
+            active={filter === f.id}
+            count={counts[f.id]}
+            onClick={() => setFilter(f.id)}
+          >
+            {f.label}
+          </SfFilterChip>
+        ))}
+        <div className="flex-1" />
+        <SfButton
+          variant="secondary"
+          size="md"
+          icon={Download}
+          onClick={onDownloadAll}
+          disabled={files.length === 0}
+        >
+          Download all
+        </SfButton>
+        <SfButton
+          variant="primary"
+          size="md"
+          icon={Upload}
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? "Uploading…" : "Upload"}
+        </SfButton>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            handleUpload(e.target.files)
+            // Reset so picking the same file again re-fires onChange
+            if (e.target) e.target.value = ""
+          }}
+        />
+      </div>
+
+      {/* Drop zone */}
+      <DropZone onFiles={handleUpload} disabled={uploading} />
+
+      {/* File grid */}
+      {loading ? (
+        <SfCard>
+          <div className="py-10 text-center text-[12.5px] text-[var(--sf-ink-3)]">
+            Loading files…
+          </div>
+        </SfCard>
+      ) : filtered.length === 0 ? (
+        <SfCard>
+          <EmptyRow
+            icon={files.length === 0 ? Upload : SearchIcon}
+            title={files.length === 0 ? "No files yet" : "No files match"}
+            subtitle={
+              files.length === 0
+                ? "Drop photos or documents above, or click Upload."
+                : "Try a different filter or clear the search."
+            }
+          />
+        </SfCard>
+      ) : (
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+        >
+          {filtered.map((f) => (
+            <FileCard key={f.id} file={f} onDelete={() => onDelete(f.id)} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const DropZone = ({ onFiles, disabled }) => {
+  const [over, setOver] = useState(false)
+  const onDrop = (e) => {
+    e.preventDefault()
+    setOver(false)
+    if (disabled) return
+    onFiles?.(e.dataTransfer.files)
+  }
+  const inputRef = useRef(null)
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setOver(true) }}
+      onDragLeave={() => setOver(false)}
+      onDrop={onDrop}
+      onClick={() => inputRef.current?.click()}
+      className="rounded-[12px] flex flex-col items-center justify-center gap-2 transition-colors"
+      style={{
+        padding: "28px 20px",
+        background: over ? "var(--sf-blue-soft)" : "var(--sf-panel)",
+        border: `2px dashed ${over ? "var(--sf-blue)" : "var(--sf-border-soft)"}`,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.6 : 1,
+        fontFamily: "var(--sf-font-ui)",
+      }}
+    >
+      <div
+        className="w-[42px] h-[42px] rounded-md flex items-center justify-center"
+        style={{ background: "var(--sf-blue-soft)", color: "var(--sf-blue-dark)" }}
+      >
+        <Upload size={20} />
+      </div>
+      <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
+        Drop files here, or click to browse
+      </div>
+      <div className="text-[11.5px] text-[var(--sf-ink-3)]">
+        Up to 10 files · 10 MB each · images / PDFs / spreadsheets
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          onFiles?.(e.target.files)
+          if (e.target) e.target.value = ""
+        }}
+      />
+    </div>
+  )
+}
+
+const FileCard = ({ file, onDelete }) => {
+  const isImage = isImageMime(file.mime_type)
+  const date = file.uploaded_at
+    ? new Date(file.uploaded_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "—"
+  const ext = (() => {
+    const parts = String(file.filename || "").split(".")
+    return parts.length > 1 ? parts.pop().toUpperCase().slice(0, 5) : "FILE"
+  })()
+  const onOpen = () => {
+    if (file.file_url) window.open(file.file_url, "_blank", "noopener,noreferrer")
+  }
+  return (
+    <SfCard padding={0} className="relative group" style={{ overflow: "hidden" }}>
+      <div
+        onClick={onOpen}
+        style={{ cursor: file.file_url ? "pointer" : "default" }}
+      >
+        {/* Preview */}
+        {isImage ? (
+          <div
+            style={{
+              height: 140,
+              background: "var(--sf-panel-soft)",
+              position: "relative",
+            }}
+          >
+            <img
+              src={file.file_url}
+              alt={file.filename}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+            <span
+              style={{
+                position: "absolute",
+                top: 8,
+                left: 8,
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: ".04em",
+                background: "rgba(15,23,42,.85)",
+                color: "#fff",
+                padding: "2px 6px",
+                borderRadius: 4,
+              }}
+            >
+              Photo
+            </span>
+            {file.job_id && (
+              <span
+                style={{
+                  position: "absolute",
+                  bottom: 8,
+                  right: 8,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  background: "rgba(255,255,255,.94)",
+                  color: "var(--sf-ink-2)",
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  fontFamily: "var(--sf-font-mono)",
+                }}
+              >
+                JOB-{file.job_id}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div
+            style={{
+              height: 140,
+              background: "var(--sf-panel-alt)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                position: "relative",
+                width: 50,
+                height: 60,
+                background: "var(--sf-panel)",
+                border: "1px solid var(--sf-border-soft)",
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "center",
+                paddingBottom: 6,
+                boxShadow: "0 1px 2px rgba(15,23,42,.05)",
+              }}
+            >
+              {/* Corner fold */}
+              <span
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  width: 12,
+                  height: 12,
+                  borderTop: "12px solid var(--sf-panel-alt)",
+                  borderLeft: "12px solid transparent",
+                }}
+              />
+              <FileIcon size={18} className="text-[var(--sf-ink-3)] absolute top-2 left-2" />
+              <span
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: 700,
+                  color: "var(--sf-ink-2)",
+                  fontFamily: "var(--sf-font-mono)",
+                }}
+              >
+                {ext}
+              </span>
+            </div>
+          </div>
+        )}
+        {/* Footer */}
+        <div className="px-3 py-2.5">
+          <div
+            className="text-[12.5px] font-semibold text-[var(--sf-ink)] truncate"
+            title={file.filename}
+          >
+            {file.filename || "Untitled"}
+          </div>
+          <div className="text-[10.5px] text-[var(--sf-ink-3)] mt-0.5 flex items-center gap-1.5">
+            <span style={{ fontVariantNumeric: "tabular-nums" }}>
+              {formatFileSize(file.size_bytes)}
+            </span>
+            <span className="text-[var(--sf-ink-4)]">·</span>
+            <span>{date}</span>
+          </div>
+        </div>
+      </div>
+      {/* Delete on hover */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete?.() }}
+        aria-label="Delete file"
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{
+          position: "absolute",
+          top: 6,
+          right: 6,
+          width: 26,
+          height: 26,
+          borderRadius: 6,
+          background: "rgba(15,23,42,.85)",
+          color: "#fff",
+          border: "none",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Trash2 size={13} />
+      </button>
+    </SfCard>
+  )
+}
 
 // ── Messages tab ───────────────────────────────────────────
 

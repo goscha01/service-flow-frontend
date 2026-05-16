@@ -2971,6 +2971,29 @@ export const communicationsAPI = {
   savePreferences: async (prefs) => { const r = await api.put('/communications/settings/preferences', prefs); return r.data; },
 };
 
+// Customer files — per-customer photo / document library backing
+// the Files tab on the customer detail page. Storage is Supabase
+// (job-attachments bucket); this API just wraps the metadata CRUD.
+export const customerFilesAPI = {
+  list: async (customerId) => {
+    const r = await api.get(`/customers/${customerId}/files`);
+    return r.data;
+  },
+  upload: async (customerId, files, { jobId } = {}) => {
+    const form = new FormData();
+    (Array.isArray(files) ? files : [files]).forEach((f) => form.append('files', f));
+    if (jobId) form.append('jobId', String(jobId));
+    const r = await api.post(`/customers/${customerId}/files`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return r.data;
+  },
+  remove: async (customerId, fileId) => {
+    const r = await api.delete(`/customers/${customerId}/files/${fileId}`);
+    return r.data;
+  },
+};
+
 // Property data lookup via RentCast (server-side). Given a parsed
 // address, returns bedrooms / bathrooms / squareFeet / yearBuilt /
 // propertyType / estimatedValue / estimatedRent / lotSize / lastSale*
