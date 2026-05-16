@@ -1711,14 +1711,14 @@ const PropertyWideCard = ({ property }) => {
   return (
     <SfCard padding={0}>
       <div className="flex flex-col md:flex-row">
-        {/* Map preview */}
+        {/* Map preview — full width on mobile, fixed 280px column on
+            md+ so the property details don't get pushed off the right
+            edge. The map should be a thumbnail, not the focal point. */}
         <div
-          className="flex-shrink-0 md:border-r border-[var(--sf-border-soft)]"
+          className="flex-shrink-0 w-full md:w-[280px] h-[180px] md:h-auto md:min-h-[220px] border-b md:border-b-0 md:border-r border-[var(--sf-border-soft)]"
           style={{
-            width: "100%",
-            height: 220,
-            maxWidth: "100%",
             background: "var(--sf-panel-soft)",
+            position: "relative",
           }}
         >
           {fullAddress && apiKey ? (
@@ -1737,10 +1737,6 @@ const PropertyWideCard = ({ property }) => {
             </div>
           )}
         </div>
-        <div
-          className="md:max-w-none md:border-r-0 md:border-l border-[var(--sf-border-soft)] hidden md:block"
-          style={{ width: 0 }}
-        />
         {/* Details */}
         <div className="flex-1 p-4 sm:p-5 min-w-0">
           <div className="flex items-start gap-3 flex-wrap">
