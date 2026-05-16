@@ -119,12 +119,11 @@ const CustomerDetailsV2 = () => {
   const [invoices, setInvoices] = useState([])
   const [estimates, setEstimates] = useState([])
   const [conversations, setConversations] = useState([])
-  // Per-conversation message totals (excluding system / call events).
-  // The thread list endpoint only returns lastPreview / lastEventAt;
-  // the actual message count requires loading each conversation's
-  // events. Without this, a 100-message SMS thread shows up as "1
-  // message" in the KPI because the count is conversations.length.
-  const [convMessageCounts, setConvMessageCounts] = useState({})
+  // Per-conversation events (messages, calls, reviews). Loaded after
+  // the conversations list so the Messages tab can render the actual
+  // individual messages — not just the thread preview row — and so
+  // counts reflect the true message volume.
+  const [convEvents, setConvEvents] = useState({})
 
   // URL ↔ tab sync (both directions). Browser back/forward updates `tab`;
   // clicking a tab updates the URL with `replace` so the back button
@@ -232,29 +231,25 @@ const CustomerDetailsV2 = () => {
       })
       setConversations(customerConvs)
 
-      // Fan-out one detail-fetch per thread so we can count actual
-      // messages (not just thread count). Capped at 8 threads to keep
-      // it cheap — customers with more than 8 threads will undercount
-      // but the headline "100+ messages on a single thread" case works.
+      // Fan-out one detail-fetch per thread so the Messages tab can
+      // render individual messages (not just thread previews) and so
+      // the KPI shows the true message count. Capped at 8 threads to
+      // keep it cheap — customers with more than 8 threads will only
+      // see events for the first 8.
       const top = customerConvs.slice(0, 8)
       const detailResp = await Promise.allSettled(
         top.map((c) =>
           communicationsAPI.getConversation(c.id, { limit: 500 }).catch(() => null)
         )
       )
-      const counts = {}
+      const eventsByConv = {}
       detailResp.forEach((r, i) => {
-        const events = r.status === "fulfilled" && r.value?.events
+        const evs = r.status === "fulfilled" && r.value?.events
           ? r.value.events
           : []
-        let n = 0
-        events.forEach((e) => {
-          const t = e.type || ""
-          if (t.startsWith("message_") || t === "review_in") n += 1
-        })
-        counts[top[i].id] = n
+        eventsByConv[top[i].id] = evs
       })
-      setConvMessageCounts(counts)
+      setConvEvents(eventsByConv)
     } finally {
       setLoading(false)
     }
@@ -316,10 +311,18 @@ const CustomerDetailsV2 = () => {
     invoices:   invoices.length,
     estimates:  estimates.length,
     properties: properties.length,
-    messages:   conversations.length,
+    // Show message volume (events) not thread count — a single SMS
+    // thread with 100 messages should read "104", not "1".
+    messages:   Object.values(convEvents).reduce(
+      (s, evs) => s + (Array.isArray(evs) ? evs.filter((e) => {
+        const t = e.type || ""
+        return t.startsWith("message_") || t === "review_in"
+      }).length : 0),
+      0
+    ) || conversations.length,
     files:      undefined,
     activity:   undefined,
-  }), [jobs, invoices, estimates, properties, conversations])
+  }), [jobs, invoices, estimates, properties, conversations, convEvents])
 
   // ── Render ────────────────────────────────────────────────
 
@@ -524,7 +527,8 @@ const CustomerDetailsV2 = () => {
       {tab === "messages" && (
         <MessagesTab
           conversations={conversations}
-          messageCounts={convMessageCounts}
+          eventsByConv={convEvents}
+          customer={customer}
           customerName={name}
           onOpen={(id) => navigate(`/communications?conversation=${id}`)}
         />
@@ -1854,20 +1858,53 @@ const MSG_CHANNEL_META = {
   openphone: { label: "SMS",       c: "var(--sf-green-dark)", bg: "var(--sf-green-soft)",  icon: MessageSquare },
 }
 
-const MessagesTab = ({ conversations, messageCounts = {}, customerName, onOpen }) => {
-  // Channel toggles reflect the channels we have data for.
+// Channels the user can actively send on from the customer page.
+// Reviews and Calls are read-only here (you can't compose a Yelp
+// review reply or place a call from this surface yet) so they're
+// excluded. Order matters — drives display order.
+const COMPOSE_CHANNELS = ["sms", "whatsapp", "email", "thumbtack", "yelp"]
+
+const MessagesTab = ({ conversations, eventsByConv = {}, customer, customerName, onOpen }) => {
+  // Flatten every loaded event into a single descending list with
+  // the conversation id stitched on so we can route Send / Reply.
+  const allEvents = useMemo(() => {
+    const out = []
+    conversations.forEach((c) => {
+      const evs = eventsByConv[c.id]
+      if (!Array.isArray(evs)) return
+      evs.forEach((e) => {
+        const t = e.type || ""
+        if (!t.startsWith("message_") && t !== "review_in" && !t.startsWith("call_")) return
+        out.push({
+          ...e,
+          conversationId: c.id,
+          // Fall back to the conversation's channel when the event
+          // didn't carry one (older rows).
+          channel: (e.channel || c.channel || "").toLowerCase(),
+        })
+      })
+    })
+    out.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+    return out
+  }, [conversations, eventsByConv])
+
+  // Channels the customer can be reached on. Anything the business has
+  // a thread on counts; plus SMS/WhatsApp if we have their phone, and
+  // Email if we have their email. Reviews are excluded from compose.
   const availableChannels = useMemo(() => {
     const set = new Set()
     conversations.forEach((c) => {
       const ch = (c.channel || "").toLowerCase()
-      if (ch) set.add(ch)
+      if (ch && COMPOSE_CHANNELS.includes(ch)) set.add(ch)
     })
-    // Always offer SMS + Email as default sendable channels even if no
-    // existing thread is on those channels yet.
-    if (!set.has("sms") && !set.has("whatsapp")) set.add("sms")
-    if (!set.has("email")) set.add("email")
-    return Array.from(set)
-  }, [conversations])
+    if (customer?.phone) {
+      set.add("sms")
+      set.add("whatsapp")
+    }
+    if (customer?.email) set.add("email")
+    // Render in the canonical order so it's stable across customers.
+    return COMPOSE_CHANNELS.filter((ch) => set.has(ch))
+  }, [conversations, customer?.phone, customer?.email])
 
   const [composeChannel, setComposeChannel] = useState(() => availableChannels[0] || "sms")
   useEffect(() => {
@@ -1910,62 +1947,63 @@ const MessagesTab = ({ conversations, messageCounts = {}, customerName, onOpen }
     }
   }
 
-  // KPI aggregations from the conversation list
+  // KPI aggregations off the flat event list (so a 100-message SMS
+  // thread reads "100" not "1").
   const kpis = useMemo(() => {
-    const unread = conversations.reduce((s, c) => s + (c.unreadCount ?? 0), 0)
+    let total = 0
+    let reviews = 0
     const channelCounts = {}
-    let reviewCount = 0
-    conversations.forEach((c) => {
-      const k = (c.channel || "").toLowerCase()
-      channelCounts[k] = (channelCounts[k] || 0) + 1
-      if (k === "review" || k === "yelp") reviewCount += 1
+    allEvents.forEach((e) => {
+      const t = e.type || ""
+      if (t.startsWith("message_") || t === "review_in") {
+        total += 1
+        const k = (e.channel || "").toLowerCase()
+        channelCounts[k] = (channelCounts[k] || 0) + 1
+        if (k === "review" || k === "yelp" || t === "review_in") reviews += 1
+      }
     })
+    const unread = conversations.reduce((s, c) => s + (c.unreadCount ?? 0), 0)
     let preferred = "—"
     let max = 0
     Object.entries(channelCounts).forEach(([k, n]) => {
       if (n > max) { max = n; preferred = k }
     })
     const preferredMeta = MSG_CHANNEL_META[preferred] || null
-    // Total messages = sum of per-thread event counts loaded after the
-    // conversation list. Falls back to thread count for any thread we
-    // haven't fetched the detail for yet.
-    const totalMessages = conversations.reduce((s, c) => {
-      const n = messageCounts[c.id]
-      return s + (Number.isFinite(n) ? n : 1)
-    }, 0)
     return {
-      total: totalMessages,
+      total: total || conversations.length,
       threads: conversations.length,
       unread,
-      reviews: reviewCount,
+      reviews,
       preferred: preferredMeta ? preferredMeta.label : "—",
       preferredCount: max,
       preferredKey: preferred,
-      // These two need event-level data to be accurate. Surfacing the
-      // slot so the layout matches the spec; populating them is on the
-      // backlog once a per-customer events endpoint exists.
       responseTime: null,
       autoSent: null,
     }
-  }, [conversations, messageCounts])
+  }, [allEvents, conversations])
 
-  // Filter chips reflect the channels present on this customer
+  // Channel filter chips — reflect channels that actually appear in
+  // the loaded event list (so the customer sees their real channels,
+  // not an empty filter).
   const filterChips = useMemo(() => {
-    const chips = [{ id: "all", label: "All", count: conversations.length }]
-    availableChannels.forEach((ch) => {
+    const counts = {}
+    allEvents.forEach((e) => {
+      const k = (e.channel || "").toLowerCase()
+      if (k) counts[k] = (counts[k] || 0) + 1
+    })
+    const chips = [{ id: "all", label: "All", count: allEvents.length }]
+    Object.entries(counts).forEach(([ch, n]) => {
       const meta = MSG_CHANNEL_META[ch]
       if (!meta) return
-      const count = conversations.filter((c) => (c.channel || "").toLowerCase() === ch).length
-      if (count === 0) return
-      chips.push({ id: ch, label: meta.label, count })
+      chips.push({ id: ch, label: meta.label, count: n })
     })
     return chips
-  }, [availableChannels, conversations])
+  }, [allEvents])
 
-  const filteredConversations = useMemo(() => {
-    if (filter === "all") return conversations
-    return conversations.filter((c) => (c.channel || "").toLowerCase() === filter)
-  }, [conversations, filter])
+  const filteredEvents = useMemo(() => {
+    if (filter === "all") return allEvents
+    return allEvents.filter((e) => (e.channel || "").toLowerCase() === filter)
+  }, [allEvents, filter])
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
@@ -1980,9 +2018,10 @@ const MessagesTab = ({ conversations, messageCounts = {}, customerName, onOpen }
             </div>
           </div>
 
-          {/* Channel toggle — reflects channels actually available */}
-          <div className="grid gap-2 mb-2.5" style={{ gridTemplateColumns: `repeat(${Math.min(availableChannels.length, 3)}, 1fr)` }}>
-            {availableChannels.slice(0, 3).map((ch) => {
+          {/* Channel toggle — every channel the customer is reachable
+              on. Flex-wraps so 5+ channels still lay out cleanly. */}
+          <div className="flex flex-wrap gap-2 mb-2.5">
+            {availableChannels.map((ch) => {
               const meta = MSG_CHANNEL_META[ch]
               if (!meta) return null
               const Icon = meta.icon
@@ -1991,7 +2030,7 @@ const MessagesTab = ({ conversations, messageCounts = {}, customerName, onOpen }
                 <button
                   key={ch}
                   onClick={() => setComposeChannel(ch)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-md"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md"
                   style={{
                     background: on ? "var(--sf-blue-soft)" : "var(--sf-panel)",
                     border: "1.5px solid " + (on ? "var(--sf-blue)" : "var(--sf-border-soft)"),
@@ -2125,7 +2164,7 @@ const MessagesTab = ({ conversations, messageCounts = {}, customerName, onOpen }
             ))}
           </div>
         </div>
-        {filteredConversations.length === 0 ? (
+        {filteredEvents.length === 0 ? (
           <EmptyRow
             icon={MessageSquare}
             title="No messages in this view"
@@ -2136,14 +2175,13 @@ const MessagesTab = ({ conversations, messageCounts = {}, customerName, onOpen }
             }
           />
         ) : (
-          filteredConversations.map((conv, i, arr) => (
-            <MessageHistoryRow
-              key={conv.id}
-              conv={conv}
-              messageCount={messageCounts[conv.id]}
+          filteredEvents.map((evt, i, arr) => (
+            <MessageEventRow
+              key={`${evt.conversationId}-${evt.id || i}`}
+              event={evt}
               customerName={customerName}
               isLast={i === arr.length - 1}
-              onOpen={onOpen}
+              onOpen={() => onOpen?.(evt.conversationId)}
             />
           ))
         )}
@@ -2175,29 +2213,36 @@ const MsgKPI = ({ label, value, sub, accent, mono = true }) => (
   </SfCard>
 )
 
-const MessageHistoryRow = ({ conv, messageCount, customerName, isLast, onOpen }) => {
-  const channelKey = (conv.channel || "").toLowerCase()
+// Flat event row — shows a single message / call / review. Replaces
+// the old "conversation preview" row so the Messages tab matches the
+// inbox detail pane: individual messages, sorted newest-first.
+const MessageEventRow = ({ event, customerName, isLast, onOpen }) => {
+  const channelKey = (event.channel || "").toLowerCase()
   const meta = MSG_CHANNEL_META[channelKey] || MSG_CHANNEL_META.sms
   const Icon = meta.icon
-  const unreadN = conv.unreadCount ?? conv.unread_count ?? 0
-  const unread = unreadN > 0
-  const lastEvent = conv.lastEventAt || conv.last_event_at
-  const lastPreview = conv.lastPreview || conv.last_preview
-  const primaryLabel = customerName || conv.displayName || conv.fallbackIdentifier || "—"
-  // Direction heuristic — the inbox list doesn't carry direction on
-  // the conversation summary, so we use unread as a proxy: unread =
-  // last message was inbound (customer → You). Outbound otherwise.
-  const incoming = unread
-  const isReview = channelKey === "review" || channelKey === "yelp"
+  const t = event.type || ""
+  const isCall = t.startsWith("call_")
+  const isReview = t === "review_in" || channelKey === "review" || channelKey === "yelp"
+  const isOut = t === "message_out" || t === "call_out"
+  const primaryLabel = customerName || "Customer"
+  const stamp = event.timestamp
+    ? new Date(event.timestamp).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "—"
+  const subject = event.subject || event.title || null
+  const body = (event.text || event.body || "").trim()
 
   return (
     <button
-      onClick={() => onOpen?.(conv.id)}
+      onClick={onOpen}
       className="w-full text-left flex items-start gap-3 px-4 py-3 hover:bg-[var(--sf-panel-alt)] transition-colors"
       style={{
         borderBottom: isLast ? "none" : "1px solid var(--sf-border-soft)",
-        background: unread ? "var(--sf-blue-soft)" : "transparent",
-        borderLeft: unread ? "3px solid var(--sf-blue)" : "3px solid transparent",
+        background: "transparent",
         cursor: "pointer",
         border: "none",
         fontFamily: "var(--sf-font-ui)",
@@ -2212,28 +2257,19 @@ const MessageHistoryRow = ({ conv, messageCount, customerName, isLast, onOpen })
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[12.5px] text-[var(--sf-ink-2)]">
-            <b style={{ color: "var(--sf-ink)" }}>{incoming ? primaryLabel : "You"}</b> → {incoming ? "You" : primaryLabel}
+            <b style={{ color: "var(--sf-ink)" }}>{isOut ? "You" : primaryLabel}</b> → {isOut ? primaryLabel : "You"}
           </span>
           <SfTag color={meta.c} bg={meta.bg}>{meta.label}</SfTag>
-          {Number.isFinite(messageCount) && messageCount > 0 && (
-            <span
-              className="text-[10.5px] font-semibold text-[var(--sf-ink-3)]"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {messageCount} message{messageCount === 1 ? "" : "s"}
-            </span>
+          {isCall && (
+            <SfTag color="var(--sf-purple)" bg="var(--sf-purple-soft)">Call</SfTag>
           )}
-          {unread && (
-            <SfTag color="var(--sf-red-dark)" bg="var(--sf-red-soft)">
-              Unread
-            </SfTag>
-          )}
-          {isReview && (
+          {isReview && Number.isFinite(parseFloat(event.rating)) && (
             <span
               className="inline-flex items-center gap-0.5 text-[11px] font-semibold"
               style={{ color: "var(--sf-amber-dark)" }}
             >
-              <Star size={10} fill="var(--sf-amber)" stroke="var(--sf-amber)" /> 5
+              <Star size={10} fill="var(--sf-amber)" stroke="var(--sf-amber)" />{" "}
+              {parseFloat(event.rating).toFixed(1)}
             </span>
           )}
           <div className="flex-1" />
@@ -2241,34 +2277,36 @@ const MessageHistoryRow = ({ conv, messageCount, customerName, isLast, onOpen })
             className="text-[10.5px] text-[var(--sf-ink-3)]"
             style={{ fontFamily: "var(--sf-font-mono)" }}
           >
-            {lastEvent
-              ? new Date(lastEvent).toLocaleString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })
-              : "—"}
+            {stamp}
           </span>
         </div>
-        {lastPreview && (
-          <>
-            {/* Subject-style line (first ~50 chars) */}
-            <div className="text-[13px] font-bold text-[var(--sf-ink)] mt-1 truncate">
-              {lastPreview.length > 50 ? lastPreview.slice(0, 50).split(/[.!?\n]/)[0] : lastPreview}
-            </div>
-            <div
-              className="text-[12px] text-[var(--sf-ink-2)] mt-0.5"
-              style={{
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
-            >
-              {lastPreview}
-            </div>
-          </>
+        {subject && (
+          <div className="text-[13px] font-bold text-[var(--sf-ink)] mt-1 truncate">
+            {subject}
+          </div>
+        )}
+        {body && (
+          <div
+            className="text-[12.5px] text-[var(--sf-ink-2)] mt-0.5 leading-snug"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
+            {body}
+          </div>
+        )}
+        {!body && isCall && (
+          <div className="text-[12px] text-[var(--sf-ink-3)] mt-0.5 italic">
+            {t === "call_in" ? "Incoming call" : "Outgoing call"}
+            {event.callDurationSeconds
+              ? ` · ${Math.floor(event.callDurationSeconds / 60)}m ${event.callDurationSeconds % 60}s`
+              : ""}
+          </div>
         )}
       </div>
     </button>
