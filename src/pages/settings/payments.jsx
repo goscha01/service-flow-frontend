@@ -1,16 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import Sidebar from "../../components/sidebar"
 import CreateCustomPaymentMethodModal from "../../components/create-custom-payment-method-modal"
-import { ChevronLeft, Edit, Trash2, Check, AlertCircle } from "lucide-react"
+import { Edit, Trash2, Check, AlertCircle } from "lucide-react"
 import { paymentSettingsAPI, paymentMethodsAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
+import SettingsPageLayout from "../../components/settings-page-layout"
 
 const Payments = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const navigate = useNavigate()
   const { user } = useAuth()
   const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -152,43 +149,24 @@ const Payments = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-[var(--sf-text-secondary)]">Loading payment settings...</p>
-            </div>
+      <SettingsPageLayout title="Payments">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-2 text-[var(--sf-text-secondary)]">Loading payment settings…</p>
           </div>
         </div>
-      </div>
+      </SettingsPageLayout>
     )
   }
 
   return (
-    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-
-        {/* Header */}
-        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => navigate("/settings")}
-              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              <span className="text-sm">Settings</span>
-            </button>
-            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Payments</h1>
-          </div>
-        </div>
-
+    <SettingsPageLayout
+      title="Payments"
+      subtitle="Configure payment processing, tip calculation, and processing fees"
+    >
         {/* Content */}
-        <div className="flex-1 overflow-auto">
-          <div className="max-w-4xl mx-auto p-6 space-y-8">
+        <div className="space-y-8">
             {/* Message Display */}
             {message.text && (
               <div className={`rounded-lg p-4 ${
@@ -443,8 +421,6 @@ const Payments = () => {
               </button>
             </div>
           </div>
-        </div>
-      </div>
 
       {isPaymentMethodModalOpen && (
         <CreateCustomPaymentMethodModal
@@ -458,7 +434,7 @@ const Payments = () => {
           initialFee={editingMethod ? (settings.paymentTypeFees?.[editingMethod.name] ?? 0) : 0}
         />
       )}
-    </div>
+    </SettingsPageLayout>
   )
 }
 
