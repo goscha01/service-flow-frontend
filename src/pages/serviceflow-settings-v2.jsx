@@ -1,191 +1,324 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   Building2,
-  Palette,
+  User as UserIcon,
+  CreditCard,
+  Shield,
   Calendar,
-  CalendarCheck,
-  CalendarX,
   MapPin,
   Users,
-  MessageSquare,
-  Bell,
-  Star,
-  CreditCard,
-  Calculator,
-  CalendarDays,
-  Code,
+  Briefcase,
+  Globe,
+  CalendarX,
   Smartphone,
-  ChevronRight,
-  Settings as SettingsIcon,
+  LayoutGrid,
+  DollarSign,
+  Package,
+  TicketPercent,
+  Calculator,
+  Banknote,
+  FileText,
+  Receipt,
+  MessageSquare,
+  Mail,
+  Radio,
+  Inbox as InboxIcon,
+  Star,
+  Zap,
+  CalendarDays,
   FileSpreadsheet,
   Upload,
-  Zap,
-  Banknote,
-  Radio,
+  Code,
+  ChevronRight,
   Search as SearchIcon,
-  CreditCard as BillingIcon,
-  User as UserIcon,
-  CheckCircle2,
   Sparkles,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { canEditAccountOwnerSettings } from "../utils/roleUtils"
-import BusinessDetailsModal from "../components/business-details-modal"
-import SchedulingBookingModal from "../components/scheduling-booking-modal"
 import MobileHeader from "../components/mobile-header"
 import {
   SfCard,
-  SfButton,
-  SfTag,
-  SfAvatar,
   SfPageHeader,
-  sfInitials,
+  SfTag,
 } from "../components/sf-primitives"
 
 /**
- * Settings hub v2 (Wave 6) — Service Blue redesign of /settings.
+ * Settings hub v2 — per the prototype screenshots.
  *
- * Layout: left section-rail (sticky on lg+) + right scrolling
- * content. Top: profile + billing cards. Each section is an SfCard
- * group with title and item rows. Search field at top filters in
- * place across every section.
+ * Layout:
+ *  - Plan banner at top
+ *  - 6 sections laid out as a 3-column responsive grid:
+ *      Account · Operations · Sales & marketing
+ *      Financial · Communications · Integrations
+ *  - Each row carries a rich status line (sent counts, connection
+ *    state, badge, etc) so the hub doubles as an at-a-glance dashboard.
  *
- * Sub-pages (40+) keep their existing implementations; this is the
- * hub redesign only.
+ * Sub-pages use SettingsRailLayout, not a breadcrumb back-button.
  */
 
-// ── Sections definition (single source of truth) ───────────
+// ── Sections ───────────────────────────────────────────────
 
 const SECTIONS = [
   {
-    id: "business",
-    title: "Business",
+    id: "account",
+    title: "Account",
     items: [
-      { id: "business-details",    icon: Building2,      title: "Business details",
-        desc: "View and update your business details", active: true, action: "modal" },
-      { id: "branding",            icon: Palette,        title: "Branding",
-        desc: "Customize your branding for emails, invoices, and the rescheduling page", active: false, to: "/settings/branding" },
-      { id: "services",            icon: SettingsIcon,   title: "Services",
-        desc: "Configure default service settings and manage categories", active: true, to: "/services" },
-      { id: "service-areas",       icon: MapPin,         title: "Territories",
-        desc: "Customize the geographic areas you service", active: true, to: "/territories" },
+      {
+        id: "business-profile", icon: Building2,
+        title: "Business profile",
+        desc: "Company name, logo, address, hours",
+        status: { label: "Complete", color: "var(--sf-green-dark)", bg: "var(--sf-green-soft)" },
+        to: "/settings/business-profile",
+      },
+      {
+        id: "account", icon: UserIcon,
+        title: "Account details",
+        desc: "Your name, email, phone, password",
+        to: "/settings/account",
+      },
+      {
+        id: "billing", icon: CreditCard,
+        title: "Billing & plan",
+        desc: "Growth plan · $79 / mo · renews Jun 1",
+        status: { label: "Growth", color: "var(--sf-blue-dark)", bg: "var(--sf-blue-soft)" },
+        to: "/settings/billing",
+      },
+      {
+        id: "security", icon: Shield,
+        title: "Security",
+        desc: "2FA, sessions, audit log",
+        comingSoon: true,
+      },
     ],
   },
   {
-    id: "scheduling",
-    title: "Scheduling & booking",
+    id: "operations",
+    title: "Operations",
     items: [
-      { id: "availability",        icon: Calendar,       title: "Availability",
-        desc: "Set hours of operation and add unexpected schedule changes", active: true, to: "/settings/availability" },
-      { id: "scheduling-policies", icon: CalendarCheck,  title: "Scheduling policies",
-        desc: "Customize scheduling rules and how availability is determined", active: false, action: "modal" },
-      { id: "rescheduling-cancellation", icon: CalendarX, title: "Rescheduling & cancellation",
-        desc: "Allow your customers to reschedule and cancel online", active: false, to: "/settings/rescheduling-cancellation" },
-      { id: "booking-quote-requests", icon: MessageSquare, title: "Booking & quote requests",
-        desc: "Configure how customers submit booking and quote requests", active: false, to: "/settings/booking-quote-requests" },
-      { id: "job-assignment",      icon: Users,          title: "Job assignment",
-        desc: "Configure assignment and dispatch options for your providers", active: false, to: "/settings/job-assignment" },
-      { id: "leads-settings",      icon: Zap,            title: "Leads",
-        desc: "Configure lead stage automation for Thumbtack and Yelp", active: true, to: "/settings/leads" },
+      {
+        id: "availability", icon: Calendar,
+        title: "Availability & hours",
+        desc: "When you accept jobs · by location",
+        to: "/settings/availability",
+      },
+      {
+        id: "service-areas", icon: MapPin,
+        title: "Service areas",
+        desc: "Manage zones for your service area",
+        to: "/territories",
+      },
+      {
+        id: "team", icon: Users,
+        title: "Team & roles",
+        desc: "Manage teams, members, and roles",
+        to: "/team",
+      },
+      {
+        id: "job-assignment", icon: Briefcase,
+        title: "Job assignment rules",
+        desc: "Auto-assign by area + service",
+        to: "/settings/job-assignment",
+      },
+      {
+        id: "reschedule", icon: CalendarX,
+        title: "Rescheduling & cancellation",
+        desc: "Self-serve windows + fees",
+        to: "/settings/rescheduling-cancellation",
+      },
+      {
+        id: "field-app", icon: Smartphone,
+        title: "Field app settings",
+        desc: "Mobile app for cleaners",
+        to: "/settings/field-app",
+      },
+    ],
+  },
+  {
+    id: "sales",
+    title: "Sales & marketing",
+    items: [
+      {
+        id: "leads", icon: Zap,
+        title: "Lead capture",
+        desc: "Sources, tracking, auto-assignment",
+        to: "/settings/leads",
+      },
+      {
+        id: "online-booking", icon: Globe,
+        title: "Online booking",
+        desc: "Public booking page",
+        to: "/online-booking",
+      },
+      {
+        id: "coupons", icon: TicketPercent,
+        title: "Coupons & promos",
+        desc: "Manage active coupons and promotions",
+        to: "/coupons",
+      },
+      {
+        id: "services", icon: LayoutGrid,
+        title: "Services catalog",
+        desc: "Manage services and categories",
+        to: "/services",
+      },
+      {
+        id: "pricing", icon: DollarSign,
+        title: "Pricing rules",
+        desc: "Per-room, weekend surcharge, travel fees",
+        comingSoon: true,
+      },
+      {
+        id: "addons", icon: Package,
+        title: "Add-ons library",
+        desc: "Manage popular add-ons",
+        comingSoon: true,
+      },
+      {
+        id: "feedback", icon: Star,
+        title: "Feedback & reviews",
+        desc: "Auto-request after job",
+        to: "/settings/feedback-reviews",
+      },
+    ],
+  },
+  {
+    id: "financial",
+    title: "Financial",
+    items: [
+      {
+        id: "payments", icon: DollarSign,
+        title: "Payments",
+        desc: "Cards, ACH, and tip settings",
+        status: { label: "Stripe", color: "var(--sf-purple)", bg: "var(--sf-purple-soft)" },
+        to: "/settings/payments",
+      },
+      {
+        id: "invoicing", icon: FileText,
+        title: "Invoicing",
+        desc: "Net-14 default · auto-send enabled",
+        to: "/settings/invoicing",
+      },
+      {
+        id: "taxes-fees", icon: Calculator,
+        title: "Taxes & fees",
+        desc: "Tax rates and adjustment rules",
+        to: "/settings/taxes-fees",
+      },
+      {
+        id: "payout", icon: Banknote,
+        title: "Payouts",
+        desc: "Frequency, pay period, auto-payout",
+        to: "/settings/payout-settings",
+      },
+      {
+        id: "receipts", icon: Receipt,
+        title: "Receipts",
+        desc: "Receipt templates and email content",
+        comingSoon: true,
+      },
     ],
   },
   {
     id: "communications",
     title: "Communications",
     items: [
-      { id: "client-team-notifications", icon: Bell,     title: "Client & team notifications",
-        desc: "Edit the emails and text messages sent to clients and team members", active: true, to: "/settings/client-team-notifications" },
-      { id: "sms-settings",        icon: MessageSquare,  title: "SMS",
-        desc: "Configure Twilio SMS integration for customer notifications", active: true, to: "/settings/sms-settings" },
-      { id: "communication-hub",   icon: Radio,          title: "Communication hub",
-        desc: "Connect SMS, Yelp, Thumbtack, WhatsApp, Email and control conversation sync", active: true, to: "/settings/communication-hub" },
-      { id: "feedback-reviews",    icon: Star,           title: "Feedback & reviews",
-        desc: "Collect feedback and invite customers to leave reviews", active: false, to: "/settings/feedback-reviews" },
-    ],
-  },
-  {
-    id: "invoicing",
-    title: "Invoicing & payments",
-    items: [
-      { id: "payments",            icon: CreditCard,     title: "Payments",
-        desc: "Payment processing, tip calculation, and processing fees", active: true, to: "/settings/payments" },
-      { id: "taxes-fees",          icon: Calculator,     title: "Taxes & fees",
-        desc: "Tax rates, fees, and adjustment rules for your services", active: true, to: "/settings/taxes-fees" },
-      { id: "invoicing",           icon: FileSpreadsheet, title: "Invoicing",
-        desc: "Invoice templates, memos, footer, and payment terms", active: true, to: "/settings/invoicing" },
-      { id: "payout-settings",     icon: Banknote,       title: "Payouts",
-        desc: "Payout frequency, pay period, payout method, and auto-payout", active: true, to: "/settings/payout-settings" },
+      {
+        id: "sms", icon: MessageSquare,
+        title: "SMS (Twilio)",
+        desc: "Configure SMS notifications",
+        to: "/settings/sms-settings",
+      },
+      {
+        id: "email", icon: Mail,
+        title: "Email",
+        desc: "Manage email notifications",
+        to: "/settings/client-team-notifications",
+      },
+      {
+        id: "communication-hub", icon: Radio,
+        title: "Communication hub",
+        desc: "SMS, Yelp, Thumbtack, WhatsApp, Email",
+        to: "/settings/communication-hub",
+      },
+      {
+        id: "inboxes", icon: InboxIcon,
+        title: "Connected inboxes",
+        desc: "Gmail / Outlook OAuth mailboxes",
+        to: "/settings/connected-inboxes",
+      },
     ],
   },
   {
     id: "integrations",
     title: "Integrations",
     items: [
-      { id: "calendar-syncing",    icon: CalendarDays,   title: "Calendar syncing",
-        desc: "Sync your ServiceFlow schedule to external calendar apps", active: true, to: "/settings/calendar-syncing" },
-      { id: "google-sheets",       icon: FileSpreadsheet, title: "Google Sheets",
-        desc: "Export data to Google Sheets and import from spreadsheets", active: true, to: "/settings/google-sheets" },
-      { id: "stripe-connect",      icon: Zap,            title: "Stripe Connect",
-        desc: "Connect Stripe for payment processing", active: true, to: "/settings/stripe-connect" },
-      { id: "data-import",         icon: Upload,         title: "Data import",
-        desc: "Import customers, jobs, team, services, or territories from CSV/Excel", active: true, to: "/settings/data-import" },
-      { id: "zenbooker",           icon: Calendar,       title: "Zenbooker",
-        desc: "Sync jobs, customers, and team from Zenbooker in real-time", active: true, to: "/settings/zenbooker" },
-    ],
-  },
-  {
-    id: "advanced",
-    title: "Advanced",
-    items: [
-      { id: "field-app",           icon: Smartphone,     title: "Field app",
-        desc: "Customize the mobile web app for service providers", active: false, to: "/settings/field-app" },
-      { id: "developers",          icon: Code,           title: "Developers",
-        desc: "Manage webhooks and API credentials", active: true, to: "/settings/developers" },
+      {
+        id: "calendar-sync", icon: CalendarDays,
+        title: "Calendar sync",
+        desc: "Google Calendar · 2-way sync",
+        to: "/settings/calendar-syncing",
+      },
+      {
+        id: "google-sheets", icon: FileSpreadsheet,
+        title: "Google Sheets",
+        desc: "Export jobs and data nightly",
+        to: "/settings/google-sheets",
+      },
+      {
+        id: "stripe", icon: Zap,
+        title: "Stripe Connect",
+        desc: "Connect Stripe for payment processing",
+        to: "/settings/stripe-connect",
+      },
+      {
+        id: "zenbooker", icon: Calendar,
+        title: "Zenbooker",
+        desc: "Sync jobs, customers, team in real-time",
+        to: "/settings/zenbooker",
+      },
+      {
+        id: "data-import", icon: Upload,
+        title: "Data import",
+        desc: "Import from CSV/Excel or other CRMs",
+        to: "/settings/data-import",
+      },
+      {
+        id: "developers", icon: Code,
+        title: "Developers",
+        desc: "Webhooks, API tokens, audit log",
+        to: "/settings/developers",
+      },
     ],
   },
 ]
 
-// ── Component ──────────────────────────────────────────────
+// 3-column grouping per the screenshot (Account+Financial, Operations+Communications, Sales+Integrations)
+const COLUMNS = [
+  ["account", "financial"],
+  ["operations", "communications"],
+  ["sales", "integrations"],
+]
+
+// ── Page ───────────────────────────────────────────────────
 
 const ServiceFlowSettingsV2 = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [businessOpen, setBusinessOpen] = useState(false)
-  const [schedulingOpen, setSchedulingOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const [showInactive, setShowInactive] = useState(() => {
-    try {
-      return localStorage.getItem("showInactiveCards") === "true"
-    } catch {
-      return false
-    }
-  })
-  const [activeSection, setActiveSection] = useState("business")
-  const sectionRefs = useRef({})
+  const [showInactive, setShowInactive] = useState(false)
 
-  // Team-member redirect (mirrors v1 behavior)
   useEffect(() => {
     if (user?.teamMemberId) navigate("/settings/account")
   }, [user, navigate])
 
-  useEffect(() => {
-    try {
-      localStorage.setItem("showInactiveCards", String(showInactive))
-    } catch {}
-  }, [showInactive])
-
-  // Search filter — applies across every section. An empty search
-  // shows everything. Section headers hide when their items all
-  // filter out.
   const filteredSections = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q && showInactive) return SECTIONS
     return SECTIONS.map((s) => {
       const items = s.items.filter((it) => {
-        if (!showInactive && it.active === false) return false
+        if (it.comingSoon && !showInactive && !q) return false
         if (!q) return true
         return (
           it.title.toLowerCase().includes(q) ||
@@ -193,326 +326,212 @@ const ServiceFlowSettingsV2 = () => {
         )
       })
       return { ...s, items }
-    }).filter((s) => s.items.length > 0)
+    })
   }, [search, showInactive])
 
-  // Track scroll position to highlight the active anchor in the rail.
-  useEffect(() => {
-    const onScroll = () => {
-      const offsets = filteredSections.map((s) => {
-        const el = sectionRefs.current[s.id]
-        return el ? { id: s.id, top: el.getBoundingClientRect().top } : null
-      }).filter(Boolean)
-      const above = offsets.filter((o) => o.top < 140)
-      if (above.length) {
-        setActiveSection(above[above.length - 1].id)
-      } else if (offsets[0]) {
-        setActiveSection(offsets[0].id)
-      }
-    }
-    window.addEventListener("scroll", onScroll, { passive: true })
-    onScroll()
-    return () => window.removeEventListener("scroll", onScroll)
-  }, [filteredSections])
-
-  const handleClick = (item) => {
-    if (item.action === "modal") {
-      if (item.id === "business-details") setBusinessOpen(true)
-      else if (item.id === "scheduling-policies") setSchedulingOpen(true)
-      return
-    }
-    if (item.to) navigate(item.to)
-  }
-
-  const scrollToSection = (id) => {
-    const el = sectionRefs.current[id]
-    if (!el) return
-    const y = el.getBoundingClientRect().top + window.scrollY - 100
-    window.scrollTo({ top: y, behavior: "smooth" })
-  }
-
-  const totalItems = SECTIONS.reduce((s, sec) => s + sec.items.length, 0)
-  const activeItems = SECTIONS.reduce(
-    (s, sec) => s + sec.items.filter((i) => i.active !== false).length,
-    0
-  )
+  const sectionById = (id) => filteredSections.find((s) => s.id === id)
+  const owner = canEditAccountOwnerSettings(user)
 
   return (
     <div
       className="min-h-screen bg-[var(--sf-bg-page)]"
       style={{ fontFamily: "var(--sf-font-ui)" }}
     >
-      <MobileHeader title="Settings" />
+      <MobileHeader pageTitle="Settings" />
 
       <SfPageHeader
         eyebrow="System"
         title="Settings"
-        subtitle={`${activeItems} active · ${totalItems - activeItems} coming soon`}
+        subtitle={
+          user?.company_name
+            ? `Manage your business · ${user.company_name}`
+            : "Manage your business"
+        }
         actions={
-          <div className="flex items-center gap-2">
-            <div
-              className="hidden md:flex items-center gap-2 rounded-md bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] px-3 py-[6px]"
-              style={{ width: 280 }}
-            >
-              <SearchIcon size={14} className="text-[var(--sf-ink-3)] flex-shrink-0" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search settings"
-                className="flex-1 bg-transparent border-none outline-none text-[12.5px] text-[var(--sf-ink)]"
-                style={{ fontFamily: "var(--sf-font-ui)", padding: 0, boxShadow: "none" }}
-              />
-            </div>
+          <div
+            className="hidden md:flex items-center gap-2 rounded-md bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] px-3 py-[6px]"
+            style={{ width: 240 }}
+          >
+            <SearchIcon size={14} className="text-[var(--sf-ink-3)] flex-shrink-0" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search settings"
+              className="flex-1 bg-transparent border-none outline-none text-[12.5px] text-[var(--sf-ink)]"
+              style={{ fontFamily: "var(--sf-font-ui)", padding: 0, boxShadow: "none" }}
+            />
           </div>
         }
       />
 
-      <div className="px-4 sm:px-6 lg:px-8 py-5 grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
-        {/* Section rail (sticky on lg+) */}
-        <aside className="hidden lg:block">
-          <div className="sticky top-4">
-            <SfCard padding={"10px 8px"}>
-              <SectionLabel>Jump to</SectionLabel>
-              {filteredSections.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => scrollToSection(s.id)}
-                  className="w-full text-left rounded-md"
-                  style={{
-                    padding: "7px 10px",
-                    background: activeSection === s.id ? "var(--sf-blue-soft)" : "transparent",
-                    color: activeSection === s.id ? "var(--sf-blue-dark)" : "var(--sf-ink-2)",
-                    fontSize: 12.5,
-                    fontWeight: activeSection === s.id ? 600 : 500,
-                    border: "none",
-                    cursor: "pointer",
-                    fontFamily: "var(--sf-font-ui)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <span className="flex-1 truncate">{s.title}</span>
-                  <span
-                    className="text-[10.5px] font-semibold"
-                    style={{
-                      color: activeSection === s.id ? "var(--sf-blue-dark)" : "var(--sf-ink-3)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {s.items.length}
-                  </span>
-                </button>
-              ))}
-            </SfCard>
+      <div className="px-4 sm:px-6 lg:px-8 pb-8">
+        {/* Plan banner */}
+        {owner && (
+          <PlanBanner onUpgrade={() => navigate("/settings/billing")} />
+        )}
 
-            {canEditAccountOwnerSettings(user) && (
-              <SfCard padding={"12px 14px"} className="mt-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={13} className="text-[var(--sf-amber)]" />
-                  <span className="text-[11px] font-bold uppercase text-[var(--sf-ink-3)]" style={{ letterSpacing: ".04em" }}>
-                    Developer mode
-                  </span>
-                </div>
-                <div className="text-[11.5px] text-[var(--sf-ink-2)] mt-1 leading-snug">
-                  Show settings that aren't enabled yet.
-                </div>
-                <label className="mt-2 flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showInactive}
-                    onChange={(e) => setShowInactive(e.target.checked)}
-                    style={{
-                      width: 14,
-                      height: 14,
-                      margin: 0,
-                      accentColor: "var(--sf-blue)",
-                      cursor: "pointer",
-                    }}
-                  />
-                  <span className="text-[11.5px] font-semibold text-[var(--sf-ink-2)]">
-                    Show inactive
-                  </span>
-                </label>
-              </SfCard>
-            )}
+        {/* Mobile search */}
+        <div className="md:hidden mb-4">
+          <div className="flex items-center gap-2 rounded-md bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] px-3 py-[7px]">
+            <SearchIcon size={14} className="text-[var(--sf-ink-3)] flex-shrink-0" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search settings"
+              className="flex-1 bg-transparent border-none outline-none text-[13px] text-[var(--sf-ink)]"
+              style={{ fontFamily: "var(--sf-font-ui)", padding: 0, boxShadow: "none" }}
+            />
           </div>
-        </aside>
+        </div>
 
-        {/* Main column */}
-        <main className="min-w-0">
-          {/* Profile + Billing cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
-            <ProfileCard user={user} onClick={() => navigate("/settings/account")} />
-            {canEditAccountOwnerSettings(user) && (
-              <BillingCard onClick={() => navigate("/settings/billing")} />
-            )}
-          </div>
-
-          {/* Mobile search */}
-          <div className="md:hidden mb-4">
-            <div
-              className="flex items-center gap-2 rounded-md bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] px-3 py-[7px]"
-            >
-              <SearchIcon size={14} className="text-[var(--sf-ink-3)] flex-shrink-0" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search settings"
-                className="flex-1 bg-transparent border-none outline-none text-[13px] text-[var(--sf-ink)]"
-                style={{ fontFamily: "var(--sf-font-ui)", padding: 0, boxShadow: "none" }}
-              />
+        {/* 3-column section grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-2">
+          {COLUMNS.map((colIds, ci) => (
+            <div key={ci} className="flex flex-col gap-5">
+              {colIds.map((sid) => {
+                const section = sectionById(sid)
+                if (!section || section.items.length === 0) return null
+                return <SectionGroup key={sid} section={section} onClick={(it) => it.to && navigate(it.to)} />
+              })}
             </div>
+          ))}
+        </div>
+
+        {/* Developer toggle for coming-soon items */}
+        {owner && (
+          <div className="mt-6 inline-flex items-center gap-2 text-[11.5px] text-[var(--sf-ink-3)]">
+            <Sparkles size={12} className="text-[var(--sf-amber)]" />
+            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                style={{ width: 13, height: 13, margin: 0, accentColor: "var(--sf-blue)" }}
+              />
+              <span>Show settings that aren't enabled yet</span>
+            </label>
           </div>
-
-          {filteredSections.length === 0 ? (
-            <SfCard>
-              <div className="py-10 text-center text-[12.5px] text-[var(--sf-ink-3)]">
-                No settings match "{search}". Try a broader term.
-              </div>
-            </SfCard>
-          ) : (
-            filteredSections.map((section) => (
-              <div
-                key={section.id}
-                ref={(el) => (sectionRefs.current[section.id] = el)}
-                className="mb-6"
-              >
-                <h2
-                  className="text-[14.5px] font-bold text-[var(--sf-ink)] mb-3"
-                  style={{ letterSpacing: "-0.01em" }}
-                >
-                  {section.title}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {section.items.map((item) => (
-                    <SettingsCard
-                      key={item.id}
-                      item={item}
-                      onClick={() => handleClick(item)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </main>
+        )}
       </div>
-
-      <BusinessDetailsModal isOpen={businessOpen} onClose={() => setBusinessOpen(false)} />
-      <SchedulingBookingModal
-        isOpen={schedulingOpen}
-        onClose={() => setSchedulingOpen(false)}
-        userId={user?.id}
-      />
     </div>
   )
 }
 
-// ── Profile + Billing cards ────────────────────────────────
+// ── Plan banner ────────────────────────────────────────────
 
-const ProfileCard = ({ user, onClick }) => {
-  const name =
-    user?.firstName && user?.lastName
-      ? `${user.firstName} ${user.lastName}`
-      : user?.firstName || user?.email || "User"
-  return (
-    <SfCard
-      padding={0}
-      className="cursor-pointer transition-shadow hover:shadow-md"
-      onClick={onClick}
-      style={{ background: "var(--sf-blue-soft)", border: "1px solid var(--sf-blue-soft-2)" }}
-    >
-      <div className="flex items-center gap-3 p-4">
-        <SfAvatar initials={sfInitials(name)} color="var(--sf-blue)" size={40} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[13.5px] font-semibold text-[var(--sf-ink)] truncate">
-            {name}
-          </div>
-          <div className="text-[11.5px] text-[var(--sf-ink-2)] mt-0.5">
-            Manage your ServiceFlow account
-          </div>
-        </div>
-        <ChevronRight size={16} className="text-[var(--sf-blue-dark)] flex-shrink-0" />
-      </div>
-    </SfCard>
-  )
-}
-
-const BillingCard = ({ onClick }) => (
-  <SfCard
-    padding={0}
-    className="cursor-pointer transition-shadow hover:shadow-md"
-    onClick={onClick}
-  >
-    <div className="flex items-center gap-3 p-4">
-      <div
-        className="w-10 h-10 rounded-md flex items-center justify-center flex-shrink-0"
-        style={{ background: "var(--sf-green-soft)", color: "var(--sf-green-dark)" }}
-      >
-        <BillingIcon size={18} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-[13.5px] font-semibold text-[var(--sf-ink)]">Billing</div>
-        <div className="text-[11.5px] text-[var(--sf-ink-2)] mt-0.5">
-          Manage your plan and billing information
-        </div>
-      </div>
-      <ChevronRight size={16} className="text-[var(--sf-ink-3)] flex-shrink-0" />
-    </div>
-  </SfCard>
-)
-
-// ── Single setting row card ────────────────────────────────
-
-const SettingsCard = ({ item, onClick }) => {
-  const Icon = item.icon || UserIcon
-  const active = item.active !== false
-  return (
-    <SfCard
-      padding={0}
-      className="cursor-pointer transition-shadow hover:shadow-md"
-      onClick={onClick}
-      style={{ opacity: active ? 1 : 0.65 }}
-    >
-      <div className="flex items-start gap-3 p-4">
-        <div
-          className="w-10 h-10 rounded-md flex items-center justify-center flex-shrink-0"
-          style={{
-            background: active ? "var(--sf-blue-soft)" : "var(--sf-panel-soft)",
-            color: active ? "var(--sf-blue-dark)" : "var(--sf-ink-3)",
-          }}
-        >
-          <Icon size={18} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[13px] font-semibold text-[var(--sf-ink)]">
-              {item.title}
-            </span>
-            {active ? (
-              <CheckCircle2 size={12} className="text-[var(--sf-green)] flex-shrink-0" />
-            ) : (
-              <SfTag color="var(--sf-ink-3)" bg="var(--sf-panel-soft)">Soon</SfTag>
-            )}
-          </div>
-          <div className="text-[12px] text-[var(--sf-ink-2)] mt-1 leading-snug">
-            {item.desc}
-          </div>
-        </div>
-        <ChevronRight size={15} className="text-[var(--sf-ink-3)] flex-shrink-0 mt-px" />
-      </div>
-    </SfCard>
-  )
-}
-
-const SectionLabel = ({ children }) => (
+const PlanBanner = ({ onUpgrade }) => (
   <div
-    className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)]"
-    style={{ padding: "4px 10px 8px", letterSpacing: ".06em" }}
+    className="mb-6 rounded-[14px] flex items-center gap-4 flex-wrap"
+    style={{
+      padding: "16px 22px",
+      background: "linear-gradient(90deg, var(--sf-blue) 0%, var(--sf-purple) 100%)",
+      color: "#fff",
+      boxShadow: "0 4px 12px rgba(37, 99, 235, .2)",
+    }}
   >
-    {children}
+    <div
+      className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+      style={{ background: "rgba(255,255,255,.18)" }}
+    >
+      <Sparkles size={16} color="#fff" />
+    </div>
+    <div className="min-w-0 flex-1">
+      <div className="text-[14px] font-bold">
+        You're on Growth · $79 / mo
+      </div>
+      <div className="text-[12.5px] mt-0.5" style={{ color: "rgba(255,255,255,.88)" }}>
+        Unlimited jobs, online booking, custom branding. Upgrade for SLA + dedicated CSM.
+      </div>
+    </div>
+    <button
+      onClick={onUpgrade}
+      className="inline-flex items-center px-3.5 py-1.5 rounded-full"
+      style={{
+        background: "rgba(255,255,255,.16)",
+        color: "#fff",
+        border: "1px solid rgba(255,255,255,.22)",
+        fontSize: 12.5,
+        fontWeight: 600,
+        cursor: "pointer",
+        fontFamily: "var(--sf-font-ui)",
+      }}
+    >
+      See plans
+    </button>
   </div>
 )
+
+// ── Section group ──────────────────────────────────────────
+
+const SectionGroup = ({ section, onClick }) => (
+  <div>
+    <h2
+      className="text-[10.5px] font-bold uppercase text-[var(--sf-ink-3)] mb-2"
+      style={{ letterSpacing: ".08em" }}
+    >
+      {section.title}
+    </h2>
+    <SfCard padding={0} className="overflow-hidden">
+      {section.items.map((it, i) => (
+        <SettingRow
+          key={it.id}
+          item={it}
+          isLast={i === section.items.length - 1}
+          onClick={() => onClick(it)}
+        />
+      ))}
+    </SfCard>
+  </div>
+)
+
+// ── Single row ─────────────────────────────────────────────
+
+const SettingRow = ({ item, isLast, onClick }) => {
+  const Icon = item.icon
+  const disabled = item.comingSoon
+  return (
+    <button
+      onClick={() => !disabled && onClick()}
+      className="w-full text-left flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--sf-panel-alt)]"
+      style={{
+        borderBottom: isLast ? "none" : "1px solid var(--sf-border-soft)",
+        border: "none",
+        background: "transparent",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.55 : 1,
+        fontFamily: "var(--sf-font-ui)",
+      }}
+    >
+      <div
+        className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
+        style={{
+          background: disabled ? "var(--sf-panel-soft)" : "var(--sf-panel-alt)",
+          color: disabled ? "var(--sf-ink-3)" : "var(--sf-ink-2)",
+        }}
+      >
+        <Icon size={16} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[13px] font-semibold text-[var(--sf-ink)]">
+            {item.title}
+          </span>
+          {item.status && (
+            <SfTag color={item.status.color} bg={item.status.bg}>
+              {item.status.label}
+            </SfTag>
+          )}
+          {disabled && (
+            <SfTag color="var(--sf-ink-3)" bg="var(--sf-panel-soft)">Soon</SfTag>
+          )}
+        </div>
+        <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-0.5 truncate">
+          {item.desc}
+        </div>
+      </div>
+      <ChevronRight size={15} className="text-[var(--sf-ink-3)] flex-shrink-0" />
+    </button>
+  )
+}
 
 export default ServiceFlowSettingsV2

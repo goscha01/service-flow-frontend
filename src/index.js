@@ -76,6 +76,7 @@ import CreateJobPage from "./pages/createjob"
 import ServiceFlowEstimatePage from "./pages/bookableestimate"
 import BrandingSettings from "./pages/settings/branding"
 import AccountDetails from "./pages/settings/account-details"
+import BusinessProfile from "./pages/settings/business-profile"
 import BillingSettings from "./pages/settings/billing"
 import TwilioSettings from "./pages/settings/twilio"
 import StripeConnectSettings from "./pages/settings/stripe-connect"
@@ -195,6 +196,7 @@ root.render(
       {/* Settings Routes */}
       <Route path="/settings" element={<ServiceFlowSettings />} />
       <Route path="/settings/account" element={<AccountDetails />} />
+      <Route path="/settings/business-profile" element={<BusinessProfile />} />
       <Route path="/settings/billing" element={<BillingSettings />} />
       <Route path="/settings/twilio" element={<TwilioSettings />} />
       <Route path="/settings/sms-settings" element={<TwilioSettings />} />
