@@ -12,6 +12,8 @@ import {
   Map as MapIcon,
   Check,
   Minus,
+  X,
+  Calendar as CalendarIcon,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useLocationScope, filterByLocation } from "../context/LocationContext"
@@ -123,6 +125,37 @@ const durationMinutes = (job) => {
   return Number.isFinite(n) && n > 0 ? n : 60
 }
 
+// Group overlapping jobs in the same day column into clusters. A
+// cluster spans the union of its members' timespans; a single job
+// renders normally, two or more render as a stacked mini-row card
+// instead of fighting for horizontal lanes.
+//   See ADDON_schedule_overlap_and_assign.md Part 1.
+const layoutDay = (dayJobs) => {
+  const sorted = [...dayJobs]
+    .map((j) => {
+      const d = jobStartDateTime(j)
+      if (!d) return null
+      const start = d.getHours() * 60 + d.getMinutes()
+      const end = start + durationMinutes(j)
+      return { job: j, start, end }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.start - b.start)
+
+  const clusters = []
+  sorted.forEach(({ job, start, end }) => {
+    const cl = clusters.find((c) => start < c.end && end > c.start)
+    if (cl) {
+      cl.jobs.push({ job, start, end })
+      cl.start = Math.min(cl.start, start)
+      cl.end = Math.max(cl.end, end)
+    } else {
+      clusters.push({ start, end, jobs: [{ job, start, end }] })
+    }
+  })
+  return clusters
+}
+
 const sameDay = (a, b) =>
   a && b &&
   a.getFullYear() === b.getFullYear() &&
@@ -207,6 +240,11 @@ const ScheduleV2 = () => {
   const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedTeams, setSelectedTeams] = useState(null) // null = all
+  // Manage-shift modal — opened from any Availability cell or daily
+  // tile. Shape: { teamId, dayIdx?, jobId?, openSlot? } or null.
+  const [manageShift, setManageShift] = useState(null)
+  // Availability sub-tab: weekly grid vs daily windows
+  const [availabilitySubTab, setAvailabilitySubTab] = useState("weekly")
 
   // URL sync
   useEffect(() => {
@@ -459,7 +497,11 @@ const ScheduleV2 = () => {
             cleaners={teamMembers}
             jobs={teamFilteredJobs}
             cleanerColor={cleanerColor}
+            resolveName={resolveCleanerName}
             anchor={anchor}
+            subTab={availabilitySubTab}
+            setSubTab={setAvailabilitySubTab}
+            onOpenManageShift={(payload) => setManageShift(payload)}
           />
         </div>
       )}
@@ -492,6 +534,22 @@ const ScheduleV2 = () => {
           />
         </div>
       )}
+
+      <ManageShiftModal
+        open={!!manageShift}
+        payload={manageShift}
+        onClose={() => setManageShift(null)}
+        jobs={scopedJobs}
+        cleaners={teamMembers}
+        cleanerColor={cleanerColor}
+        resolveName={resolveCleanerName}
+        anchor={anchor}
+        onMutated={fetchData}
+        onOpenJob={onJobClick}
+        onNewJob={(teamId) =>
+          navigate(teamId ? `/createjob?teamMemberId=${teamId}` : "/createjob")
+        }
+      />
     </div>
   )
 }
@@ -794,17 +852,28 @@ const WeekView = ({ anchor, jobs, cleanerColor, onJobClick }) => {
                   />
                 </div>
               )}
-              {dayJobs.map((j) => (
-                <ScheduleBlock
-                  key={j.id}
-                  job={j}
-                  startHr={startHr}
-                  endHr={endHr}
-                  cleanerColor={cleanerColor}
-                  compact
-                  onClick={() => onJobClick(j)}
-                />
-              ))}
+              {layoutDay(dayJobs).map((cluster, ci) =>
+                cluster.jobs.length === 1 ? (
+                  <ScheduleBlock
+                    key={cluster.jobs[0].job.id}
+                    job={cluster.jobs[0].job}
+                    startHr={startHr}
+                    endHr={endHr}
+                    cleanerColor={cleanerColor}
+                    compact
+                    onClick={() => onJobClick(cluster.jobs[0].job)}
+                  />
+                ) : (
+                  <ClusterCard
+                    key={`cluster-${dayIdx}-${ci}`}
+                    cluster={cluster}
+                    startHr={startHr}
+                    endHr={endHr}
+                    cleanerColor={cleanerColor}
+                    onJobClick={onJobClick}
+                  />
+                )
+              )}
             </div>
           )
         })}
@@ -1352,9 +1421,198 @@ const customerLabelForJob = (j) => {
   return composed || j.customer?.name || j.customer_email || "Customer"
 }
 
+const minsToLabel = (m) => {
+  const h = Math.floor(m / 60)
+  const mm = m % 60
+  const period = h >= 12 ? "p" : "a"
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return mm === 0 ? `${h12}${period}` : `${h12}:${String(mm).padStart(2, "0")}${period}`
+}
+
+// Cluster card — rendered when 2+ jobs overlap in the same day column.
+// Spans the union timespan at full column width and stacks each job
+// as a compact mini-row. See ADDON_schedule_overlap_and_assign.md.
+const ClusterCard = ({ cluster, startHr, endHr, cleanerColor, onJobClick }) => {
+  const top = ((cluster.start / 60 - startHr) / (endHr - startHr)) * 100
+  const height = (((cluster.end - cluster.start) / 60) / (endHr - startHr)) * 100
+  if (top < 0 || top > 100) return null
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: `${top}%`,
+        height: `${Math.max(height, 4)}%`,
+        left: 4,
+        right: 4,
+        background: "var(--sf-panel)",
+        borderLeft: "3px solid #0F172A",
+        border: "1px solid var(--sf-border-soft)",
+        borderRadius: 6,
+        boxShadow: "var(--sf-shadow)",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 2,
+        fontFamily: "var(--sf-font-ui)",
+      }}
+    >
+      {/* Header strip */}
+      <div
+        style={{
+          padding: "3px 7px",
+          background: "var(--sf-panel-alt)",
+          borderBottom: "1px solid var(--sf-border-soft)",
+          display: "flex",
+          alignItems: "center",
+          flexShrink: 0,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 9.5,
+            fontWeight: 600,
+            color: "var(--sf-ink-2)",
+            fontFamily: "var(--sf-font-mono)",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {minsToLabel(cluster.start)}–{minsToLabel(cluster.end)}
+        </span>
+        <div style={{ flex: 1 }} />
+        <span
+          style={{
+            fontSize: 9.5,
+            fontWeight: 700,
+            color: "#fff",
+            background: "#0F172A",
+            padding: "1px 6px",
+            borderRadius: 3,
+            fontFamily: "var(--sf-font-mono)",
+            letterSpacing: ".02em",
+          }}
+        >
+          {cluster.jobs.length} jobs
+        </span>
+      </div>
+      {/* Body */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
+        {cluster.jobs.map(({ job, start }) => {
+          const assignees = assigneesFor(job)
+          const color = assignees.length > 0 ? cleanerColor(assignees[0].id) : "#DC2626"
+          const live = isLiveJob(job)
+          const first = (customerLabelForJob(job) || "").split(" ")[0] || "—"
+          const teamLetter = assignees[0]?.name
+            ? assignees[0].name.charAt(0).toUpperCase()
+            : assignees.length === 0
+            ? "?"
+            : "·"
+          return (
+            <button
+              key={job.id}
+              onClick={(e) => { e.stopPropagation(); onJobClick(job) }}
+              className="sf-timeline-block"
+              style={{
+                display: "flex",
+                alignItems: "stretch",
+                gap: 5,
+                padding: "2px 6px",
+                background: "transparent",
+                border: "none",
+                borderTop: "1px solid var(--sf-border-soft)",
+                cursor: "pointer",
+                fontFamily: "var(--sf-font-ui)",
+                textAlign: "left",
+                minHeight: 0,
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  width: 3,
+                  alignSelf: "stretch",
+                  background: color,
+                  borderRadius: 1,
+                  flexShrink: 0,
+                }}
+              />
+              {live && (
+                <span
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: 3,
+                    background: color,
+                    alignSelf: "center",
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+              <span
+                style={{
+                  fontSize: 9.5,
+                  color: "var(--sf-ink-3)",
+                  fontFamily: "var(--sf-font-mono)",
+                  fontVariantNumeric: "tabular-nums",
+                  alignSelf: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {minsToLabel(start)}
+              </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "var(--sf-ink)",
+                  alignSelf: "center",
+                  flex: 1,
+                  minWidth: 0,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {first}
+              </span>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontFamily: "var(--sf-font-mono)",
+                  color: "var(--sf-ink-3)",
+                  alignSelf: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {teamLetter}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Availability view ──────────────────────────────────────
 
-const AvailabilityView = ({ cleaners, jobs, cleanerColor, anchor }) => {
+const AvailabilityView = ({
+  cleaners,
+  jobs,
+  cleanerColor,
+  resolveName,
+  anchor,
+  subTab,
+  setSubTab,
+  onOpenManageShift,
+}) => {
   const weekStart = useMemo(() => startOfWeek(anchor), [anchor])
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -1447,6 +1705,53 @@ const AvailabilityView = ({ cleaners, jobs, cleanerColor, anchor }) => {
         />
       </div>
 
+      {/* Sub-tab toggle: Weekly shifts vs Daily windows */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div
+          className="flex bg-[var(--sf-panel-soft)] rounded-md"
+          style={{ padding: 2 }}
+        >
+          {[
+            { id: "weekly", label: "Weekly shifts" },
+            { id: "daily",  label: "Daily windows" },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => setSubTab?.(opt.id)}
+              style={{
+                padding: "4px 11px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                background: subTab === opt.id ? "var(--sf-panel)" : "transparent",
+                color: subTab === opt.id ? "var(--sf-ink)" : "var(--sf-ink-2)",
+                border: "none",
+                borderRadius: 5,
+                cursor: "pointer",
+                fontFamily: "var(--sf-font-ui)",
+                boxShadow: subTab === opt.id ? "0 1px 2px rgba(15,23,42,.08)" : "none",
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1" />
+        <span className="text-[11px] text-[var(--sf-ink-3)] italic">
+          Click any cell or tile to assign / reassign jobs
+        </span>
+      </div>
+
+      {subTab === "daily" ? (
+        <DailyWindowsView
+          cleaners={cleaners}
+          jobs={jobs}
+          cleanerColor={cleanerColor}
+          resolveName={resolveName}
+          anchor={anchor}
+          onOpenManageShift={onOpenManageShift}
+        />
+      ) : (
+      <>
       {/* Grid */}
       <SfCard padding={0}>
         <div
@@ -1561,7 +1866,10 @@ const AvailabilityView = ({ cleaners, jobs, cleanerColor, anchor }) => {
                       background: isToday ? "#FAFCFF" : "transparent",
                     }}
                   >
-                    <div
+                    <button
+                      onClick={() =>
+                        onOpenManageShift?.({ teamId: id, dayIdx: di, day: days[di] })
+                      }
                       style={{
                         width: "100%",
                         padding: "9px 8px",
@@ -1576,6 +1884,15 @@ const AvailabilityView = ({ cleaners, jobs, cleanerColor, anchor }) => {
                         flexDirection: "column",
                         alignItems: "center",
                         gap: 3,
+                        cursor: "pointer",
+                        fontFamily: "var(--sf-font-ui)",
+                        transition: "transform .1s, box-shadow .1s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.boxShadow = "var(--sf-shadow)"
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.boxShadow = "none"
                       }}
                     >
                       <Icon size={12} />
@@ -1585,7 +1902,7 @@ const AvailabilityView = ({ cleaners, jobs, cleanerColor, anchor }) => {
                           {cell.jobs} job{cell.jobs === 1 ? "" : "s"}
                         </span>
                       )}
-                    </div>
+                    </button>
                   </div>
                 )
               })}
@@ -1593,6 +1910,639 @@ const AvailabilityView = ({ cleaners, jobs, cleanerColor, anchor }) => {
           )
         })}
       </SfCard>
+      </>
+      )}
+    </div>
+  )
+}
+
+// ── Daily windows view ─────────────────────────────────────
+
+// Per-cleaner horizontal time strip for a single day. Job tiles
+// surface real bookings; amber gaps surface open windows where a
+// new job could be assigned. Both kinds of tile open the manage-
+// shift modal pre-focused on what was clicked.
+const DailyWindowsView = ({
+  cleaners,
+  jobs,
+  cleanerColor,
+  resolveName,
+  anchor,
+  onOpenManageShift,
+}) => {
+  const day = useMemo(() => startOfDay(anchor), [anchor])
+  const dayJobs = useMemo(
+    () => jobs.filter((j) => {
+      const d = jobStartDateTime(j)
+      return d && sameDay(startOfDay(d), day)
+    }),
+    [jobs, day]
+  )
+  const startHr = 7
+  const endHr = 20
+  const totalMins = (endHr - startHr) * 60
+
+  // Build per-cleaner job spans + gaps (8a–8p window)
+  const rows = useMemo(() => {
+    return cleaners.map((m) => {
+      const id = String(m.id)
+      const myJobs = dayJobs
+        .filter((j) => assigneesFor(j).some((a) => a.id === id))
+        .map((j) => {
+          const d = jobStartDateTime(j)
+          const start = d.getHours() * 60 + d.getMinutes()
+          return { job: j, start, end: start + durationMinutes(j) }
+        })
+        .sort((a, b) => a.start - b.start)
+      const blocks = []
+      const winStart = startHr * 60
+      const winEnd = endHr * 60
+      let cursor = winStart
+      myJobs.forEach((entry) => {
+        const s = Math.max(entry.start, winStart)
+        const e = Math.min(entry.end, winEnd)
+        if (s > cursor) {
+          blocks.push({ kind: "gap", start: cursor, end: s })
+        }
+        if (e > s) {
+          blocks.push({ kind: "job", start: s, end: e, job: entry.job })
+        }
+        cursor = Math.max(cursor, e)
+      })
+      if (cursor < winEnd) blocks.push({ kind: "gap", start: cursor, end: winEnd })
+      return { id, member: m, blocks }
+    })
+  }, [cleaners, dayJobs])
+
+  if (cleaners.length === 0) return null
+
+  return (
+    <SfCard padding={0}>
+      <div
+        className="flex items-center"
+        style={{ padding: "14px 18px", borderBottom: "1px solid var(--sf-border-soft)" }}
+      >
+        <div>
+          <div className="text-[13.5px] font-semibold text-[var(--sf-ink)]">
+            Daily windows
+          </div>
+          <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-px">
+            {day.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} · click any tile to manage
+          </div>
+        </div>
+      </div>
+
+      {/* Hour ruler */}
+      <div className="flex border-b border-[var(--sf-border-soft)] bg-[var(--sf-panel-alt)]">
+        <div
+          style={{
+            width: 180,
+            padding: "8px 14px",
+            borderRight: "1px solid var(--sf-border-soft)",
+          }}
+          className="text-[10.5px] text-[var(--sf-ink-3)] font-bold uppercase"
+        >
+          Cleaner
+        </div>
+        <div className="relative flex-1" style={{ minHeight: 26 }}>
+          {Array.from({ length: endHr - startHr + 1 }, (_, i) => {
+            const h = startHr + i
+            return (
+              <div
+                key={h}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: `${(i / (endHr - startHr)) * 100}%`,
+                  paddingLeft: 4,
+                  fontSize: 9.5,
+                  color: "var(--sf-ink-3)",
+                  fontWeight: 600,
+                  fontFamily: "var(--sf-font-mono)",
+                  display: "flex",
+                  alignItems: "center",
+                  borderLeft: i === 0 ? "none" : "1px solid var(--sf-border-soft)",
+                }}
+              >
+                {formatHourLabel(h)}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Rows */}
+      {rows.map(({ id, member, blocks }, ri) => {
+        const color = cleanerColor(id)
+        const name =
+          member.name ||
+          `${member.first_name || ""} ${member.last_name || ""}`.trim() ||
+          resolveName?.(id, "") ||
+          "Cleaner"
+        return (
+          <div
+            key={id}
+            className="flex"
+            style={{
+              borderBottom: ri < rows.length - 1 ? "1px solid var(--sf-border-soft)" : "none",
+              minHeight: 56,
+            }}
+          >
+            <div
+              style={{
+                width: 180,
+                padding: "10px 14px",
+                borderRight: "1px solid var(--sf-border-soft)",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <SfAvatar initials={sfInitials(name)} color={color} size={26} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-semibold text-[var(--sf-ink)] truncate">
+                  {name}
+                </div>
+                <div className="text-[10px] text-[var(--sf-ink-3)] truncate">
+                  {blocks.filter((b) => b.kind === "job").length} job
+                  {blocks.filter((b) => b.kind === "job").length === 1 ? "" : "s"}
+                </div>
+              </div>
+            </div>
+            <div className="relative flex-1" style={{ padding: 6 }}>
+              {blocks.map((b, bi) => {
+                const left = ((b.start - startHr * 60) / totalMins) * 100
+                const width = ((b.end - b.start) / totalMins) * 100
+                if (b.kind === "gap") {
+                  return (
+                    <button
+                      key={bi}
+                      onClick={() =>
+                        onOpenManageShift?.({
+                          teamId: id,
+                          dayIdx: 0,
+                          day,
+                          openSlot: { start: b.start, end: b.end },
+                        })
+                      }
+                      style={{
+                        position: "absolute",
+                        top: 6,
+                        bottom: 6,
+                        left: `calc(${left}% + 1px)`,
+                        width: `calc(${width}% - 2px)`,
+                        background: "var(--sf-amber-soft)",
+                        border: "1px dashed rgba(217,119,6,.45)",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        color: "var(--sf-amber-dark)",
+                        fontSize: 10,
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontFamily: "var(--sf-font-ui)",
+                      }}
+                      title={`Open ${minsToLabel(b.start)}–${minsToLabel(b.end)}`}
+                    >
+                      {width > 8 && (
+                        <span style={{ fontFamily: "var(--sf-font-mono)", fontVariantNumeric: "tabular-nums" }}>
+                          {minsToLabel(b.start)}–{minsToLabel(b.end)}
+                        </span>
+                      )}
+                    </button>
+                  )
+                }
+                const customer = customerLabelForJob(b.job).split(" ")[0]
+                return (
+                  <button
+                    key={bi}
+                    onClick={() =>
+                      onOpenManageShift?.({ teamId: id, dayIdx: 0, day, jobId: b.job.id })
+                    }
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      bottom: 6,
+                      left: `calc(${left}% + 1px)`,
+                      width: `calc(${width}% - 2px)`,
+                      background: "#fff",
+                      borderLeft: `3px solid ${color}`,
+                      border: `1px solid ${color}40`,
+                      borderRadius: 6,
+                      padding: "3px 6px",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      textAlign: "left",
+                      overflow: "hidden",
+                      fontFamily: "var(--sf-font-ui)",
+                      boxShadow: "var(--sf-shadow)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 9.5,
+                        fontFamily: "var(--sf-font-mono)",
+                        color: "var(--sf-ink-3)",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {minsToLabel(b.start)}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: "var(--sf-ink)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {customer}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </SfCard>
+  )
+}
+
+// ── Manage shift modal ─────────────────────────────────────
+
+// New modal kind per ADDON_schedule_overlap_and_assign.md Part 2.
+// Opened from any Availability cell or daily tile; shows 3 tabs of
+// jobs for the selected team+day and surfaces the Assign / Reassign
+// / Pull / Unassign actions.
+const ManageShiftModal = ({
+  open, payload, onClose, jobs, cleaners, cleanerColor,
+  resolveName, anchor, onMutated, onOpenJob, onNewJob,
+}) => {
+  const [subTab, setSubTab] = useState("assigned")
+  const [busy, setBusy] = useState(false)
+
+  // Reset tab whenever payload changes — if launched from an open
+  // slot we default to "unassigned"; if from a job we land on the
+  // tab matching that job's current assignment.
+  useEffect(() => {
+    if (!payload) return
+    if (payload.openSlot) setSubTab("unassigned")
+    else if (payload.jobId) {
+      const j = jobs.find((x) => String(x.id) === String(payload.jobId))
+      const ids = j ? assigneesFor(j).map((a) => a.id) : []
+      if (ids.length === 0) setSubTab("unassigned")
+      else if (ids.includes(String(payload.teamId))) setSubTab("assigned")
+      else setSubTab("other")
+    } else {
+      setSubTab("assigned")
+    }
+  }, [payload, jobs])
+
+  if (!open || !payload) return null
+  const teamId = String(payload.teamId)
+  const day = payload.day || startOfDay(anchor)
+  const team = cleaners.find((m) => String(m.id) === teamId)
+  const teamName =
+    team?.name ||
+    `${team?.first_name || ""} ${team?.last_name || ""}`.trim() ||
+    resolveName?.(teamId, "") ||
+    `Cleaner ${teamId}`
+  const teamColor = cleanerColor(teamId)
+
+  // Day-filtered job buckets
+  const dayJobs = jobs.filter((j) => {
+    const d = jobStartDateTime(j)
+    return d && sameDay(startOfDay(d), day)
+  })
+  const assigned = dayJobs.filter((j) =>
+    assigneesFor(j).some((a) => a.id === teamId)
+  )
+  const unassigned = dayJobs.filter((j) => assigneesFor(j).length === 0)
+  const others = dayJobs.filter(
+    (j) => assigneesFor(j).length > 0 && !assigneesFor(j).some((a) => a.id === teamId)
+  )
+
+  // If launched from an open slot, narrow Unassigned to jobs whose
+  // duration fits the window.
+  const slotFiltered = payload.openSlot
+    ? unassigned.filter(
+        (j) => durationMinutes(j) <= payload.openSlot.end - payload.openSlot.start
+      )
+    : unassigned
+
+  const counts = { assigned: assigned.length, unassigned: slotFiltered.length, other: others.length }
+  const list = subTab === "assigned" ? assigned : subTab === "unassigned" ? slotFiltered : others
+
+  const updateAssignment = async (job, nextPrimaryId) => {
+    setBusy(true)
+    try {
+      // Single-cleaner reassign: PUT /jobs/:id with team_member_id.
+      // Multi-cleaner jobs would need /assign-multiple; that path is
+      // covered by the dedicated job-detail page.
+      await jobsAPI.update(job.id, { team_member_id: nextPrimaryId })
+      onMutated?.()
+    } catch (e) {
+      alert(e?.response?.data?.error || e?.message || "Couldn't update the assignment.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onAssignToTeam = (job) => updateAssignment(job, parseInt(teamId, 10) || teamId)
+  const onPullToTeam = (job) => updateAssignment(job, parseInt(teamId, 10) || teamId)
+  const onUnassign = (job) => updateAssignment(job, null)
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(15,23,42,.4)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        fontFamily: "var(--sf-font-ui)",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 720,
+          maxHeight: "85vh",
+          background: "var(--sf-panel)",
+          borderRadius: 14,
+          border: "1px solid var(--sf-border-soft)",
+          boxShadow: "var(--sf-shadow-l)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-start gap-3"
+          style={{ padding: "14px 18px", borderBottom: "1px solid var(--sf-border-soft)" }}
+        >
+          <div
+            className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
+            style={{ background: `${teamColor}1a`, color: teamColor }}
+          >
+            <CalendarIcon size={16} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[14px] font-bold text-[var(--sf-ink)]">
+              Manage shift · {teamName}
+            </div>
+            <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-px">
+              {day.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+              {payload.openSlot && (
+                <> · open slot {minsToLabel(payload.openSlot.start)}–{minsToLabel(payload.openSlot.end)}</>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "transparent",
+              border: "none",
+              padding: 4,
+              cursor: "pointer",
+              color: "var(--sf-ink-3)",
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-[var(--sf-border-soft)] px-2" style={{ background: "var(--sf-panel-alt)" }}>
+          {[
+            { id: "assigned",   label: `Assigned to ${teamName.split(" ")[0]}`, count: counts.assigned },
+            { id: "unassigned", label: "Unassigned",  count: counts.unassigned },
+            { id: "other",      label: "Other teams", count: counts.other },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSubTab(t.id)}
+              style={{
+                padding: "10px 12px",
+                background: "transparent",
+                border: "none",
+                borderBottom: subTab === t.id ? "2px solid var(--sf-blue)" : "2px solid transparent",
+                fontSize: 12.5,
+                fontWeight: subTab === t.id ? 700 : 500,
+                color: subTab === t.id ? "var(--sf-blue-dark)" : "var(--sf-ink-2)",
+                cursor: "pointer",
+                fontFamily: "var(--sf-font-ui)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {t.label}
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  background: subTab === t.id ? "var(--sf-blue-soft)" : "var(--sf-panel-soft)",
+                  color: subTab === t.id ? "var(--sf-blue-dark)" : "var(--sf-ink-3)",
+                  padding: "1px 6px",
+                  borderRadius: 99,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {list.length === 0 ? (
+            <div className="py-10 text-center text-[12.5px] text-[var(--sf-ink-3)]">
+              {subTab === "assigned"
+                ? `No jobs currently assigned to ${teamName.split(" ")[0]} on this day.`
+                : subTab === "unassigned"
+                ? payload.openSlot
+                  ? "No unassigned jobs fit this open slot."
+                  : "Every job today already has a cleaner."
+                : "No jobs assigned to other teams on this day."}
+            </div>
+          ) : (
+            list.map((j, i) => (
+              <ShiftJobRow
+                key={j.id}
+                job={j}
+                isLast={i === list.length - 1}
+                teamColor={teamColor}
+                cleanerColor={cleanerColor}
+                resolveName={resolveName}
+                subTab={subTab}
+                teamName={teamName}
+                busy={busy}
+                highlight={String(j.id) === String(payload.jobId)}
+                onOpen={() => onOpenJob?.(j)}
+                onAssign={() => onAssignToTeam(j)}
+                onPull={() => onPullToTeam(j)}
+                onUnassign={() => onUnassign(j)}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex items-center"
+          style={{
+            padding: "10px 14px",
+            background: "var(--sf-panel-alt)",
+            borderTop: "1px solid var(--sf-border-soft)",
+          }}
+        >
+          <span className="text-[11px] text-[var(--sf-ink-3)] italic">
+            Tap a job to manage · drag to move time (coming soon)
+          </span>
+          <div className="flex-1" />
+          <SfButton variant="ghost" size="sm" onClick={onClose}>Close</SfButton>
+          <SfButton
+            variant="primary"
+            size="sm"
+            icon={Plus}
+            onClick={() => onNewJob?.(teamId)}
+          >
+            New job for {teamName.split(" ")[0]}
+          </SfButton>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const ShiftJobRow = ({
+  job, isLast, teamColor, cleanerColor, resolveName, subTab, teamName,
+  busy, highlight, onOpen, onAssign, onPull, onUnassign,
+}) => {
+  const d = jobStartDateTime(job)
+  const timeLabel = d ? formatJobTime(job) : "—"
+  const dur = durationMinutes(job)
+  const customer = customerLabelForJob(job)
+  const service = job.service_name || job.service?.name || job.title || "Service"
+  const addr = job.service_address || job.customer_address || ""
+  const value = parseFloat(job.total || job.service_price || 0) || 0
+  const live = isLiveJob(job)
+  const assignees = assigneesFor(job)
+  const currentTeamId = assignees[0]?.id
+  const currentTeamColor = currentTeamId ? cleanerColor(currentTeamId) : "#DC2626"
+  const currentTeamName =
+    currentTeamId ? resolveName?.(currentTeamId, "") || `Cleaner ${currentTeamId}` : null
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "stretch",
+        gap: 12,
+        padding: "12px 16px",
+        borderBottom: isLast ? "none" : "1px solid var(--sf-border-soft)",
+        background: highlight ? "var(--sf-blue-soft)" : "transparent",
+        borderLeft: `3px solid ${subTab === "assigned" ? teamColor : currentTeamColor}`,
+      }}
+    >
+      <div style={{ width: 56, textAlign: "center", flexShrink: 0 }}>
+        <div
+          className="text-[13px] font-bold text-[var(--sf-ink)]"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {timeLabel}
+        </div>
+        <div className="text-[10px] text-[var(--sf-ink-3)] mt-px">{dur}m</div>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[13px] font-bold text-[var(--sf-ink)]">{customer}</span>
+          <span
+            className="text-[10.5px] text-[var(--sf-ink-3)]"
+            style={{ fontFamily: "var(--sf-font-mono)" }}
+          >
+            #{job.id}
+          </span>
+          {job.is_recurring && (
+            <SfTag color="var(--sf-purple)" bg="var(--sf-purple-soft)">↻ Recurring</SfTag>
+          )}
+          {live && (
+            <SfTag color="var(--sf-green-dark)" bg="var(--sf-green-soft)">Live</SfTag>
+          )}
+        </div>
+        <div className="text-[11.5px] text-[var(--sf-ink-2)] mt-0.5 truncate">
+          {service}
+        </div>
+        {addr && (
+          <div className="text-[11px] text-[var(--sf-ink-3)] mt-px inline-flex items-center gap-1 max-w-full">
+            <MapPin size={11} className="flex-shrink-0" />
+            <span className="truncate">{addr}</span>
+          </div>
+        )}
+        {currentTeamId && subTab !== "assigned" && (
+          <div className="text-[11px] text-[var(--sf-ink-3)] mt-1 inline-flex items-center gap-1">
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: currentTeamColor }}
+            />
+            Currently: {currentTeamName}
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+        <div
+          className="text-[13px] font-semibold text-[var(--sf-ink)]"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          ${Math.round(value).toLocaleString()}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <SfButton variant="ghost" size="sm" onClick={onOpen}>
+            View
+          </SfButton>
+          {subTab === "assigned" && (
+            <>
+              <SfButton
+                variant="ghost"
+                size="sm"
+                onClick={onUnassign}
+                disabled={busy}
+                style={{ color: "var(--sf-red-dark)" }}
+              >
+                Unassign
+              </SfButton>
+            </>
+          )}
+          {subTab === "unassigned" && (
+            <SfButton variant="primary" size="sm" onClick={onAssign} disabled={busy}>
+              Assign
+            </SfButton>
+          )}
+          {subTab === "other" && (
+            <SfButton variant="secondary" size="sm" onClick={onPull} disabled={busy}>
+              Pull to {teamName.split(" ")[0]}
+            </SfButton>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
