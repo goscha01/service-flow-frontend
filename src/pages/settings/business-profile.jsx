@@ -1,19 +1,23 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   Mail as MailIcon,
   Phone as PhoneIcon,
   Globe as GlobeIcon,
   Upload as UploadIcon,
-  X as XIcon,
   Tag as TagIcon,
+  AlertTriangle,
+  Trash2,
+  UserCog,
+  Loader2,
 } from "lucide-react"
 import { businessDetailsAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import { useTimeFormat } from "../../context/TimeFormatContext"
 import SettingsRailLayout from "../../components/settings-rail-layout"
-import { SfCard, SfCardHeader } from "../../components/sf-primitives"
+import { SfCard, SfCardHeader, SfButton } from "../../components/sf-primitives"
 
 /**
  * Business profile sub-page (was the Business Details modal). Identity
@@ -207,6 +211,8 @@ const BusinessProfile = () => {
                   value={form.businessName}
                   onChange={(v) => update("businessName", v)}
                   placeholder="e.g. Sparkle Cleaning Co."
+                  name="organization"
+                  autoComplete="organization"
                 />
               </Field>
 
@@ -263,6 +269,9 @@ const BusinessProfile = () => {
                   placeholder="hello@yourbusiness.com"
                   icon={MailIcon}
                   type="email"
+                  name="businessEmail"
+                  autoComplete="work email"
+                  inputMode="email"
                 />
               </Field>
               <Field label="Business phone">
@@ -272,6 +281,9 @@ const BusinessProfile = () => {
                   placeholder="(555) 555-0000"
                   icon={PhoneIcon}
                   type="tel"
+                  name="businessPhone"
+                  autoComplete="tel"
+                  inputMode="tel"
                 />
               </Field>
               <Field label="Website">
@@ -280,6 +292,10 @@ const BusinessProfile = () => {
                   onChange={(v) => update("website", v)}
                   placeholder="yourbusiness.com"
                   icon={GlobeIcon}
+                  type="url"
+                  name="website"
+                  autoComplete="url"
+                  inputMode="url"
                 />
               </Field>
               <Field label="Customer support email">
@@ -289,6 +305,9 @@ const BusinessProfile = () => {
                   placeholder="support@yourbusiness.com"
                   icon={MailIcon}
                   type="email"
+                  name="supportEmail"
+                  autoComplete="email"
+                  inputMode="email"
                 />
               </Field>
             </div>
@@ -306,6 +325,8 @@ const BusinessProfile = () => {
                   value={form.location}
                   onChange={(v) => update("location", v)}
                   placeholder="123 Main Street, City, ST 00000"
+                  name="businessAddress"
+                  autoComplete="street-address"
                 />
               </Field>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -372,11 +393,213 @@ const BusinessProfile = () => {
               </div>
             </div>
           </SfCard>
+
+          {/* Danger zone */}
+          <DangerZone />
         </div>
       )}
     </SettingsRailLayout>
   )
 }
+
+// ── Danger zone ────────────────────────────────────────────
+
+const DangerZone = () => {
+  const navigate = useNavigate()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmTransfer, setConfirmTransfer] = useState(false)
+  return (
+    <>
+      <SfCard
+        padding={0}
+        style={{
+          border: "1px solid rgba(220,38,38,.25)",
+          background: "rgba(254,242,242,.5)",
+        }}
+      >
+        <div
+          className="flex items-center gap-2"
+          style={{
+            padding: "14px 18px",
+            borderBottom: "1px solid rgba(220,38,38,.18)",
+          }}
+        >
+          <AlertTriangle size={15} className="text-[var(--sf-red-dark)]" />
+          <span className="text-[13.5px] font-bold text-[var(--sf-red-dark)]">
+            Danger zone
+          </span>
+        </div>
+
+        {/* Transfer ownership */}
+        <div
+          className="flex items-center gap-4 flex-wrap"
+          style={{ padding: "16px 18px", borderBottom: "1px solid rgba(220,38,38,.12)" }}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
+              Transfer ownership
+            </div>
+            <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-0.5">
+              Move this business to another owner account
+            </div>
+          </div>
+          <SfButton
+            variant="secondary"
+            size="sm"
+            icon={UserCog}
+            onClick={() => setConfirmTransfer(true)}
+          >
+            Transfer…
+          </SfButton>
+        </div>
+
+        {/* Delete business */}
+        <div
+          className="flex items-center gap-4 flex-wrap"
+          style={{ padding: "16px 18px" }}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold text-[var(--sf-ink)]">
+              Delete business
+            </div>
+            <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-0.5">
+              Permanently delete this business and all its data. This cannot be undone.
+            </div>
+          </div>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="inline-flex items-center gap-1.5"
+            style={{
+              padding: "7px 14px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: "var(--sf-red)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontFamily: "var(--sf-font-ui)",
+            }}
+          >
+            <Trash2 size={13} />
+            Delete business
+          </button>
+        </div>
+      </SfCard>
+
+      {confirmTransfer && (
+        <ConfirmModal
+          title="Transfer ownership"
+          body="Ownership transfer requires an admin handoff and isn't self-serve yet. Contact support@service-flow.pro to start the process."
+          confirmLabel="Email support"
+          danger={false}
+          onClose={() => setConfirmTransfer(false)}
+          onConfirm={() => {
+            window.location.href = "mailto:support@service-flow.pro?subject=Transfer ownership request"
+            setConfirmTransfer(false)
+          }}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete this business?"
+          body="This will permanently delete the business and ALL of its data — jobs, customers, invoices, communications. There's no undo. To proceed, email support@service-flow.pro with the subject 'Delete account'."
+          confirmLabel="Email support"
+          danger
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            window.location.href = "mailto:support@service-flow.pro?subject=Delete account"
+            setConfirmDelete(false)
+          }}
+        />
+      )}
+    </>
+  )
+
+  // Lint: navigate is intentionally available for future direct routes
+  // (e.g. /settings/billing) — keep the binding even if unused here.
+  // eslint-disable-next-line no-unused-expressions
+  void navigate
+}
+
+const ConfirmModal = ({ title, body, confirmLabel, danger, onClose, onConfirm }) => (
+  <div
+    onClick={onClose}
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 100,
+      background: "rgba(15,23,42,.4)",
+      backdropFilter: "blur(4px)",
+      WebkitBackdropFilter: "blur(4px)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+      fontFamily: "var(--sf-font-ui)",
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "100%",
+        maxWidth: 420,
+        background: "var(--sf-panel)",
+        borderRadius: 14,
+        border: "1px solid var(--sf-border-soft)",
+        boxShadow: "var(--sf-shadow-l)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        className="flex items-start gap-3"
+        style={{ padding: "16px 18px", borderBottom: "1px solid var(--sf-border-soft)" }}
+      >
+        {danger && (
+          <div
+            className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
+            style={{ background: "var(--sf-red-soft)", color: "var(--sf-red-dark)" }}
+          >
+            <AlertTriangle size={16} />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-bold text-[var(--sf-ink)]">{title}</div>
+          <div className="text-[12.5px] text-[var(--sf-ink-2)] mt-1 leading-snug">
+            {body}
+          </div>
+        </div>
+      </div>
+      <div
+        className="flex items-center justify-end gap-2"
+        style={{
+          padding: "10px 14px",
+          background: "var(--sf-panel-alt)",
+        }}
+      >
+        <SfButton variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </SfButton>
+        <button
+          onClick={onConfirm}
+          style={{
+            padding: "6px 14px",
+            fontSize: 12.5,
+            fontWeight: 600,
+            background: danger ? "var(--sf-red)" : "var(--sf-blue)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontFamily: "var(--sf-font-ui)",
+          }}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </div>
+  </div>
+)
 
 // ── Form primitives ────────────────────────────────────────
 
@@ -396,7 +619,9 @@ const Field = ({ label, hint, children }) => (
   </div>
 )
 
-const TextInput = ({ value, onChange, placeholder, icon: Icon, type = "text" }) => (
+const TextInput = ({
+  value, onChange, placeholder, icon: Icon, type = "text", autoComplete, name, inputMode,
+}) => (
   <div
     className="flex items-center gap-2 rounded-md bg-[var(--sf-panel)] border border-[var(--sf-border-soft)] px-3"
     style={{ padding: "6px 10px" }}
@@ -407,6 +632,9 @@ const TextInput = ({ value, onChange, placeholder, icon: Icon, type = "text" }) 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      autoComplete={autoComplete}
+      name={name}
+      inputMode={inputMode}
       className="flex-1 bg-transparent border-none outline-none text-[13px] text-[var(--sf-ink)]"
       style={{ padding: 0, boxShadow: "none", fontFamily: "var(--sf-font-ui)" }}
     />
@@ -442,11 +670,37 @@ const SelectInput = ({ value, onChange, options, placeholder, icon: Icon }) => (
 )
 
 const LogoUploader = ({ url, onChange }) => {
-  const [previewing, setPreviewing] = useState(false)
-  // Upload integration is out of scope here — we accept a URL string
-  // and surface the preview/remove controls so the layout matches the
-  // prototype. Wiring this to the existing logo upload endpoint
-  // (uploadToStorage / branding API) is a follow-up.
+  const inputRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState(null)
+  const [hover, setHover] = useState(false)
+
+  const upload = async (file) => {
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File too large — keep it under 10 MB")
+      return
+    }
+    setUploading(true)
+    setError(null)
+    try {
+      const { url: nextUrl } = await businessDetailsAPI.uploadLogo(file)
+      onChange(nextUrl)
+    } catch (e) {
+      setError(e?.response?.data?.error || "Upload failed")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const onDrop = (e) => {
+    e.preventDefault()
+    setHover(false)
+    if (uploading) return
+    const file = e.dataTransfer?.files?.[0]
+    if (file) upload(file)
+  }
+
   return (
     <div className="flex items-center gap-3">
       <div
@@ -458,31 +712,60 @@ const LogoUploader = ({ url, onChange }) => {
         }}
       >
         {url ? (
-          // eslint-disable-next-line jsx-a11y/img-redundant-alt
-          <img src={url} alt="Logo preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <img
+            src={url}
+            alt="Logo"
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
         ) : (
           <span className="text-white font-bold text-[18px]" style={{ letterSpacing: "-0.02em" }}>
             S
           </span>
         )}
       </div>
-      <div
-        className="flex-1 rounded-md flex flex-col items-center justify-center"
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setHover(true) }}
+        onDragLeave={() => setHover(false)}
+        onDrop={onDrop}
+        disabled={uploading}
+        className="flex-1 rounded-md flex flex-col items-center justify-center transition-colors"
         style={{
           padding: "16px",
-          background: "var(--sf-panel-alt)",
-          border: "1.5px dashed var(--sf-border-soft)",
-          cursor: "pointer",
+          background: hover ? "var(--sf-blue-soft)" : "var(--sf-panel-alt)",
+          border: `1.5px dashed ${hover ? "var(--sf-blue)" : "var(--sf-border-soft)"}`,
+          cursor: uploading ? "wait" : "pointer",
           minHeight: 64,
+          fontFamily: "var(--sf-font-ui)",
         }}
-        onClick={() => setPreviewing(true)}
       >
-        <UploadIcon size={14} className="text-[var(--sf-ink-3)] mb-1" />
-        <span className="text-[11.5px] text-[var(--sf-ink-2)] font-medium">
-          Drop new logo or click to browse
-        </span>
-      </div>
-      {url && (
+        {uploading ? (
+          <>
+            <Loader2 size={14} className="text-[var(--sf-blue-dark)] mb-1 animate-spin" />
+            <span className="text-[11.5px] text-[var(--sf-ink-2)] font-medium">Uploading…</span>
+          </>
+        ) : (
+          <>
+            <UploadIcon size={14} className="text-[var(--sf-ink-3)] mb-1" />
+            <span className="text-[11.5px] text-[var(--sf-ink-2)] font-medium">
+              Drop new logo or click to browse
+            </span>
+          </>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/svg+xml,image/webp,.heic"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) upload(f)
+          if (e.target) e.target.value = ""
+        }}
+      />
+      {url && !uploading && (
         <button
           onClick={() => onChange("")}
           className="text-[12px] font-semibold text-[var(--sf-red-dark)]"
@@ -491,10 +774,8 @@ const LogoUploader = ({ url, onChange }) => {
           Remove
         </button>
       )}
-      {previewing && (
-        <div className="hidden">
-          <XIcon />
-        </div>
+      {error && (
+        <div className="text-[11px] text-[var(--sf-red-dark)] ml-2">{error}</div>
       )}
     </div>
   )

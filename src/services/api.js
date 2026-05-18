@@ -1686,7 +1686,15 @@ export const businessDetailsAPI = {
     } catch (error) {
       throw error;
     }
-  }
+  },
+  uploadLogo: async (file) => {
+    const form = new FormData();
+    form.append('logo', file);
+    const response = await api.post('/upload-logo', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data; // { url }
+  },
 };
 
 // Territory Management API functions
