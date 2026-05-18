@@ -1567,6 +1567,11 @@ export const billingAPI = {
     const response = await api.get('/user/billing/invoices');
     return response.data; // { invoices: [...] }
   },
+
+  getUsage: async () => {
+    const response = await api.get('/user/billing/usage');
+    return response.data; // { activeTeams, jobsThisMonth, smsSent, storageBytes, apiCalls, periodStart, periodEnd }
+  },
 };
 
 // Payment settings API functions

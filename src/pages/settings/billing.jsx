@@ -33,12 +33,14 @@ const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ||
 
 // ── Plan tiers (matches PlanSelectionModal so behavior stays the same)
 
+// Plan caps drive the Usage card progress bars. `null` = unlimited.
 const PLANS = [
   {
     id: "starter",
     name: "Starter",
     price: 19,
     description: "Perfect for small businesses getting started",
+    caps: { teams: 1, jobs: 50, sms: 1000, storageGb: 5, apiCalls: 10000 },
     features: [
       "Up to 50 jobs per month",
       "Basic scheduling",
@@ -53,6 +55,7 @@ const PLANS = [
     price: 29,
     description: "Most popular for growing businesses",
     popular: true,
+    caps: { teams: 5, jobs: null, sms: 5000, storageGb: 10, apiCalls: 50000 },
     features: [
       "Unlimited jobs",
       "Advanced scheduling",
@@ -69,6 +72,7 @@ const PLANS = [
     name: "Professional",
     price: 49,
     description: "Established businesses needing advanced features",
+    caps: { teams: 10, jobs: null, sms: 25000, storageGb: 50, apiCalls: 250000 },
     features: [
       "Everything in Standard",
       "Advanced reporting & analytics",
@@ -182,6 +186,7 @@ const BillingSettings = () => {
   const [paymentMethods, setPaymentMethods] = useState([])
   const [invoices, setInvoices] = useState([])
   const [invoicesLoading, setInvoicesLoading] = useState(true)
+  const [usage, setUsage] = useState(null)
   const [showAddCard, setShowAddCard] = useState(false)
 
   const [billing, setBilling] = useState({
@@ -208,8 +213,17 @@ const BillingSettings = () => {
 
   const loadAll = async () => {
     setLoading(true)
-    await Promise.all([loadBilling(), loadPaymentMethods(), loadInvoices()])
+    await Promise.all([loadBilling(), loadPaymentMethods(), loadInvoices(), loadUsage()])
     setLoading(false)
+  }
+
+  const loadUsage = async () => {
+    try {
+      const u = await billingAPI.getUsage()
+      setUsage(u)
+    } catch (e) {
+      setUsage(null)
+    }
   }
 
   const loadBilling = async () => {
@@ -340,6 +354,9 @@ const BillingSettings = () => {
           onCancel={onCancel}
           saving={saving}
         />
+
+        {/* Usage this period */}
+        <UsageCard usage={usage} planMeta={currentPlanMeta} />
 
         {/* Plan grid */}
         <div>
@@ -625,6 +642,142 @@ const CurrentPlanCard = ({
 )
 
 // ── Single plan card in the grid ───────────────────────────────
+
+// ── Usage this period ─────────────────────────────────────────
+
+const fmtNumber = (n) =>
+  typeof n === "number" ? n.toLocaleString() : n != null ? String(n) : "—"
+
+const fmtPeriod = (startIso, endIso) => {
+  if (!startIso || !endIso) return ""
+  const s = new Date(startIso)
+  const e = new Date(endIso)
+  // The endIso is exclusive (1st of next month) — display the last day of the period.
+  const lastDay = new Date(e.getTime() - 24 * 3600 * 1000)
+  const sMonth = s.toLocaleDateString("en-US", { month: "short" })
+  return `${sMonth} ${s.getDate()} – ${lastDay.getDate()}`
+}
+
+const UsageCard = ({ usage, planMeta }) => {
+  const caps = planMeta?.caps || {}
+  const rows = [
+    {
+      label: "Active teams",
+      value: usage?.activeTeams,
+      cap: caps.teams,
+      unit: "teams",
+      color: "var(--sf-blue)",
+    },
+    {
+      label: "Jobs · this month",
+      value: usage?.jobsThisMonth,
+      cap: caps.jobs, // null = unlimited
+      unit: "jobs",
+      hideBarWhenUnlimited: true,
+      color: "var(--sf-blue)",
+    },
+    {
+      label: "SMS sent",
+      value: usage?.smsSent,
+      cap: caps.sms,
+      unit: "messages",
+      color: "var(--sf-amber)",
+    },
+    {
+      label: "Storage",
+      value:
+        usage?.storageBytes != null
+          ? Math.round((usage.storageBytes / 1073741824) * 10) / 10
+          : null,
+      cap: caps.storageGb,
+      unit: "GB",
+      color: "var(--sf-blue)",
+    },
+    {
+      label: "API calls",
+      value: usage?.apiCalls,
+      cap: caps.apiCalls,
+      unit: "requests",
+      color: "var(--sf-blue)",
+    },
+  ]
+
+  return (
+    <SfCard padding={0}>
+      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--sf-border-soft)" }}>
+        <div className="text-[13.5px] font-semibold text-[var(--sf-ink)]">
+          Usage this period
+        </div>
+        <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-0.5">
+          {fmtPeriod(usage?.periodStart, usage?.periodEnd) || "Current calendar month"}
+        </div>
+      </div>
+      <div style={{ padding: "12px 18px 16px" }} className="flex flex-col gap-3">
+        {rows.map((row) => (
+          <UsageRow key={row.label} row={row} />
+        ))}
+      </div>
+    </SfCard>
+  )
+}
+
+const UsageRow = ({ row }) => {
+  const isUnlimited = row.cap == null
+  const numericValue = typeof row.value === "number" ? row.value : null
+  const pct =
+    !isUnlimited && numericValue != null && row.cap > 0
+      ? Math.min(100, Math.round((numericValue / row.cap) * 100))
+      : 0
+  const showBar = !(isUnlimited && row.hideBarWhenUnlimited) && numericValue != null
+  return (
+    <div>
+      <div className="flex items-baseline gap-2 flex-wrap mb-1">
+        <span className="text-[12.5px] font-semibold text-[var(--sf-ink)]">{row.label}</span>
+        <div className="flex-1" />
+        {numericValue == null ? (
+          <span className="text-[11.5px] text-[var(--sf-ink-3)]">—</span>
+        ) : (
+          <span
+            className="text-[12.5px] font-semibold text-[var(--sf-ink)]"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {fmtNumber(numericValue)}
+            {!isUnlimited && (
+              <span className="text-[var(--sf-ink-3)] font-medium ml-1">
+                / {fmtNumber(row.cap)} {row.unit}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+      {showBar ? (
+        <div
+          style={{
+            height: 6,
+            background: "var(--sf-panel-alt)",
+            borderRadius: 4,
+            overflow: "hidden",
+          }}
+        >
+          {!isUnlimited && (
+            <div
+              style={{
+                width: `${pct}%`,
+                height: "100%",
+                background: pct >= 90 ? "var(--sf-red)" : pct >= 75 ? "var(--sf-amber)" : row.color,
+                transition: "width .2s",
+              }}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="text-[11px] text-[var(--sf-ink-3)]">
+          {isUnlimited && numericValue != null ? `Unlimited on ${row.unit ? "this plan" : "your plan"}` : ""}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const PlanCard = ({ plan, current, disabled, onSelect }) => {
   const [expanded, setExpanded] = useState(false)
