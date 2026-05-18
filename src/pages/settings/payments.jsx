@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import CreateCustomPaymentMethodModal from "../../components/create-custom-payment-method-modal"
-import { Edit, Trash2, Check, AlertCircle } from "lucide-react"
-import { paymentSettingsAPI, paymentMethodsAPI } from "../../services/api"
+import StripeAPISetup from "../../components/StripeAPISetup"
+import { Edit, Trash2, Check, AlertCircle, Plus } from "lucide-react"
+import { paymentSettingsAPI, paymentMethodsAPI, stripeAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import SettingsPageLayout from "../../components/settings-page-layout"
 
@@ -31,12 +32,21 @@ const Payments = () => {
 
   const [paymentMethods, setPaymentMethods] = useState([])
   const [editingMethod, setEditingMethod] = useState(null)
+  const [stripeStatus, setStripeStatus] = useState(null)
 
   useEffect(() => {
     if (user) {
       loadPaymentData()
+      loadStripeStatus()
     }
   }, [user])
+
+  const loadStripeStatus = async () => {
+    try {
+      const r = await stripeAPI.testConnection()
+      setStripeStatus({ connected: !!r.connected, charges_enabled: r.charges_enabled })
+    } catch {/* silent */}
+  }
 
   const loadPaymentData = async () => {
     try {
@@ -68,24 +78,6 @@ const Payments = () => {
     } catch (error) {
       console.error('Error saving payment settings:', error)
       setMessage({ type: 'error', text: 'Failed to save payment settings' })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleSetupPaymentProcessor = async () => {
-    try {
-      setSaving(true)
-      const result = await paymentSettingsAPI.setupPaymentProcessor('stripe')
-      setSettings(prev => ({
-        ...prev,
-        paymentProcessor: result.processor,
-        paymentProcessorConnected: result.connected
-      }))
-      setMessage({ type: 'success', text: 'Payment processor connected successfully' })
-    } catch (error) {
-      console.error('Error setting up payment processor:', error)
-      setMessage({ type: 'error', text: 'Failed to setup payment processor' })
     } finally {
       setSaving(false)
     }
@@ -185,58 +177,58 @@ const Payments = () => {
               </div>
             )}
 
-            {/* Payment Processing */}
+            {/* Stripe account — moved from Billing. This is the
+                merchant Stripe Connect setup, used to charge YOUR
+                customers (not your ServiceFlow subscription). */}
             <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
-              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">Payment Processing</h2>
-              <p className="text-[var(--sf-text-secondary)] mb-6">
-                Serviceflow Payments lets you securely accept credit card payments online. Your customers can pay when they
-                book or when they receive an invoice.
-              </p>
-
-              {settings.paymentProcessorConnected ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span className="text-sm font-medium text-green-800">
-                      Payment processing connected ({settings.paymentProcessor})
-                    </span>
-                  </div>
-                  <p className="text-sm text-green-700 mt-1">
-                    Your customers can now pay online with credit cards
+              <div className="flex items-start justify-between mb-2 flex-wrap gap-2">
+                <div>
+                  <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Stripe account</h2>
+                  <p className="text-[var(--sf-text-secondary)] text-sm mt-1">
+                    Connect Stripe to accept card payments from your customers online and via invoices.
                   </p>
+                </div>
+                {stripeStatus?.connected && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full" style={{ background: 'var(--sf-green-soft)', color: 'var(--sf-green-dark)' }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--sf-green)' }} />
+                    Connected
+                  </span>
+                )}
+              </div>
+              {stripeStatus?.connected ? (
+                <div className="rounded-md flex items-center gap-3 mt-4" style={{ padding: '12px 14px', background: 'var(--sf-green-soft)', border: '1px solid rgba(22,163,74,.25)', color: 'var(--sf-green-dark)' }}>
+                  <Check size={16} />
+                  <div>
+                    <div className="text-[13px] font-semibold">Stripe account connected</div>
+                    <div className="text-[11.5px]" style={{ opacity: 0.85 }}>
+                      {stripeStatus.charges_enabled ? 'Ready to accept payments' : 'Account setup in progress'}
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                    <span className="text-sm font-medium text-orange-800">Payment processing not set up</span>
-                  </div>
-                  <p className="text-sm text-orange-700 mt-1">
-                    Connect a payment processor to accept credit card payments online
-                  </p>
+                <div className="mt-4">
+                  <StripeAPISetup
+                    onSuccess={() => {
+                      setMessage({ type: 'success', text: 'Stripe connected' })
+                      loadStripeStatus()
+                    }}
+                    onError={() => setMessage({ type: 'error', text: 'Failed to connect Stripe' })}
+                  />
                 </div>
               )}
-
-              <button 
-                onClick={handleSetupPaymentProcessor}
-                disabled={saving}
-                className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving ? 'Setting up...' : settings.paymentProcessorConnected ? 'Change Payment Processor' : 'Set Up Payment Processing'}
-              </button>
             </div>
 
             {/* Tips */}
             <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
-              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">Tips</h2>
-              <p className="text-[var(--sf-text-secondary)] mb-6">
-                Configure how tips are calculated when recording payments. Tips go to payroll, not revenue.
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-1">Tips</h2>
+              <p className="text-[var(--sf-text-secondary)] text-sm mb-5">
+                Configure how tips are calculated and whether customers see a tip prompt. Tips go to payroll, not revenue.
               </p>
 
               <div className="space-y-6">
                 {/* Tip Calculation Mode */}
                 <div>
-                  <h4 className="font-medium text-[var(--sf-text-primary)] mb-3">Tip Calculation</h4>
+                  <h4 className="font-medium text-[var(--sf-text-primary)] mb-3">Tip calculation</h4>
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => setSettings({ ...settings, tipCalculationMode: 'automatic' })}
@@ -255,7 +247,7 @@ const Payments = () => {
                       }}
                     >
                       <div style={{ fontWeight: 600, marginBottom: '4px' }}>Automatic</div>
-                      <div style={{ fontSize: '12px', fontWeight: 400, opacity: 0.8 }}>Tip = Amount Paid - Total Due - Fee</div>
+                      <div style={{ fontSize: '12px', fontWeight: 400, opacity: 0.8 }}>Tip = Amount paid − Total due − Fee</div>
                     </button>
                     <button
                       onClick={() => setSettings({ ...settings, tipCalculationMode: 'manual' })}
@@ -279,102 +271,13 @@ const Payments = () => {
                   </div>
                 </div>
 
-                {/* Payment Type Fees */}
-                <div>
-                  <h4 className="font-medium text-[var(--sf-text-primary)] mb-1">Processing Fees by Payment Type</h4>
-                  <p className="text-xs text-[var(--sf-text-muted)] mb-3">
-                    Set the processing fee percentage for each payment type. Fee is deducted before calculating tips. Set to 0 for no fee.
-                  </p>
-                  <div className="space-y-3">
-                    {/* Built-in payment types */}
-                    {[
-                      { key: 'cash', label: 'Cash' },
-                      { key: 'check', label: 'Check' },
-                      { key: 'credit_card', label: 'Credit Card' },
-                      { key: 'bank_transfer', label: 'Bank Transfer' },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between">
-                        <span className="text-sm text-[var(--sf-text-primary)]">{label}</span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="100"
-                            value={settings.paymentTypeFees?.[key] ?? 0}
-                            onChange={(e) => setSettings(prev => ({
-                              ...prev,
-                              paymentTypeFees: {
-                                ...prev.paymentTypeFees,
-                                [key]: parseFloat(e.target.value) || 0
-                              }
-                            }))}
-                            className="w-20 text-right border border-[var(--sf-border-light)] rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
-                          />
-                          <span className="text-sm text-[var(--sf-text-muted)]">%</span>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Custom payment methods with fee + edit/delete */}
-                    {paymentMethods.map((method) => (
-                      <div key={method.id} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-[var(--sf-text-primary)]">{method.name}</span>
-                          <button
-                            onClick={() => handleEditPaymentMethod(method)}
-                            className="p-0.5 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
-                            style={{ border: 'none', background: 'none', boxShadow: 'none', borderRadius: '4px', padding: '2px' }}
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeletePaymentMethod(method.id)}
-                            className="p-0.5 text-[var(--sf-text-muted)] hover:text-red-600"
-                            style={{ border: 'none', background: 'none', boxShadow: 'none', borderRadius: '4px', padding: '2px' }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="100"
-                            value={settings.paymentTypeFees?.[method.name] ?? 0}
-                            onChange={(e) => setSettings(prev => ({
-                              ...prev,
-                              paymentTypeFees: {
-                                ...prev.paymentTypeFees,
-                                [method.name]: parseFloat(e.target.value) || 0
-                              }
-                            }))}
-                            className="w-20 text-right border border-[var(--sf-border-light)] rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
-                          />
-                          <span className="text-sm text-[var(--sf-text-muted)]">%</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Add custom payment method */}
-                  <button
-                    onClick={() => { setEditingMethod(null); setIsPaymentMethodModalOpen(true) }}
-                    className="mt-3 text-[var(--sf-blue-500)] font-medium text-sm"
-                    style={{ border: 'none', background: 'none', boxShadow: 'none', padding: 0, borderRadius: 0 }}
-                  >
-                    + Custom Payment Method
-                  </button>
-                </div>
-
-                {/* Online Booking/Invoice Tips */}
+                {/* Customer-Facing Tips */}
                 <div className="border-t border-[var(--sf-border-light)] pt-6">
-                  <h4 className="font-medium text-[var(--sf-text-primary)] mb-4">Customer-Facing Tips</h4>
+                  <h4 className="font-medium text-[var(--sf-text-primary)] mb-4">Customer-facing tips</h4>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Online Booking Tips</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Online booking tips</span>
                         <p className="text-xs text-[var(--sf-text-secondary)]">Prompt customers to add tips when booking online</p>
                       </div>
                       <button
@@ -391,7 +294,7 @@ const Payments = () => {
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Invoice Payment Tips</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Invoice payment tips</span>
                         <p className="text-xs text-[var(--sf-text-secondary)]">Prompt customers to add tips when paying invoices online</p>
                       </div>
                       <button
@@ -407,6 +310,84 @@ const Payments = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Accepted payment methods */}
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+              <div className="flex items-start justify-between mb-2 flex-wrap gap-2">
+                <div>
+                  <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Accepted payment methods</h2>
+                  <p className="text-[var(--sf-text-secondary)] text-sm mt-1">
+                    Methods you can mark a payment as. Per-type fee % is deducted before calculating tips.
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setEditingMethod(null); setIsPaymentMethodModalOpen(true) }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md"
+                  style={{
+                    background: 'var(--sf-panel)',
+                    border: '1px solid var(--sf-border-2, var(--sf-border-light))',
+                    color: 'var(--sf-ink-2)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Custom method
+                </button>
+              </div>
+
+              <div className="mt-4 divide-y divide-[var(--sf-border-light)]">
+                {/* Built-in types */}
+                {[
+                  { key: 'cash', label: 'Cash' },
+                  { key: 'check', label: 'Check' },
+                  { key: 'credit_card', label: 'Credit card' },
+                  { key: 'bank_transfer', label: 'Bank transfer' },
+                ].map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between py-3">
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">{label}</span>
+                    <FeeInput
+                      value={settings.paymentTypeFees?.[key] ?? 0}
+                      onChange={(v) => setSettings((p) => ({
+                        ...p,
+                        paymentTypeFees: { ...p.paymentTypeFees, [key]: v },
+                      }))}
+                    />
+                  </div>
+                ))}
+
+                {/* Custom methods */}
+                {paymentMethods.map((method) => (
+                  <div key={method.id} className="flex items-center justify-between py-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)] truncate">{method.name}</span>
+                      <button
+                        onClick={() => handleEditPaymentMethod(method)}
+                        className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
+                        style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                        aria-label="Edit"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeletePaymentMethod(method.id)}
+                        className="p-1 text-[var(--sf-text-muted)] hover:text-red-600"
+                        style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <FeeInput
+                      value={settings.paymentTypeFees?.[method.name] ?? 0}
+                      onChange={(v) => setSettings((p) => ({
+                        ...p,
+                        paymentTypeFees: { ...p.paymentTypeFees, [method.name]: v },
+                      }))}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -437,5 +418,20 @@ const Payments = () => {
     </SettingsPageLayout>
   )
 }
+
+const FeeInput = ({ value, onChange }) => (
+  <div className="flex items-center gap-1 flex-shrink-0">
+    <input
+      type="number"
+      step="0.1"
+      min="0"
+      max="100"
+      value={value}
+      onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+      className="w-20 text-right border border-[var(--sf-border-light)] rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
+    />
+    <span className="text-sm text-[var(--sf-text-muted)]">%</span>
+  </div>
+)
 
 export default Payments

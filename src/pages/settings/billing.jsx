@@ -11,12 +11,13 @@ import {
   Sparkles,
   Loader2,
   Download,
+  ChevronDown,
+  ExternalLink,
 } from "lucide-react"
-import { billingAPI, stripeAPI } from "../../services/api"
+import { billingAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
-import StripeAPISetup from "../../components/StripeAPISetup"
 import SettingsRailLayout from "../../components/settings-rail-layout"
 import { SfCard, SfButton, SfTag } from "../../components/sf-primitives"
 
@@ -179,7 +180,8 @@ const BillingSettings = () => {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
   const [paymentMethods, setPaymentMethods] = useState([])
-  const [stripeConnectStatus, setStripeConnectStatus] = useState(null)
+  const [invoices, setInvoices] = useState([])
+  const [invoicesLoading, setInvoicesLoading] = useState(true)
   const [showAddCard, setShowAddCard] = useState(false)
 
   const [billing, setBilling] = useState({
@@ -206,7 +208,7 @@ const BillingSettings = () => {
 
   const loadAll = async () => {
     setLoading(true)
-    await Promise.all([loadBilling(), loadPaymentMethods(), loadStripeStatus()])
+    await Promise.all([loadBilling(), loadPaymentMethods(), loadInvoices()])
     setLoading(false)
   }
 
@@ -224,11 +226,16 @@ const BillingSettings = () => {
       setPaymentMethods(r.payment_methods || [])
     } catch (e) {/* silent */}
   }
-  const loadStripeStatus = async () => {
+  const loadInvoices = async () => {
+    setInvoicesLoading(true)
     try {
-      const r = await stripeAPI.testConnection()
-      setStripeConnectStatus({ connected: !!r.connected, charges_enabled: r.charges_enabled })
-    } catch (e) {/* silent */}
+      const r = await billingAPI.getInvoices()
+      setInvoices(Array.isArray(r?.invoices) ? r.invoices : [])
+    } catch (e) {
+      setInvoices([])
+    } finally {
+      setInvoicesLoading(false)
+    }
   }
 
   const onCancel = async () => {
@@ -409,62 +416,7 @@ const BillingSettings = () => {
           )}
         </SfCard>
 
-        {/* Stripe Connect (separate — for accepting customer payments) */}
-        <SfCard padding={0}>
-          <div
-            className="flex items-center gap-3 flex-wrap"
-            style={{ padding: "14px 18px", borderBottom: "1px solid var(--sf-border-soft)" }}
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[13.5px] font-semibold text-[var(--sf-ink)]">
-                  Stripe account
-                </span>
-                {stripeConnectStatus?.connected && (
-                  <SfTag color="var(--sf-green-dark)" bg="var(--sf-green-soft)">
-                    Connected
-                  </SfTag>
-                )}
-              </div>
-              <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-0.5">
-                Used to charge your customers — separate from the card we charge for your subscription
-              </div>
-            </div>
-          </div>
-          <div style={{ padding: "16px 18px" }}>
-            {stripeConnectStatus?.connected ? (
-              <div
-                className="rounded-md flex items-center gap-3"
-                style={{
-                  padding: "12px 14px",
-                  background: "var(--sf-green-soft)",
-                  border: "1px solid rgba(22,163,74,.25)",
-                  color: "var(--sf-green-dark)",
-                }}
-              >
-                <Check size={16} />
-                <div>
-                  <div className="text-[13px] font-semibold">Stripe account connected</div>
-                  <div className="text-[11.5px]" style={{ opacity: 0.85 }}>
-                    {stripeConnectStatus.charges_enabled
-                      ? "Ready to accept payments"
-                      : "Account setup in progress"}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <StripeAPISetup
-                onSuccess={() => {
-                  setMessage({ type: "success", text: "Stripe connected" })
-                  loadStripeStatus()
-                }}
-                onError={() => setMessage({ type: "error", text: "Failed to connect Stripe" })}
-              />
-            )}
-          </div>
-        </SfCard>
-
-        {/* Billing history (stub — wired when the backend endpoint lands) */}
+        {/* Billing history — Stripe invoices for this tenant */}
         <SfCard padding={0}>
           <div
             className="flex items-center"
@@ -473,19 +425,109 @@ const BillingSettings = () => {
             <div className="min-w-0 flex-1">
               <div className="text-[13.5px] font-semibold text-[var(--sf-ink)]">Billing history</div>
               <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-0.5">
-                Invoices and receipts for past charges
+                Invoices and receipts for your ServiceFlow subscription
               </div>
             </div>
-            <SfButton variant="ghost" size="sm" icon={Download} disabled>
-              Export all
-            </SfButton>
           </div>
-          <div className="py-10 text-center text-[12.5px] text-[var(--sf-ink-3)]">
-            No invoices yet. Past invoices will show up here after your first charge.
-          </div>
+          {invoicesLoading ? (
+            <div className="py-10 text-center">
+              <Loader2 size={20} className="text-[var(--sf-ink-3)] animate-spin inline-block" />
+            </div>
+          ) : invoices.length === 0 ? (
+            <div className="py-10 text-center text-[12.5px] text-[var(--sf-ink-3)]">
+              No invoices yet. Past charges will show up here after your first billing cycle.
+            </div>
+          ) : (
+            invoices.map((inv, i) => (
+              <InvoiceRow key={inv.id} invoice={inv} isLast={i === invoices.length - 1} />
+            ))
+          )}
         </SfCard>
       </div>
     </SettingsRailLayout>
+  )
+}
+
+const InvoiceRow = ({ invoice, isLast }) => {
+  const date = invoice.created
+    ? new Date(invoice.created * 1000).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "—"
+  const amount = `$${(((invoice.amount_paid || invoice.amount_due) || 0) / 100).toFixed(2)}`
+  const statusMeta =
+    invoice.status === "paid"
+      ? { label: "Paid", c: "var(--sf-green-dark)", bg: "var(--sf-green-soft)" }
+      : invoice.status === "open"
+      ? { label: "Open", c: "var(--sf-amber-dark)", bg: "var(--sf-amber-soft)" }
+      : invoice.status === "void" || invoice.status === "uncollectible"
+      ? { label: "Void", c: "var(--sf-red-dark)", bg: "var(--sf-red-soft)" }
+      : { label: invoice.status || "—", c: "var(--sf-ink-3)", bg: "var(--sf-panel-soft)" }
+  return (
+    <div
+      className="flex items-center gap-3 flex-wrap"
+      style={{
+        padding: "12px 18px",
+        borderBottom: isLast ? "none" : "1px solid var(--sf-border-soft)",
+      }}
+    >
+      <div style={{ width: 90 }} className="flex-shrink-0">
+        <div
+          className="text-[12.5px] font-semibold text-[var(--sf-ink)]"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {date}
+        </div>
+        {invoice.number && (
+          <div
+            className="text-[10.5px] text-[var(--sf-ink-3)]"
+            style={{ fontFamily: "var(--sf-font-mono)" }}
+          >
+            {invoice.number}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] text-[var(--sf-ink)] truncate">
+          {invoice.description || "Subscription"}
+        </div>
+      </div>
+      <SfTag color={statusMeta.c} bg={statusMeta.bg}>
+        {statusMeta.label}
+      </SfTag>
+      <div
+        className="text-[13px] font-semibold text-[var(--sf-ink)] flex-shrink-0"
+        style={{ fontVariantNumeric: "tabular-nums", width: 80, textAlign: "right" }}
+      >
+        {amount}
+      </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {invoice.hosted_url && (
+          <a
+            href={invoice.hosted_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[12px] font-semibold text-[var(--sf-blue-dark)] hover:underline inline-flex items-center gap-1"
+            style={{ fontFamily: "var(--sf-font-ui)" }}
+          >
+            View <ExternalLink size={11} />
+          </a>
+        )}
+        {invoice.pdf_url && (
+          <a
+            href={invoice.pdf_url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Download invoice PDF"
+            className="text-[var(--sf-ink-3)] hover:text-[var(--sf-ink)]"
+          >
+            <Download size={14} />
+          </a>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -584,100 +626,132 @@ const CurrentPlanCard = ({
 
 // ── Single plan card in the grid ───────────────────────────────
 
-const PlanCard = ({ plan, current, disabled, onSelect }) => (
-  <SfCard
-    padding={0}
-    style={{
-      border: current
-        ? "2px solid var(--sf-blue)"
-        : plan.popular
-        ? "1.5px solid rgba(37,99,235,.25)"
-        : "1px solid var(--sf-border-soft)",
-      position: "relative",
-      overflow: "hidden",
-    }}
-  >
-    {plan.popular && !current && (
-      <div
-        className="text-[10px] font-bold uppercase"
-        style={{
-          position: "absolute",
-          top: 10,
-          right: 10,
-          background: "var(--sf-blue)",
-          color: "#fff",
-          padding: "2px 7px",
-          borderRadius: 4,
-          letterSpacing: ".06em",
-        }}
-      >
-        Popular
-      </div>
-    )}
-    {current && (
-      <div
-        className="text-[10px] font-bold uppercase"
-        style={{
-          position: "absolute",
-          top: 10,
-          right: 10,
-          background: "var(--sf-blue-dark)",
-          color: "#fff",
-          padding: "2px 7px",
-          borderRadius: 4,
-          letterSpacing: ".06em",
-        }}
-      >
-        Current
-      </div>
-    )}
-    <div style={{ padding: "18px 18px 14px" }}>
-      <div className="text-[14.5px] font-bold text-[var(--sf-ink)]">{plan.name}</div>
-      <div className="text-[11.5px] text-[var(--sf-ink-3)] mt-1 leading-snug min-h-[32px]">
-        {plan.description}
-      </div>
-      <div className="flex items-baseline gap-1 mt-3">
-        <span
-          className="text-[28px] font-bold text-[var(--sf-ink)]"
-          style={{ letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}
-        >
-          ${plan.price}
-        </span>
-        <span className="text-[12px] text-[var(--sf-ink-3)] font-medium">/ month</span>
-      </div>
-    </div>
-    <div
+const PlanCard = ({ plan, current, disabled, onSelect }) => {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <SfCard
+      padding={0}
       style={{
-        padding: "12px 18px 16px",
-        borderTop: "1px solid var(--sf-border-soft)",
-        background: "var(--sf-panel-alt)",
+        border: current
+          ? "2px solid var(--sf-blue)"
+          : plan.popular
+          ? "1.5px solid rgba(37,99,235,.25)"
+          : "1px solid var(--sf-border-soft)",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
-      <ul className="flex flex-col gap-1.5 mb-3">
-        {plan.features.map((f) => (
-          <li key={f} className="flex items-start gap-1.5 text-[12px] text-[var(--sf-ink-2)]">
-            <Check
-              size={13}
-              className="text-[var(--sf-green)] flex-shrink-0 mt-px"
-              strokeWidth={2.5}
-            />
-            <span>{f}</span>
-          </li>
-        ))}
-      </ul>
-      <SfButton
-        variant={current ? "secondary" : plan.popular ? "primary" : "secondary"}
-        size="md"
-        className="w-full"
-        onClick={onSelect}
-        disabled={disabled || current}
-        style={{ width: "100%", justifyContent: "center" }}
-      >
-        {current ? "Current plan" : `Switch to ${plan.name}`}
-      </SfButton>
-    </div>
-  </SfCard>
-)
+      {plan.popular && !current && (
+        <div
+          className="text-[9.5px] font-bold uppercase"
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            background: "var(--sf-blue)",
+            color: "#fff",
+            padding: "1.5px 6px",
+            borderRadius: 4,
+            letterSpacing: ".06em",
+          }}
+        >
+          Popular
+        </div>
+      )}
+      {current && (
+        <div
+          className="text-[9.5px] font-bold uppercase"
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            background: "var(--sf-blue-dark)",
+            color: "#fff",
+            padding: "1.5px 6px",
+            borderRadius: 4,
+            letterSpacing: ".06em",
+          }}
+        >
+          Current
+        </div>
+      )}
+
+      <div style={{ padding: "12px 14px" }}>
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-[13.5px] font-bold text-[var(--sf-ink)]">{plan.name}</span>
+          <span
+            className="text-[12.5px] font-semibold text-[var(--sf-ink-2)]"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            · ${plan.price}/mo
+          </span>
+        </div>
+        <div className="text-[11px] text-[var(--sf-ink-3)] mt-0.5 leading-snug">
+          {plan.description}
+        </div>
+
+        <div className="flex items-center gap-1.5 mt-2">
+          <SfButton
+            variant={current ? "secondary" : plan.popular ? "primary" : "secondary"}
+            size="sm"
+            onClick={onSelect}
+            disabled={disabled || current}
+            style={{ flex: 1, justifyContent: "center" }}
+          >
+            {current ? "Current plan" : "Switch"}
+          </SfButton>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? "Hide features" : "Show features"}
+            className="inline-flex items-center justify-center"
+            style={{
+              width: 28,
+              height: 28,
+              padding: 0,
+              borderRadius: 6,
+              background: "var(--sf-panel-alt)",
+              border: "1px solid var(--sf-border-soft)",
+              color: "var(--sf-ink-2)",
+              cursor: "pointer",
+              flexShrink: 0,
+              transition: "transform .15s",
+              transform: expanded ? "rotate(180deg)" : "rotate(0)",
+            }}
+          >
+            <ChevronDown size={14} />
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div
+          style={{
+            padding: "10px 14px 12px",
+            borderTop: "1px solid var(--sf-border-soft)",
+            background: "var(--sf-panel-alt)",
+          }}
+        >
+          <ul className="flex flex-col gap-1">
+            {plan.features.map((f) => (
+              <li
+                key={f}
+                className="flex items-start gap-1.5 text-[11.5px] text-[var(--sf-ink-2)]"
+              >
+                <Check
+                  size={12}
+                  className="text-[var(--sf-green)] flex-shrink-0 mt-px"
+                  strokeWidth={2.5}
+                />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </SfCard>
+  )
+}
 
 // ── Payment method row ────────────────────────────────────────
 

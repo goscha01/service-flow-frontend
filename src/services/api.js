@@ -1561,7 +1561,12 @@ export const billingAPI = {
     } catch (error) {
       throw error;
     }
-  }
+  },
+
+  getInvoices: async () => {
+    const response = await api.get('/user/billing/invoices');
+    return response.data; // { invoices: [...] }
+  },
 };
 
 // Payment settings API functions
