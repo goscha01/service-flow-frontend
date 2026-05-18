@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react"
 import CreateCustomPaymentMethodModal from "../../components/create-custom-payment-method-modal"
 import StripeAPISetup from "../../components/StripeAPISetup"
-import { Edit, Trash2, Check, AlertCircle, Plus } from "lucide-react"
+import {
+  Edit, Trash2, Check, AlertCircle, Plus,
+  CreditCard, DollarSign, Zap, Layers, Banknote, Building2,
+} from "lucide-react"
 import { paymentSettingsAPI, paymentMethodsAPI, stripeAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import SettingsPageLayout from "../../components/settings-page-layout"
@@ -27,7 +30,24 @@ const Payments = () => {
     paymentProcessor: null,
     paymentProcessorConnected: false,
     tipCalculationMode: "automatic",
-    paymentTypeFees: {}
+    paymentTypeFees: {},
+    acceptedMethods: {
+      card: true,
+      ach: true,
+      apple_google_pay: true,
+      afterpay: false,
+      cash: true,
+    },
+    payoutFrequency: "daily_t2",
+    minimumPayout: 100,
+    statementDescriptor: "",
+    automation: {
+      autoChargeOnCompletion: true,
+      saveCardsForRecurring: true,
+      retryFailedPayments: true,
+      allowTipping: false,
+      emailReceiptAutomatically: true,
+    },
   })
 
   const [paymentMethods, setPaymentMethods] = useState([])
@@ -56,11 +76,14 @@ const Payments = () => {
         paymentMethodsAPI.getPaymentMethods()
       ])
       
-      setSettings({
+      setSettings((prev) => ({
+        ...prev,
         ...settingsData,
         tipCalculationMode: settingsData.tipCalculationMode || 'automatic',
-        paymentTypeFees: settingsData.paymentTypeFees || {}
-      })
+        paymentTypeFees: settingsData.paymentTypeFees || {},
+        acceptedMethods: { ...prev.acceptedMethods, ...(settingsData.acceptedMethods || {}) },
+        automation: { ...prev.automation, ...(settingsData.automation || {}) },
+      }))
       setPaymentMethods(methodsData)
     } catch (error) {
       console.error('Error loading payment data:', error)
@@ -314,82 +337,20 @@ const Payments = () => {
             </div>
 
             {/* Accepted payment methods */}
-            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
-              <div className="flex items-start justify-between mb-2 flex-wrap gap-2">
-                <div>
-                  <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Accepted payment methods</h2>
-                  <p className="text-[var(--sf-text-secondary)] text-sm mt-1">
-                    Methods you can mark a payment as. Per-type fee % is deducted before calculating tips.
-                  </p>
-                </div>
-                <button
-                  onClick={() => { setEditingMethod(null); setIsPaymentMethodModalOpen(true) }}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md"
-                  style={{
-                    background: 'var(--sf-panel)',
-                    border: '1px solid var(--sf-border-2, var(--sf-border-light))',
-                    color: 'var(--sf-ink-2)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Custom method
-                </button>
-              </div>
+            <AcceptedMethods
+              settings={settings}
+              setSettings={setSettings}
+              paymentMethods={paymentMethods}
+              onEditMethod={handleEditPaymentMethod}
+              onDeleteMethod={handleDeletePaymentMethod}
+              onAddMethod={() => { setEditingMethod(null); setIsPaymentMethodModalOpen(true) }}
+            />
 
-              <div className="mt-4 divide-y divide-[var(--sf-border-light)]">
-                {/* Built-in types */}
-                {[
-                  { key: 'cash', label: 'Cash' },
-                  { key: 'check', label: 'Check' },
-                  { key: 'credit_card', label: 'Credit card' },
-                  { key: 'bank_transfer', label: 'Bank transfer' },
-                ].map(({ key, label }) => (
-                  <div key={key} className="flex items-center justify-between py-3">
-                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">{label}</span>
-                    <FeeInput
-                      value={settings.paymentTypeFees?.[key] ?? 0}
-                      onChange={(v) => setSettings((p) => ({
-                        ...p,
-                        paymentTypeFees: { ...p.paymentTypeFees, [key]: v },
-                      }))}
-                    />
-                  </div>
-                ))}
+            {/* Payout schedule */}
+            <PayoutSchedule settings={settings} setSettings={setSettings} />
 
-                {/* Custom methods */}
-                {paymentMethods.map((method) => (
-                  <div key={method.id} className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium text-[var(--sf-text-primary)] truncate">{method.name}</span>
-                      <button
-                        onClick={() => handleEditPaymentMethod(method)}
-                        className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
-                        style={{ border: 'none', background: 'none', cursor: 'pointer' }}
-                        aria-label="Edit"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeletePaymentMethod(method.id)}
-                        className="p-1 text-[var(--sf-text-muted)] hover:text-red-600"
-                        style={{ border: 'none', background: 'none', cursor: 'pointer' }}
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <FeeInput
-                      value={settings.paymentTypeFees?.[method.name] ?? 0}
-                      onChange={(v) => setSettings((p) => ({
-                        ...p,
-                        paymentTypeFees: { ...p.paymentTypeFees, [method.name]: v },
-                      }))}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Automation */}
+            <Automation settings={settings} setSettings={setSettings} />
 
             {/* Save Button */}
             <div className="flex justify-end">
@@ -418,6 +379,354 @@ const Payments = () => {
     </SettingsPageLayout>
   )
 }
+
+// ── Accepted payment methods (toggle list with fee badge) ───
+
+const ACCEPTED_DEFS = [
+  {
+    key: 'card', label: 'Card payments',
+    sub: 'Visa, Mastercard, Amex, Discover',
+    icon: CreditCard, fee: '2.9% + $0.30',
+  },
+  {
+    key: 'ach', label: 'ACH bank transfer',
+    sub: 'For invoices > $200',
+    icon: Banknote, fee: '0.8% (capped at $5)',
+  },
+  {
+    key: 'apple_google_pay', label: 'Apple Pay / Google Pay',
+    sub: 'On supported browsers',
+    icon: Zap, fee: '2.9% + $0.30',
+  },
+  {
+    key: 'afterpay', label: 'Afterpay / Klarna',
+    sub: 'Buy now, pay later',
+    icon: Layers, fee: '6% + $0.30',
+  },
+  {
+    key: 'cash', label: 'Cash on completion',
+    sub: 'Manually marked paid by team',
+    icon: DollarSign, fee: 'No fee',
+  },
+]
+
+const AcceptedMethods = ({ settings, setSettings, paymentMethods, onEditMethod, onDeleteMethod, onAddMethod }) => {
+  const toggle = (key) =>
+    setSettings((p) => ({
+      ...p,
+      acceptedMethods: { ...p.acceptedMethods, [key]: !p.acceptedMethods?.[key] },
+    }))
+  return (
+    <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+      <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
+        <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">Accepted payment methods</h2>
+        <button
+          onClick={onAddMethod}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md"
+          style={{
+            background: 'var(--sf-panel)',
+            border: '1px solid var(--sf-border-light)',
+            color: 'var(--sf-ink-2)',
+            cursor: 'pointer',
+          }}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Custom method
+        </button>
+      </div>
+
+      <div className="divide-y divide-[var(--sf-border-light)]">
+        {ACCEPTED_DEFS.map((m) => {
+          const on = settings.acceptedMethods?.[m.key] !== false
+          const Icon = m.icon
+          return (
+            <div key={m.key} className="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0">
+              <Switch on={on} onChange={() => toggle(m.key)} />
+              <div
+                className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: 'var(--sf-blue-soft)',
+                  color: on ? 'var(--sf-blue-dark)' : 'var(--sf-ink-3)',
+                  opacity: on ? 1 : 0.6,
+                }}
+              >
+                <Icon size={16} />
+              </div>
+              <div className="min-w-0 flex-1" style={{ opacity: on ? 1 : 0.55 }}>
+                <div className="text-[13px] font-semibold text-[var(--sf-text-primary)]">{m.label}</div>
+                <div className="text-[11.5px] text-[var(--sf-text-secondary)] mt-0.5">{m.sub}</div>
+              </div>
+              <span
+                className="text-[11.5px] font-semibold flex-shrink-0 inline-flex items-center"
+                style={{
+                  padding: '4px 10px',
+                  background: 'var(--sf-panel-alt)',
+                  color: 'var(--sf-ink-2)',
+                  borderRadius: 999,
+                  border: '1px solid var(--sf-border-light)',
+                  fontFamily: 'var(--sf-font-ui)',
+                  opacity: on ? 1 : 0.55,
+                }}
+              >
+                {m.fee}
+              </span>
+            </div>
+          )
+        })}
+
+        {/* Custom methods carry over from the existing flow */}
+        {paymentMethods.map((method) => (
+          <div key={method.id} className="flex items-center gap-3 py-3.5">
+            <Switch on={true} onChange={() => {}} disabled />
+            <div
+              className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
+              style={{ background: 'var(--sf-panel-alt)', color: 'var(--sf-ink-2)' }}
+            >
+              <DollarSign size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold text-[var(--sf-text-primary)] inline-flex items-center gap-2">
+                {method.name}
+                <button
+                  onClick={() => onEditMethod(method)}
+                  className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
+                  style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                  aria-label="Edit"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => onDeleteMethod(method.id)}
+                  className="p-1 text-[var(--sf-text-muted)] hover:text-red-600"
+                  style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                  aria-label="Delete"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="text-[11.5px] text-[var(--sf-text-secondary)] mt-0.5">Custom payment method</div>
+            </div>
+            <FeeInput
+              value={settings.paymentTypeFees?.[method.name] ?? 0}
+              onChange={(v) =>
+                setSettings((p) => ({
+                  ...p,
+                  paymentTypeFees: { ...p.paymentTypeFees, [method.name]: v },
+                }))
+              }
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Payout schedule ────────────────────────────────────────
+
+const PAYOUT_FREQUENCIES = [
+  { value: 'daily_t2',  label: 'Daily (T+2)' },
+  { value: 'weekly',    label: 'Weekly' },
+  { value: 'biweekly',  label: 'Bi-weekly' },
+  { value: 'monthly',   label: 'Monthly' },
+  { value: 'manual',    label: 'Manual' },
+]
+
+const PayoutSchedule = ({ settings, setSettings }) => {
+  const descriptorLen = (settings.statementDescriptor || '').length
+  return (
+    <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+      <h2 className="text-base font-semibold text-[var(--sf-text-primary)] mb-4">Payout schedule</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[12px] font-medium text-[var(--sf-text-primary)] mb-1.5">
+            Payout frequency
+          </label>
+          <select
+            value={settings.payoutFrequency || 'daily_t2'}
+            onChange={(e) => setSettings((p) => ({ ...p, payoutFrequency: e.target.value }))}
+            className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
+          >
+            {PAYOUT_FREQUENCIES.map((f) => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[12px] font-medium text-[var(--sf-text-primary)] mb-1.5">
+            Funding account
+          </label>
+          <div
+            className="flex items-center justify-between rounded-lg px-3 py-2 bg-white"
+            style={{ border: '1px solid var(--sf-border-light)' }}
+          >
+            <span className="inline-flex items-center gap-2 text-sm text-[var(--sf-ink-2)]">
+              <Building2 size={14} className="text-[var(--sf-ink-3)]" />
+              {settings.fundingAccount?.label || 'Connect a bank in Stripe'}
+            </span>
+            {settings.fundingAccount?.label && (
+              <span
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: 'var(--sf-green-soft)', color: 'var(--sf-green-dark)' }}
+              >
+                Default
+              </span>
+            )}
+          </div>
+        </div>
+        <div>
+          <label className="block text-[12px] font-medium text-[var(--sf-text-primary)] mb-1.5">
+            Minimum payout
+          </label>
+          <div
+            className="flex items-center rounded-lg overflow-hidden"
+            style={{ border: '1px solid var(--sf-border-light)' }}
+          >
+            <span className="px-3 text-sm text-[var(--sf-ink-3)]">$</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={settings.minimumPayout ?? 0}
+              onChange={(e) =>
+                setSettings((p) => ({ ...p, minimumPayout: parseFloat(e.target.value) || 0 }))
+              }
+              className="flex-1 px-1 py-2 text-sm bg-transparent outline-none"
+            />
+            <span className="px-3 text-sm text-[var(--sf-ink-3)]">USD</span>
+          </div>
+          <p className="text-[11px] text-[var(--sf-text-muted)] mt-1.5">
+            Hold payouts until balance reaches this
+          </p>
+        </div>
+        <div>
+          <label className="block text-[12px] font-medium text-[var(--sf-text-primary)] mb-1.5">
+            Statement descriptor
+          </label>
+          <div
+            className="flex items-center rounded-lg overflow-hidden"
+            style={{ border: '1px solid var(--sf-border-light)' }}
+          >
+            <input
+              type="text"
+              maxLength={22}
+              value={settings.statementDescriptor || ''}
+              onChange={(e) =>
+                setSettings((p) => ({ ...p, statementDescriptor: e.target.value.toUpperCase() }))
+              }
+              placeholder="YOURBUSINESS"
+              className="flex-1 px-3 py-2 text-sm bg-transparent outline-none"
+              style={{ fontFamily: 'var(--sf-font-mono)' }}
+            />
+            <span
+              className="px-3 text-[11px] text-[var(--sf-ink-3)]"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {descriptorLen} / 22
+            </span>
+          </div>
+          <p className="text-[11px] text-[var(--sf-text-muted)] mt-1.5">
+            What customers see on their bank statement
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Automation ─────────────────────────────────────────────
+
+const AUTOMATION_DEFS = [
+  {
+    key: 'autoChargeOnCompletion',
+    label: 'Auto-charge on completion',
+    sub: 'Charge card on file when job is marked complete',
+  },
+  {
+    key: 'saveCardsForRecurring',
+    label: 'Save cards for recurring',
+    sub: 'Store card on file for bi-weekly + weekly customers',
+  },
+  {
+    key: 'retryFailedPayments',
+    label: 'Retry failed payments',
+    sub: 'Automatically retry 3 times over 7 days',
+  },
+  {
+    key: 'allowTipping',
+    label: 'Allow tipping',
+    sub: 'Customer can tip at checkout',
+  },
+  {
+    key: 'emailReceiptAutomatically',
+    label: 'Email receipt automatically',
+    sub: 'Stripe sends receipt to customer after payment',
+  },
+]
+
+const Automation = ({ settings, setSettings }) => {
+  const toggle = (key) =>
+    setSettings((p) => ({
+      ...p,
+      automation: { ...p.automation, [key]: !p.automation?.[key] },
+    }))
+  return (
+    <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+      <h2 className="text-base font-semibold text-[var(--sf-text-primary)] mb-4">Automation</h2>
+      <div className="flex flex-col gap-3.5">
+        {AUTOMATION_DEFS.map((row) => {
+          const on = settings.automation?.[row.key] === true
+          return (
+            <div key={row.key} className="flex items-center gap-3">
+              <Switch on={on} onChange={() => toggle(row.key)} />
+              <div className="min-w-0 flex-1" style={{ opacity: on ? 1 : 0.7 }}>
+                <div className="text-[13px] font-semibold text-[var(--sf-text-primary)]">{row.label}</div>
+                <div className="text-[11.5px] text-[var(--sf-text-secondary)] mt-0.5">{row.sub}</div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Switch primitive ───────────────────────────────────────
+
+const Switch = ({ on, onChange, disabled }) => (
+  <button
+    type="button"
+    onClick={disabled ? undefined : onChange}
+    aria-pressed={on}
+    style={{
+      width: 36,
+      height: 20,
+      borderRadius: 999,
+      border: 'none',
+      padding: 0,
+      background: on ? 'var(--sf-blue-500)' : '#cbd5e1',
+      cursor: disabled ? 'default' : 'pointer',
+      position: 'relative',
+      flexShrink: 0,
+      opacity: disabled ? 0.6 : 1,
+      transition: 'background .15s',
+    }}
+  >
+    <span
+      style={{
+        position: 'absolute',
+        top: 2,
+        left: on ? 18 : 2,
+        width: 16,
+        height: 16,
+        background: '#fff',
+        borderRadius: 8,
+        boxShadow: '0 1px 2px rgba(15,23,42,.18)',
+        transition: 'left .15s',
+      }}
+    />
+  </button>
+)
 
 const FeeInput = ({ value, onChange }) => (
   <div className="flex items-center gap-1 flex-shrink-0">
