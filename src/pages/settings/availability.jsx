@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronLeft, MapPin, ChevronRight, Check, X, Calendar, Trash2 } from "lucide-react"
+import { MapPin, ChevronRight, Check, X, Calendar, Trash2 } from "lucide-react"
 import TimeslotTemplateModal from "../../components/timeslot-template-modal"
 import DateOverrideModal from "../../components/date-override-modal"
 import { availabilityAPI, teamAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import { isWorker } from "../../utils/roleUtils"
+import SettingsRailLayout from "../../components/settings-rail-layout"
 
 const Availability = () => {
   const [isTimeslotTemplateModalOpen, setIsTimeslotTemplateModalOpen] = useState(false)
@@ -540,38 +541,23 @@ const Availability = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-screen bg-[var(--sf-bg-page)]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-[var(--sf-text-secondary)]">Loading availability settings...</p>
+      <SettingsRailLayout title="Availability" section="Operations">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-[var(--sf-text-secondary)]">Loading availability…</p>
+          </div>
         </div>
-      </div>
+      </SettingsRailLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[var(--sf-bg-page)]">
-        {/* Header */}
-        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => {
-                // For workers, go to availability page instead of settings
-                if (isWorker(user) && user?.teamMemberId) {
-                  navigate("/availability")
-                } else {
-                  navigate("/settings")
-                }
-              }}
-              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              <span className="text-sm">{isWorker(user) && user?.teamMemberId ? "Availability" : "Settings"}</span>
-            </button>
-            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Availability</h1>
-          </div>
-        </div>
-
+    <SettingsRailLayout
+      title="Availability"
+      section="Operations"
+      subtitle="Business hours, time-slot templates, and date overrides"
+    >
         {/* Message */}
         {message.text && (
           <div className={`px-6 py-3 ${message.type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
@@ -835,7 +821,7 @@ const Availability = () => {
         onSave={handleSaveDateOverride}
         existingOverride={editingOverrideIndex !== null ? availabilityData.dateOverrides[editingOverrideIndex] : null}
       />
-    </div>
+    </SettingsRailLayout>
   )
 }
 
