@@ -2,18 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import PageLayout from "../../components/PageLayout"
 import Card from "../../components/Card"
 import Button from "../../components/Button"
 import Input from "../../components/Input"
 import { Camera, Eye, EyeOff, Check, X, Trash2, Download, FileSpreadsheet, Calendar, AlertTriangle } from "lucide-react"
 import { userProfileAPI, authAPI, teamAPI, jobsAPI, customersAPI, invoicesAPI, sheetsAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
-import Sidebar from "../../components/sidebar"
 import { isWorker } from "../../utils/roleUtils"
+import SettingsRailLayout from "../../components/settings-rail-layout"
 
 const AccountDetails = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -400,57 +398,35 @@ const AccountDetails = () => {
   // Check if user is authenticated
   if (!currentUser) {
     return (
-      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-[var(--sf-text-secondary)]">Redirecting to sign in...</p>
-            </div>
+      <SettingsRailLayout title="Account details" section="Account">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-[var(--sf-text-secondary)]">Redirecting to sign in…</p>
           </div>
         </div>
-      </div>
+      </SettingsRailLayout>
     )
   }
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-[var(--sf-text-secondary)]">Loading profile...</p>
-            </div>
+      <SettingsRailLayout title="Account details" section="Account">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-[var(--sf-text-secondary)]">Loading profile…</p>
           </div>
         </div>
-      </div>
+      </SettingsRailLayout>
     )
   }
 
-  // Determine back navigation based on user type
-  const handleBack = () => {
-    const user = authAPI.getCurrentUser()
-    if (isWorker(user) && user?.teamMemberId) {
-      // Workers should go to availability page
-      navigate("/availability")
-    } else {
-      // Account owners/managers go to settings
-      navigate("/settings")
-    }
-  }
-
   return (
-    <PageLayout
-      title="Account Details"
+    <SettingsRailLayout
+      title="Account details"
+      section="Account"
       subtitle="Manage your account settings and preferences"
-      showBackButton={true}
-      onBack={handleBack}
-      sidebarOpen={sidebarOpen}
-      setSidebarOpen={setSidebarOpen}
-      maxWidth="max-w-4xl"
     >
         {/* Message */}
         {message.text && (
@@ -1099,7 +1075,7 @@ const AccountDetails = () => {
           </div>
         </div>
       )}
-          </PageLayout>
+    </SettingsRailLayout>
   )
 }
 

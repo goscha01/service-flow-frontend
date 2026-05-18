@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import Sidebar from "../../components/sidebar"
 import PlanSelectionModal from "../../components/plan-selection-modal"
 import StripeAPISetup from "../../components/StripeAPISetup"
-import { ChevronLeft, Lock, Check, X, CreditCard, Calendar, AlertCircle } from "lucide-react"
+import { Lock, Check, X, CreditCard, Calendar, AlertCircle } from "lucide-react"
+import SettingsRailLayout from "../../components/settings-rail-layout"
 import { billingAPI, stripeAPI } from "../../services/api"
 import api from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
@@ -140,7 +140,6 @@ const PaymentForm = ({ onSuccess, plan, loading, setLoading }) => {
 }
 
 const BillingSettings = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -230,40 +229,23 @@ const BillingSettings = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-[var(--sf-text-secondary)]">Loading billing information...</p>
-            </div>
+      <SettingsRailLayout title="Billing & plan" section="Account">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-[var(--sf-text-secondary)]">Loading billing information…</p>
           </div>
         </div>
-      </div>
+      </SettingsRailLayout>
     )
   }
 
   return (
-    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-
-        {/* Header */}
-        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => navigate("/settings")}
-              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              <span className="text-sm">Settings</span>
-            </button>
-            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Billing & Subscription</h1>
-          </div>
-        </div>
-
+    <SettingsRailLayout
+      title="Billing & plan"
+      section="Account"
+      subtitle="Manage your plan and billing information"
+    >
         {/* Message */}
         {message.text && (
           <div className={`px-6 py-3 ${message.type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
@@ -437,10 +419,9 @@ const BillingSettings = () => {
             )}
           </div>
         </div>
-      </div>
 
       {/* Plan Selection Modal */}
-      <PlanSelectionModal 
+      <PlanSelectionModal
         isOpen={isPlanModalOpen}
         onClose={() => setIsPlanModalOpen(false)}
         onPlanSelect={(plan) => {
@@ -448,7 +429,7 @@ const BillingSettings = () => {
           setIsPlanModalOpen(false)
         }}
       />
-    </div>
+    </SettingsRailLayout>
   )
 }
 
